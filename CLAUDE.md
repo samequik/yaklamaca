@@ -300,20 +300,37 @@ sızıyor. Pişirmede gölge bir çalışma anı maliyeti değil, "ışık geome
 görsün mü" anahtarı; kapalı bırakılırsa lightmap de duvarların içinden geçen
 ışıkla pişer. Pişmiş gölgenin çalışma anı maliyeti sıfır.
 
-**Pişirmek haritayı KARARTIYOR — şiddetin artırılması gerekiyor.** Bu, ilk
-pişirmeden sonra "lambalar ışık vermiyor" diye bildirildi ve sebebi bir hata
-değil, değişimin kendisi:
+**Pişirilmiş nokta ışığı, gerçek zamanlıdan ÇOK daha sönük — şiddet
+yükseltilmeli.** İlk pişirmelerden sonra "lambalar hiç ışık vermiyor" diye
+bildirildi ve günlerce yanlış yerlerde arandı. Sebep şu:
 
-Pişirmeden önce lambaların **gölgesi kapalıydı.** Gölgesiz nokta ışık duvar
-tanımaz — 8 m menzilli her lamba geometriyi delip geçiyor, 14 lamba haritanın
-her yerini aydınlatıyordu. Şiddet 0.75 tam o sızan görüntüye göre ayarlanmıştı.
-Pişirmede gölgeler açılınca her lamba yalnızca **gördüğü** yeri aydınlatmaya
-başlıyor; 3.2 m'lik koridorlarda bu, aydınlık alanın birkaç kat küçülmesi
-demek. Üstüne ışıklar Baked olduğu için çalışma anında motordan tamamen
-düşüyorlar: geriye 0.018 ambient kalıyor.
+**İki mod farklı düşüş eğrisi kullanıyor.** Built-in'in gerçek zamanlı nokta
+ışığı menzile göre normalize edilmiş, affedici bir eğri kullanıyor; **pişirici
+ise fiziksel ters-kare.** Aynı şiddet değeri iki modda bambaşka sonuç veriyor.
 
-Yani doğru olan görüntü yeni olan; eskisi kaçak ışıktı. Ama oynanabilir
-olması için telafi lazım. Araçta üç ayar var:
+**Ölçümle doğrulandı** (`Işığı Pişir > Pişmiş ışığı ÖLÇ`). 0.75 şiddette:
+
+| Ölçüm | Değer | Neye denk geliyor |
+|---|---|---|
+| En parlak texel | 1.803 | Lambanın 0.4 m üstündeki tavan: `0.75/0.4² × 0.38 ≈ 1.78` |
+| Aydınlık texel | %9.6 | 14 lambanın havuzları — beklenen oran |
+| Zemin (hesap) | ~0.042 | `0.75/2.6² × 0.38`, ortam ışığı zaten 0.018 |
+
+Yani ışığın neredeyse tamamı **kimsenin bakmadığı tavanda** toplanıyordu;
+oyuncunun bastığı zemine ambient'in iki katı düşüyordu ve bu, sisle birlikte
+"hiç ışık yok" olarak görünüyordu. Atlas parlaktı, ışık doğru pişmişti —
+yanlış olan tek şey sayının kendisiydi.
+
+`AtmosphereSetup.LightIntensity` artık **5** (zemin ≈ 0.28). Aynı sebeple test
+botunun işaret ışığı 1.8 → 12.
+
+**Yalnızca nokta ve spot ışıkları etkileniyor.** `Directional`ın mesafeye bağlı
+düşüşü yok, o yüzden 0.05'e dokunulmadı. Fener zaten gerçek zamanlı kalıyor.
+
+**Gerçek zamanlıya dönülürse fazla parlak gelecek, bilerek:** gönderilecek hâl
+pişirilmiş, gerçek zamanlı bir hata ayıklama yedeği.
+
+Ayrıca sekme ışığı için iki ayar var:
 
 | Alan | Değer | Ne yapıyor |
 |---|---|---|

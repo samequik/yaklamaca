@@ -65,7 +65,9 @@ public static class TestBotSetup
         Light marker = markerObject.AddComponent<Light>();
         marker.type = LightType.Point;
         marker.range = 7f;
-        marker.intensity = 1.8f;
+        // Nokta ışığı: pişirilince ters-kare düşüşe giriyor ve 1.8'de
+        // görünmez oluyor. Gerekçe AtmosphereSetup.LightIntensity'de.
+        marker.intensity = 12f;
         marker.color = new Color(0.4f, 0.9f, 1f);
         marker.shadows = LightShadows.None;
 

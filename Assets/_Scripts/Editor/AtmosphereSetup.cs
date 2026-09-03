@@ -27,7 +27,31 @@ public static class AtmosphereSetup
     // aradaki karanlık bölgeler oyunun kendisi.
     private const int LightCount = 14;
     private const float LightRange = 8f;
-    private const float LightIntensity = 0.75f;
+    /// <summary>
+    /// Lamba şiddeti. **Gerçek zamanlı için fazla, pişirilmiş için doğru.**
+    ///
+    /// 0.75'ti ve gerçek zamanlıda güzel duruyordu, ama pişirildiğinde harita
+    /// kapkara oluyordu. Sebep iki modun düşüş eğrisinin farklı olması:
+    /// Built-in'in gerçek zamanlı nokta ışığı menzile göre normalize edilmiş,
+    /// affedici bir eğri kullanıyor; **pişirici ise fiziksel ters-kare.**
+    ///
+    /// Ölçümle doğrulandı. 0.75'te pişmiş atlasın en parlak değeri 1.803'tü ve
+    /// bu, lambanın 0.4 m üstündeki tavana denk geliyor
+    /// (`0.75 / 0.4² × albedo 0.38 ≈ 1.78`). Oyuncunun bastığı zemin ise
+    /// 2.6 m aşağıda: `0.75 / 2.6² × 0.38 ≈ 0.042` — ortam ışığı zaten 0.018.
+    /// Yani ışığın neredeyse tamamı kimsenin bakmadığı tavanda toplanıyordu.
+    ///
+    /// 5.0, zemini ~0.28'e çıkarıyor: lambanın altı belli, arası hâlâ zifiri.
+    /// Lambanın dibindeki tavan yanıyor gibi görünüyor — armatür için doğru olan
+    /// da bu.
+    ///
+    /// **Gerçek zamanlıya dönersen fazla parlak gelecek**, bilerek: oyunun
+    /// gönderilecek hâli pişirilmiş, gerçek zamanlı bir hata ayıklama yedeği.
+    ///
+    /// Aynı fark yalnızca **nokta ve spot** ışıkları etkiliyor; `Directional`ın
+    /// mesafeye bağlı düşüşü yok, o yüzden 0.05'e dokunulmadı.
+    /// </summary>
+    private const float LightIntensity = 5f;
     private const float LightHeight = 2.6f;
     private const float MinLightSpacing = 7f;
     private const float SpawnAreaHalfSize = 24f;
