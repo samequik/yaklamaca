@@ -69,6 +69,28 @@ public class LightBakeWindow : EditorWindow
         "Lambalar tavana yakın küçük kaynaklar, 0.25 civarı doğal duruyor.")]
     private float bakedShadowRadius = 0.25f;
 
+    [SerializeField]
+    [Tooltip("Işıklar Baked'e çevrilirken şiddetleri bu çarpanla çarpılıyor. " +
+        "Pişirmeden ÖNCE lambaların gölgesi kapalıydı: 8 m menzilli her lamba " +
+        "duvarları delip geçiyor, harita olduğundan çok daha aydınlık " +
+        "görünüyordu. Pişirmeyle gölgeler açılınca her lamba yalnızca gördüğü " +
+        "yeri aydınlatmaya başlıyor ve harita birden kararıyor — 0.75 şiddet o " +
+        "sızan görüntüye göre ayarlanmıştı. " +
+        "Çarpan yalnızca gerçek zamanlıdan Baked'e GEÇİŞTE uygulanıyor, " +
+        "'geri al' bölüyor: araç tekrar tekrar çalıştırılabilir. 1 = kapalı.")]
+    private float bakedIntensityScale = 3f;
+
+    [SerializeField]
+    [Tooltip("Sekmeli (dolaylı) ışığın çarpanı. Karanlık bir labirentte köşeleri " +
+        "dolduran şey bu; doğrudan ışığı artırmadan mekânı okunur yapıyor.")]
+    private float indirectScale = 2f;
+
+    [SerializeField]
+    [Tooltip("Yüzeylerin ışığı ne kadar geri yansıttığı. 1 gerçekçi, üstü " +
+        "abartı — koyu duvarlı dar koridorlarda sekme neredeyse yok oluyor, " +
+        "bu onu telafi ediyor.")]
+    private float albedoBoost = 1.6f;
+
     [Header("Işık probe'ları")]
     [SerializeField]
     [Tooltip("Probe ızgarasının aralığı (metre). Hücre 3.2 m; yarısı olan 1.6, bir " +
@@ -131,6 +153,9 @@ public class LightBakeWindow : EditorWindow
         EditorGUILayout.PropertyField(serialized.FindProperty("useGpuLightmapper"));
         EditorGUILayout.PropertyField(serialized.FindProperty("ambientOcclusion"));
         EditorGUILayout.PropertyField(serialized.FindProperty("bakedShadowRadius"));
+        EditorGUILayout.PropertyField(serialized.FindProperty("bakedIntensityScale"));
+        EditorGUILayout.PropertyField(serialized.FindProperty("indirectScale"));
+        EditorGUILayout.PropertyField(serialized.FindProperty("albedoBoost"));
         EditorGUILayout.PropertyField(serialized.FindProperty("probeSpacing"));
         EditorGUILayout.PropertyField(serialized.FindProperty("probeHeights"), true);
         EditorGUILayout.PropertyField(serialized.FindProperty("probeClearance"));
@@ -517,9 +542,23 @@ public class LightBakeWindow : EditorWindow
     {
         Light[] lights = CollectSceneLights();
 
+        int boosted = 0;
+
         foreach (Light light in lights)
         {
             Undo.RecordObject(light, "Işığı Pişir");
+
+            // Şiddet yalnızca GEÇİŞTE çarpılıyor. Zaten Baked olan ışığı her
+            // çalıştırmada tekrar çarpmak, aracı ikinci kez çalıştıran herkesi
+            // sahneyi patlatmış hâlde bırakırdı.
+            if (light.lightmapBakeType != LightmapBakeType.Baked
+                && bakedIntensityScale > 0f
+                && !Mathf.Approximately(bakedIntensityScale, 1f))
+            {
+                light.intensity *= bakedIntensityScale;
+                boosted++;
+            }
+
             light.lightmapBakeType = LightmapBakeType.Baked;
 
             // Gölge artık çalışma anı maliyeti değil, pişirmede "ışık duvarı
@@ -537,6 +576,8 @@ public class LightBakeWindow : EditorWindow
         string text =
             $"{lights.Length} ışık Baked'e çevrildi, gölgeleri açıldı " +
             $"(yumuşaklık {bakedShadowRadius} m).\n" +
+            $"{boosted} ışığın şiddeti {bakedIntensityScale}x arttırıldı — pişmiş " +
+            $"ışık, gölgesiz gerçek zamanlının sızıntısını kaybediyor.\n" +
             "Fener bilerek atlandı: oyuncuyu aydınlatan ve dinamik gölge düşüren tek " +
             "kaynak o, gerçek zamanlı kalmalı.";
 
@@ -640,6 +681,12 @@ public class LightBakeWindow : EditorWindow
         settings.lightmapMaxSize = lightmapMaxSize;
         settings.lightmapPadding = 4;
         settings.lightmapCompression = LightmapCompression.NormalQuality;
+
+        // Karanlık labirentte köşeleri dolduran şey sekme ışığı. Koyu duvarlar
+        // gerçekçi albedo'da neredeyse hiç yansıtmıyor, o yüzden ikisi de
+        // gerçekçinin üstünde — bu bir "doğruluk" değil okunabilirlik ayarı.
+        settings.indirectScale = indirectScale;
+        settings.albedoBoost = albedoBoost;
 
         settings.ao = ambientOcclusion;
         settings.aoMaxDistance = 1f;
@@ -889,6 +936,16 @@ public class LightBakeWindow : EditorWindow
         foreach (Light light in CollectSceneLights())
         {
             Undo.RecordObject(light, "Pişirmeyi Geri Al");
+
+            // Çevirmede uygulanan çarpanı geri al — simetrik olmazsa her
+            // pişir/geri al turunda şiddet katlanarak birikirdi.
+            if (light.lightmapBakeType == LightmapBakeType.Baked
+                && bakedIntensityScale > 0f
+                && !Mathf.Approximately(bakedIntensityScale, 1f))
+            {
+                light.intensity /= bakedIntensityScale;
+            }
+
             light.lightmapBakeType = LightmapBakeType.Realtime;
 
             // Gerçek zamanlıya dönerken gölge yeniden pahalı; kapatıyoruz.

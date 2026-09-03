@@ -300,6 +300,33 @@ sızıyor. Pişirmede gölge bir çalışma anı maliyeti değil, "ışık geome
 görsün mü" anahtarı; kapalı bırakılırsa lightmap de duvarların içinden geçen
 ışıkla pişer. Pişmiş gölgenin çalışma anı maliyeti sıfır.
 
+**Pişirmek haritayı KARARTIYOR — şiddetin artırılması gerekiyor.** Bu, ilk
+pişirmeden sonra "lambalar ışık vermiyor" diye bildirildi ve sebebi bir hata
+değil, değişimin kendisi:
+
+Pişirmeden önce lambaların **gölgesi kapalıydı.** Gölgesiz nokta ışık duvar
+tanımaz — 8 m menzilli her lamba geometriyi delip geçiyor, 14 lamba haritanın
+her yerini aydınlatıyordu. Şiddet 0.75 tam o sızan görüntüye göre ayarlanmıştı.
+Pişirmede gölgeler açılınca her lamba yalnızca **gördüğü** yeri aydınlatmaya
+başlıyor; 3.2 m'lik koridorlarda bu, aydınlık alanın birkaç kat küçülmesi
+demek. Üstüne ışıklar Baked olduğu için çalışma anında motordan tamamen
+düşüyorlar: geriye 0.018 ambient kalıyor.
+
+Yani doğru olan görüntü yeni olan; eskisi kaçak ışıktı. Ama oynanabilir
+olması için telafi lazım. Araçta üç ayar var:
+
+| Alan | Değer | Ne yapıyor |
+|---|---|---|
+| `bakedIntensityScale` | 3 | Baked'e geçerken şiddeti çarpıyor |
+| `indirectScale` | 2 | Sekme ışığı — köşeleri dolduran şey |
+| `albedoBoost` | 1.6 | Koyu duvarlar gerçekçi albedo'da hiç yansıtmıyor |
+
+Son ikisi "doğruluk" değil **okunabilirlik** ayarı, bilerek gerçekçinin üstünde.
+
+**`bakedIntensityScale` yalnızca GEÇİŞTE uygulanıyor** (gerçek zamanlı → Baked)
+ve "geri al" bölüyor. Her çalıştırmada çarpsaydı aracı ikinci kez çalıştıran
+sahneyi patlatmış olurdu — bölüm 14'teki "kırpma kalıcıdır" dersinin aynısı.
+
 **Işık probe'ları şart, süs değil.** Oyuncular static değil; bütün ışık
 lightmap'e girerse hareket eden hiçbir şey ondan pay almaz ve ortam ışığı
 0.018 olduğu için kaçan da canavar da simsiyah kesilir. Araç labirentin
