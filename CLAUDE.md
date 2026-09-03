@@ -317,15 +317,25 @@ olması için telafi lazım. Araçta üç ayar var:
 
 | Alan | Değer | Ne yapıyor |
 |---|---|---|
-| `bakedIntensityScale` | 3 | Baked'e geçerken şiddeti çarpıyor |
 | `indirectScale` | 2 | Sekme ışığı — köşeleri dolduran şey |
 | `albedoBoost` | 1.6 | Koyu duvarlar gerçekçi albedo'da hiç yansıtmıyor |
 
-Son ikisi "doğruluk" değil **okunabilirlik** ayarı, bilerek gerçekçinin üstünde.
+İkisi de "doğruluk" değil **okunabilirlik** ayarı, bilerek gerçekçinin üstünde.
+İkisi de yalnızca pişirme ayarı; hiçbir ışığa dokunmuyorlar.
 
-**`bakedIntensityScale` yalnızca GEÇİŞTE uygulanıyor** (gerçek zamanlı → Baked)
-ve "geri al" bölüyor. Her çalıştırmada çarpsaydı aracı ikinci kez çalıştıran
-sahneyi patlatmış olurdu — bölüm 14'teki "kırpma kalıcıdır" dersinin aynısı.
+> **Araç ışıkların ŞİDDETİNE dokunmuyor — bir kez denendi ve geri alındı.**
+> Bir sürüm "pişmiş ışık daha sönük" gerekçesiyle Baked'e geçerken şiddeti 3'le
+> çarpıyor, "geri al"da bölüyordu. Simetri yalnızca ikisi de **aynı sürümle**
+> çalıştırılırsa tutuyor: önceki oturumda pişirilmiş bir sahnede "geri al" hiç
+> çarpılmamış şiddetleri böldü, 14 lamba 0.75'ten **0.25'e** düştü ve harita
+> büsbütün karardı. Üstelik teşhis edilmeye çalışılan sorunun sebebi de o
+> değildi.
+>
+> Ders: **bir aracın geri alma adımı, ileri adımın çalıştığını varsayamaz.**
+> Sahne aracın önceki sürümüyle, elle ya da hiç işlenmemiş olabilir. Simetrik
+> çarpan/bölen yerine ya değer hiç değiştirilmemeli ya da özgün değer
+> saklanmalı. Işık şiddeti `AtmosphereSetup`'ın işi (`LightIntensity = 0.75`),
+> pişirme aracının değil.
 
 **Işık probe'ları şart, süs değil.** Oyuncular static değil; bütün ışık
 lightmap'e girerse hareket eden hiçbir şey ondan pay almaz ve ortam ışığı
