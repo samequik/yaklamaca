@@ -29,11 +29,21 @@ ve animasyonları (bölüm 14) · katman düzeni ve daraltılmış fizik maskele
 (bölüm 16) · kaçan modeli, animasyonları ve yakalanma animasyonu (bölüm 17) ·
 çıkış görünümü ve on adımlık kilit paneli (bölüm 18) · git deposu.
 
-**Yarım:** lightmap aracı yazıldı (`Yakalamaca > Işığı Pişir`) ama **pişirme
-hiç çalıştırılmadı** — bkz. bölüm 3. Occlusion culling de öyle.
+**Yarım:** lightmap **pişirildi** (2026-09-03) — `Assets/_Scenes/SampleScene/`
+altında `LightingData.asset`, bir lightmap atlası ve bir yansıma probe'u var.
+İki eksik kaldı:
+
+- **Occlusion culling hâlâ pişirilmedi.** Bayraklar atanıyor ama veri yok, yani
+  duvarın arkasındaki her şey de çiziliyor.
+- **16 ışık hâlâ Mixed.** Bölüm 3'ün kararı Baked'di: lambaların gölgesi zaten
+  kapalı olduğu için Mixed hiçbir şey kazandırmıyor, yalnızca o ışıkları çalışır
+  durumda tutuyor. `Işığı Pişir` penceresindeki adım bunu Baked'e çeviriyor.
 
 **Hiç başlanmamış:** yakınlık sesi (kalp atışı — **ses dosyası oyuncudan
-gelecek, sentezlenmeyecek**) · fener pili · yakınlık sesli sohbet.
+gelecek, sentezlenmeyecek**) · yakınlık sesli sohbet.
+
+**Kapsam dışı bırakıldı:** fener pili. Fener açık/kapalı olarak kalıyor, şarj
+ya da tükenme mekaniği olmayacak (2026-09-03 kararı).
 
 **Test edilip çalıştığı doğrulanan (2026-08-29):** terminal doldurma, yön tuşu
 sınavı, kilitlenme, kilit açma örüntüsü, canavarın kilitleme yetkisi, çıkış
@@ -576,8 +586,10 @@ tek şey `deathForwardOffset` sayısı — oynanarak ayarlanacak.
 ### Kalan büyük işler
 
 **4. ~~Kaçan modeli.~~ YAPILDI (2026-08-30).** Banana Man bağlandı (bölüm 17).
-**Eksik:** `Idle` klibi yok, canavarınkinden ödünç alınıyor — kaçan klasörüne
-bir Idle klibi atıldığı anda kendiliğinden ona geçiyor.
+`Idle` klibi kaçanın kendisine ait değil, canavarınkinden ödünç alınıyor —
+humanoid klipler avatardan bağımsız olduğu için sorunsuz oynuyor ve **böyle
+kalması kabul edildi** (2026-09-03). Kaçan klasörüne bir Idle klibi atılırsa araç
+kendiliğinden ona geçer.
 
 **5. Yakınlık sesi (kalp atışı).** Canavar yaklaştıkça yükselen kalp atışı.
 Karanlığı "göremiyorum"dan "geliyor ama nereden"e çeviriyor. **Ses dosyası
@@ -1743,7 +1755,6 @@ görünüyordu, o yüzden ikisi ayrı ayrı ele alınıyor.
 
 ### Bilinen eksikler
 
-- **`Idle` klibi kaçana ait değil**, canavardan ödünç.
 - **Ölüm klibi kırpması canavarın `kill` klibine bağlı.** `Kaçan Modelini Kur`,
   ölüm klibini canavarın yakalama klibiyle aynı süreye kırpıyor ve
   `deathHoldDuration`'ı da ona eşitliyor. Canavarın klibi değişirse kaçan aracını
