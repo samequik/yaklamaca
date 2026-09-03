@@ -189,7 +189,16 @@ public class LightBakeWindow : EditorWindow
         using (new EditorGUI.DisabledScope(StaticOcclusionCulling.isRunning))
         {
             if (GUILayout.Button("Occlusion culling'i pişir"))
-                StaticOcclusionCulling.GenerateInBackground();
+                StartOcclusionBake();
+        }
+
+        if (StaticOcclusionCulling.isRunning)
+        {
+            EditorGUILayout.LabelField("Occlusion pişiyor…");
+            if (GUILayout.Button("İptal"))
+                StaticOcclusionCulling.Cancel();
+
+            Repaint();
         }
 
         EditorGUILayout.Space();
@@ -255,6 +264,13 @@ public class LightBakeWindow : EditorWindow
         text.AppendLine(Lightmapping.lightingDataAsset == null
             ? "Pişmiş ışık verisi: yok"
             : "Pişmiş ışık verisi: var");
+
+        // Occlusion iki ayrı şeyi birden gerektiriyor: pişmiş veri VE sahnenin
+        // ona bakan referansı. Diskteki dosya tek başına hiçbir işe yaramıyor —
+        // bir kez tam olarak bu olmuştu (aşağıdaki StartOcclusionBake'e bak).
+        text.AppendLine(StaticOcclusionCulling.umbraDataSize > 0
+            ? $"Occlusion verisi: var ({StaticOcclusionCulling.umbraDataSize / 1024} KB)"
+            : "Occlusion verisi: YOK — duvarın arkasındaki her şey de çiziliyor");
 
         return text.ToString();
     }
@@ -670,6 +686,87 @@ public class LightBakeWindow : EditorWindow
             "· Lambanın yanındaki duvarın ARKASI artık karanlık olmalı — gölge " +
             "pişirmeden önce sızıyordu.\n" +
             "· Oyuncu simsiyahsa probe'lar eksik demektir (adım 3).");
+    }
+
+    // ---------- Occlusion culling ----------
+
+    /// <summary>Pişirmenin gerçekten başladığını gördük mü.</summary>
+    private static bool occlusionBakeStarted;
+
+    /// <summary>
+    /// "Başlamayı bekleme" payı. `GenerateInBackground` işi kuyruğa atıyor,
+    /// `isRunning` aynı karede true olmayabiliyor — beklemeden bitti saymak
+    /// önceki pişirmenin verisini yeni pişmiş gibi kaydettirirdi.
+    /// </summary>
+    private static int occlusionStartBudget;
+
+    /// <summary>
+    /// Occlusion pişirmesi iki parçalı: Unity `OcclusionCullingData.asset`'ı
+    /// diske yazıyor VE sahneye onu gösteren referansı koyuyor. İkincisi sahne
+    /// kaydedilmezse kayboluyor ve geriye diskte kimsenin bakmadığı bir dosya
+    /// kalıyor — sahne `m_OcclusionCullingData: {fileID: 0}` diyor, oyun da
+    /// duvarın arkasındaki her şeyi çizmeye devam ediyor.
+    ///
+    /// Tam olarak bu oldu: dosya commit'e girdi, referans hiç kaydedilmedi ve
+    /// CLAUDE.md aylarca "occlusion hiç pişirilmedi" yazdı — oysa pişmişti.
+    ///
+    /// Pişirme arka planda çalıştığı için hemen `SaveScene()` çağırmak da işe
+    /// yaramaz: referans daha yazılmamış olur. O yüzden bitmesini bekliyoruz.
+    /// Bekleyici pencereye değil `EditorApplication`'a bağlı — pencere
+    /// kapatılsa da kayıt yapılıyor.
+    /// </summary>
+    private static void StartOcclusionBake()
+    {
+        if (StaticOcclusionCulling.isRunning)
+            return;
+
+        occlusionBakeStarted = false;
+        occlusionStartBudget = 300;   // ~5 sn; bu sürede başlamadıysa başlamıyor
+
+        StaticOcclusionCulling.GenerateInBackground();
+
+        EditorApplication.update -= WaitForOcclusionBake;
+        EditorApplication.update += WaitForOcclusionBake;
+    }
+
+    private static void WaitForOcclusionBake()
+    {
+        if (StaticOcclusionCulling.isRunning)
+        {
+            occlusionBakeStarted = true;
+            return;
+        }
+
+        // Henüz başlamadı: payı tüketene kadar bekle.
+        if (!occlusionBakeStarted && --occlusionStartBudget > 0)
+            return;
+
+        EditorApplication.update -= WaitForOcclusionBake;
+
+        if (!occlusionBakeStarted)
+        {
+            Debug.LogWarning("Occlusion pişirmesi hiç başlamadı. Sahne kaydedilmedi.");
+            return;
+        }
+
+        int kilobytes = StaticOcclusionCulling.umbraDataSize / 1024;
+
+        if (kilobytes <= 0)
+        {
+            Debug.LogWarning(
+                "Occlusion pişirmesi veri üretmedi (iptal edilmiş olabilir). " +
+                "Sahne kaydedilmedi.");
+            return;
+        }
+
+        SaveScene();
+
+        Debug.Log(
+            $"Occlusion culling pişti: {kilobytes} KB. Sahne kaydedildi.\n\n" +
+            "Kontrol: Stats penceresinde koridorda dururken Batches sayısı, " +
+            "haritanın ortasında duvara bakarken belirgin şekilde düşmeli. " +
+            "Düşmüyorsa parçalar Occluder/Occludee işaretli değil demektir — " +
+            "`Katmanları Kur` değil, `Labirent Harita Kur` atıyor o bayrakları.");
     }
 
     // ---------- Geri alma ----------
