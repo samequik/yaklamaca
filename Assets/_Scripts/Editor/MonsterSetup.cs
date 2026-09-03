@@ -807,6 +807,17 @@ public static class MonsterSetup
             if (clips.TryGetValue(KillClipKey, out AnimationClip kill) && kill != null)
                 serializedAttack.FindProperty("killLockDuration").floatValue = kill.length;
 
+            // Kilitliyken bakış tamamen sabit. Prefabta 45 derecelik bir koni
+            // duruyordu ve saldırı animasyonu boyunca kamera dönebiliyordu:
+            // hem görüntüyü sallıyor hem de savurduktan SONRA nişan
+            // düzeltmeye izin veriyordu. Kapatınca savurmak bir taahhüt
+            // oluyor ve kaçanın keskin dönüşü gerçek bir savunmaya dönüşüyor.
+            //
+            // Koddaki varsayılanı değiştirmek yetmiyor: alan prefabta
+            // serileştirilmiş duruyor (CLAUDE.md bölüm 16'daki tuzak), o
+            // yüzden araç açıkça yazıyor.
+            serializedAttack.FindProperty("lockYawLimit").floatValue = 0f;
+
             serializedAttack.ApplyModifiedProperties();
         }
     }

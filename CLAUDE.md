@@ -1370,6 +1370,20 @@ Her iki animasyon boyunca canavar hareket edemiyor. Terminalin kullandığı oda
 mekanizması (`BeginFocus`) kullanılıyor: girdi kesiliyor, bakış dar bir koniye
 sıkışıyor, hareket kodunun sürtünme/ivme akışına hiç dokunulmuyor.
 
+**Bakış da kilitli: `lockYawLimit` = 0.** Saldırı ve yakalama boyunca kamera
+sağa-sola hiç dönmüyor. Önceden 45 derecelik bir koni vardı; iki sorunu birden
+üretiyordu — animasyon zaten hareketliyken kameranın da dönmesi görüntüyü
+sallıyor, ve savurduktan SONRA nişan düzeltmeye izin veriyordu. Kapalıyken
+savurmak bir taahhüt: kaçanın keskin dönüşü gerçek bir savunmaya dönüşüyor
+(bölüm 1'deki "labirent canavarın rakibi" fikrinin aynısı).
+
+Yukarı-aşağı sınır duruyor (`lockPitchLimit` = 25): şikâyet edilen sağa-sola
+dönmeydi ve iki ekseni birden çivilemek gereksiz.
+
+**Değeri `Canavar Modelini Kur` yazıyor.** Alan prefabta serileştirilmiş, yani
+koddaki varsayılanı değiştirmek tek başına hiçbir şey yapmıyor — bölüm 16'daki
+tuzağın aynısı.
+
 **Momentum davranışı ikisinde farklı:**
 
 - **Saldırıda momentum KESİLMİYOR** (`stopMomentum: false`). Atılmanın kendisi

@@ -109,8 +109,12 @@ public class MonsterAttack : NetworkBehaviour
     [Tooltip("Kilit biterken kameranın geri gelme süresi (saniye). 0 = anında.")]
     [SerializeField] private float killCameraRampOut;
 
-    [Tooltip("Kilitliyken sağa-sola bakabilme açısı (derece).")]
-    [SerializeField] private float lockYawLimit = 45f;
+    [Tooltip("Kilitliyken sağa-sola bakabilme açısı (derece). 0 = bakış tamamen " +
+        "sabit; saldırı ve yakalama animasyonları boyunca kamera hiç dönmüyor. " +
+        "Açmak saldırırken nişanı düzeltmeye izin veriyor — bilerek kapalı: " +
+        "savurduğun an nişanına bağlanıyorsun, kaçanın kaçamağı gerçek bir " +
+        "savunma oluyor. Değeri `Canavar Modelini Kur` yazıyor.")]
+    [SerializeField] private float lockYawLimit;
 
     [Tooltip("Kilitliyken yukarı-aşağı bakabilme açısı (derece).")]
     [SerializeField] private float lockPitchLimit = 25f;
