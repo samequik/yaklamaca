@@ -28,30 +28,32 @@ public static class AtmosphereSetup
     private const int LightCount = 14;
     private const float LightRange = 8f;
     /// <summary>
-    /// Lamba şiddeti. **Gerçek zamanlı için fazla, pişirilmiş için doğru.**
+    /// Lamba şiddeti. **Doğru değer aydınlatma moduna bağlı** — iki mod
+    /// birbirinden çok farklı düşüş eğrisi kullanıyor:
     ///
-    /// 0.75'ti ve gerçek zamanlıda güzel duruyordu, ama pişirildiğinde harita
-    /// kapkara oluyordu. Sebep iki modun düşüş eğrisinin farklı olması:
-    /// Built-in'in gerçek zamanlı nokta ışığı menzile göre normalize edilmiş,
-    /// affedici bir eğri kullanıyor; **pişirici ise fiziksel ters-kare.**
+    /// | Mod | Doğrudan ışığın düşüşü | Gereken şiddet |
+    /// |---|---|---|
+    /// | `Mixed` (bugünkü) | Gerçek zamanlı, menzile göre normalize, affedici | **0.75** |
+    /// | Tam `Baked` | Fiziksel ters-kare | ~5 |
     ///
-    /// Ölçümle doğrulandı. 0.75'te pişmiş atlasın en parlak değeri 1.803'tü ve
-    /// bu, lambanın 0.4 m üstündeki tavana denk geliyor
-    /// (`0.75 / 0.4² × albedo 0.38 ≈ 1.78`). Oyuncunun bastığı zemin ise
-    /// 2.6 m aşağıda: `0.75 / 2.6² × 0.38 ≈ 0.042` — ortam ışığı zaten 0.018.
-    /// Yani ışığın neredeyse tamamı kimsenin bakmadığı tavanda toplanıyordu.
+    /// Aradaki fark ölçümle bulundu. Tam Baked'de 0.75 şiddetle pişmiş atlasın
+    /// en parlak değeri 1.803'tü ve bu lambanın 0.4 m üstündeki tavana denk
+    /// geliyordu (`0.75/0.4² × albedo 0.38 ≈ 1.78`). Oyuncunun bastığı zemin
+    /// 2.6 m aşağıda kalıyor: `0.75/2.6² × 0.38 ≈ 0.042` — ortam ışığı zaten
+    /// 0.018. Yani ışığın neredeyse tamamı kimsenin bakmadığı tavanda
+    /// toplanıyor ve harita "hiç ışık yok" gibi görünüyordu. Baked'e dönülürse
+    /// bu sayı ~5 olmalı.
     ///
-    /// 5.0, zemini ~0.28'e çıkarıyor: lambanın altı belli, arası hâlâ zifiri.
-    /// Lambanın dibindeki tavan yanıyor gibi görünüyor — armatür için doğru olan
-    /// da bu.
+    /// **Bugün Mixed kullanılıyor** (`Işığı Pişir > Karışık aydınlatma`), çünkü
+    /// kapılar hareketli ve tam Baked onları hiç görmüyordu: ışık kapalı
+    /// kapının içinden geçiyor, oyuncular gölge düşürmüyordu. Mixed'de doğrudan
+    /// ışık gerçek zamanlı verildiği için düşüş yine affedici eğri, yani şiddet
+    /// gerçek zamanlıdaki değerinde kalıyor.
     ///
-    /// **Gerçek zamanlıya dönersen fazla parlak gelecek**, bilerek: oyunun
-    /// gönderilecek hâli pişirilmiş, gerçek zamanlı bir hata ayıklama yedeği.
-    ///
-    /// Aynı fark yalnızca **nokta ve spot** ışıkları etkiliyor; `Directional`ın
-    /// mesafeye bağlı düşüşü yok, o yüzden 0.05'e dokunulmadı.
+    /// Bu fark yalnızca **nokta ve spot** ışıklarını etkiliyor; `Directional`ın
+    /// mesafeye bağlı düşüşü yok.
     /// </summary>
-    private const float LightIntensity = 5f;
+    private const float LightIntensity = 0.75f;
     private const float LightHeight = 2.6f;
     private const float MinLightSpacing = 7f;
     private const float SpawnAreaHalfSize = 24f;

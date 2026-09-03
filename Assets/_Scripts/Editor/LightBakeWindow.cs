@@ -71,6 +71,14 @@ public class LightBakeWindow : EditorWindow
 
 
     [SerializeField]
+    [Tooltip("Karışık aydınlatma (Mixed + Shadowmask). AÇIK: lambalar dolaylı " +
+        "ışığı ve static gölgeleri pişiriyor ama doğrudan ışığı çalışma anında " +
+        "veriyor — böylece kapılar ve oyuncular gölge düşürüyor. KAPALI: tam " +
+        "Baked, ışıklar motordan tamamen düşüyor (daha ucuz) ama hareketli " +
+        "hiçbir şey ışığı kesmiyor, kapıların içinden geçiyor.")]
+    private bool useMixedLighting = true;
+
+    [SerializeField]
     [Tooltip("Sekmeli (dolaylı) ışığın çarpanı. Karanlık bir labirentte köşeleri " +
         "dolduran şey bu; doğrudan ışığı artırmadan mekânı okunur yapıyor.")]
     private float indirectScale = 2f;
@@ -143,6 +151,7 @@ public class LightBakeWindow : EditorWindow
         EditorGUILayout.PropertyField(serialized.FindProperty("useGpuLightmapper"));
         EditorGUILayout.PropertyField(serialized.FindProperty("ambientOcclusion"));
         EditorGUILayout.PropertyField(serialized.FindProperty("bakedShadowRadius"));
+        EditorGUILayout.PropertyField(serialized.FindProperty("useMixedLighting"));
         EditorGUILayout.PropertyField(serialized.FindProperty("indirectScale"));
         EditorGUILayout.PropertyField(serialized.FindProperty("albedoBoost"));
         EditorGUILayout.PropertyField(serialized.FindProperty("probeSpacing"));
@@ -698,16 +707,27 @@ public class LightBakeWindow : EditorWindow
         {
             Undo.RecordObject(light, "Işığı Pişir");
 
+            // Mixed: dolaylı ışık ve static gölgeler pişiyor, doğrudan ışık
+            // çalışma anında veriliyor. Hareketli hiçbir şeyi göremeyen tam
+            // Baked'in aksine kapılar ve oyuncular burada gölge düşürüyor.
+            light.lightmapBakeType = useMixedLighting
+                ? LightmapBakeType.Mixed
+                : LightmapBakeType.Baked;
+
             // ŞİDDETE DOKUNULMUYOR, bilerek. Bir sürüm bunu "pişmiş ışık daha
             // sönük" gerekçesiyle çarpıyor, geri alırken bölüyordu. Simetri
             // yalnızca ikisi de AYNI sürümle çalıştırıldığında tutuyor: önceki
             // oturumda pişirilmiş bir sahnede "geri al" hiç çarpılmamış
             // şiddetleri böldü ve lambalar büsbütün söndü. Işık ayarı
             // AtmosphereSetup'ın işi; burası yalnızca pişirme moduna çeviriyor.
-            light.lightmapBakeType = LightmapBakeType.Baked;
+            //
+            // Şiddetin moda göre değişmesi GEREKTİĞİNİ de unutma: tam Baked
+            // fiziksel ters-kare düşüş kullanıyor, Mixed'in doğrudan ışığı ise
+            // gerçek zamanlının affedici eğrisini. Aynı sayı iki modda bambaşka
+            // sonuç veriyor — gerekçe AtmosphereSetup.LightIntensity'de.
 
-            // Gölge artık çalışma anı maliyeti değil, pişirmede "ışık duvarı
-            // görsün mü" anahtarı. Kapalı bırakmak lambayı yan koridora sızdırır.
+            // Gölge, pişirmede "ışık duvarı görsün mü" anahtarı; Mixed'de ayrıca
+            // hareketli nesnelerin gölgesini de o veriyor.
             light.shadows = LightShadows.Soft;
 
             if (light.type == LightType.Point || light.type == LightType.Spot)
@@ -719,7 +739,8 @@ public class LightBakeWindow : EditorWindow
         SaveScene();
 
         string text =
-            $"{lights.Length} ışık Baked'e çevrildi, gölgeleri açıldı " +
+            $"{lights.Length} ışık {(useMixedLighting ? "Mixed (Shadowmask)" : "Baked")}'a " +
+            $"çevrildi, gölgeleri açıldı " +
             $"(yumuşaklık {bakedShadowRadius} m).\n" +
             "Fener bilerek atlandı: oyuncuyu aydınlatan ve dinamik gölge düşüren tek " +
             "kaynak o, gerçek zamanlı kalmalı.";
@@ -828,6 +849,11 @@ public class LightBakeWindow : EditorWindow
         // Karanlık labirentte köşeleri dolduran şey sekme ışığı. Koyu duvarlar
         // gerçekçi albedo'da neredeyse hiç yansıtmıyor, o yüzden ikisi de
         // gerçekçinin üstünde — bu bir "doğruluk" değil okunabilirlik ayarı.
+        // Shadowmask: static gölgeler dokuya pişiyor, hareketli nesneler
+        // gölgelerini çalışma anında düşürüyor. Kapıların ve oyuncuların ışığı
+        // kesmesini sağlayan ayar bu.
+        settings.mixedBakeMode = MixedLightingMode.Shadowmask;
+
         settings.indirectScale = indirectScale;
         settings.albedoBoost = albedoBoost;
 
