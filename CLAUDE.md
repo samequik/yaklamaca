@@ -545,12 +545,11 @@ güvenceye alındı.
 
 ## 10. Sırada ne var
 
-Terminal ve kaçış sistemi bitti (bölüm 11). Sıradaki işler, tavsiye edilen
-sıralamayla:
+Terminal ve kaçış sistemi, çıkış kilidi ve harita düzenlemesi bitti. Sıradaki
+işler, tavsiye edilen sıralamayla:
 
-**1. Haritayı elden geçirmek.** Her şeyin önünde duruyor: lightmap ve
-occlusion pişirme haritaya eklenen her static parçayla geçersiz oluyor, denge
-ölçümü de harita kesinleşmeden anlamsız. Aynı seansta yapılacaklar:
+**1. ~~Haritayı elden geçirmek.~~ YAPILDI (2026-09-03).** Harita elle düzenlendi
+ve artık **dokunulmuyor** — bölüm 0'daki kural. O seansta yapılanlar:
 
 - ~~Terminal sayısını 5-6'ya çıkar.~~ **YAPILDI (2026-08-30): 5 terminal.**
   Bu maddedeki uyarı geçerliliğini koruyor: dolu kadroda (4 kaçan) gereken
@@ -567,9 +566,27 @@ occlusion pişirme haritaya eklenen her static parçayla geçersiz oluyor, denge
 > her şeyi siler (birincisi `Harita`'nın tamamını, ikincisi `Lambalar`
 > grubunu). Elle düzenlemeye başladıktan sonra o ikisine basma.
 
-**2. Lightmap + occlusion pişirme.** Harita kesinleşince
-`Yakalamaca > Işığı Pişir (lightmap)` → "1-4'ü yap ve PİŞİR", sonra aynı
-pencereden occlusion. Kararlar bölüm 3'te. Pişirdikten sonra:
+**2. Lightmap + occlusion — YARIM (2026-09-03).**
+
+Lightmap **pişirildi**: `Assets/_Scenes/SampleScene/` altında
+`LightingData.asset`, bir lightmap atlası ve bir yansıma probe'u var.
+
+İki adım eksik kaldı:
+
+- **Occlusion culling hiç pişirilmedi** — sahnede `m_OcclusionCullingData:
+  {fileID: 0}`. Bayraklar atanıyor ama veri olmadığı için duvarın arkasındaki
+  her şey de çiziliyor.
+- **16 ışık hâlâ `Mixed`**, yalnızca 1 tanesi `Baked`. Bölüm 3'ün kararı
+  Baked'di: lambaların gölgesi zaten kapalı olduğu için Mixed hiçbir şey
+  kazandırmıyor, sadece o ışıkları çalışır durumda tutuyor — yani performans
+  kazancı alınmadı.
+
+**Sebebi büyük ihtimalle pişirmenin Unity'nin kendi Lighting penceresinden
+yapılması.** `Yakalamaca > Işığı Pişir (lightmap)` penceresindeki hazırlık
+adımı ışıkları Baked'e çeviriyor; elle pişirmek o adımı atlıyor. Doğru yol:
+o pencereden "1-4'ü yap ve PİŞİR", sonra aynı pencereden occlusion.
+
+Kararlar bölüm 3'te. Pişirdikten sonra:
 
 - Stats penceresinde `Lights` sayısı düşmüş olmalı (yalnızca fener kalır).
 - Fener kapalıyken lambaların altı hâlâ aydınlık olmalı.
@@ -579,9 +596,26 @@ pencereden occlusion. Kararlar bölüm 3'te. Pişirdikten sonra:
 Beğenmezsen aynı pencerede "Pişirmeyi sil, ışıkları gerçek zamanlıya döndür"
 var; UV'ler ve probe'lar kalıyor.
 
-**3. ~~Kurbanın yakalanma animasyonu.~~ YAPILDI (2026-08-30).** Beden ölüm klibi
-bitene kadar sahnede kalıyor ve canavarın önüne oturtuluyor (bölüm 17). Kalan
-tek şey `deathForwardOffset` sayısı — oynanarak ayarlanacak.
+**3. Yakalama ve ölme animasyonlarının göreli duruşu — AÇIK.**
+
+Altyapı bitti (bölüm 17): beden ölüm klibi boyunca sahnede kalıyor, öldürenin
+`netId`'si taşınıyor, gövde kökü canavarınkine oturtuluyor, süreler eşitlendi,
+dikey kök hareketi poza gömüldü.
+
+**Ama iki karakter hâlâ birbirine oturmuyor.** Denenenler ve sonuçları:
+
+| Deneme | Sonuç |
+|---|---|
+| `deathForwardOffset` 0.85, kurban canavara dönük | Sırt sırta, uzak |
+| Offset 0, aynı rotasyon | Üst üste ama yanlış yön |
+| Offset 0, zıt rotasyon | Doğru yön, hâlâ tam oturmuyor |
+| XZ + dönüş de poza gömüldü | Canavar ileri uçtu, daha kötü |
+| Yalnızca dikey gömüldü | Havada yatma çözüldü, duruş açık kaldı |
+
+**Muhtemel asıl sebep:** elimizdeki klipler gerçek bir **Mixamo eşli seti**
+değil. Canavarınki (`kill`) ve kurbanınki (`...takedown`) ayrı ayrı indirilmiş,
+ortak bir origin'e göre yazılmamış. Mixamo'dan **eşleşen** bir takedown çifti
+indirmek muhtemelen kod tarafında hiçbir şey değiştirmeden çözer.
 
 ### Kalan büyük işler
 
