@@ -637,10 +637,40 @@ dikey kök hareketi poza gömüldü.
 | XZ + dönüş de poza gömüldü | Canavar ileri uçtu, daha kötü |
 | Yalnızca dikey gömüldü | Havada yatma çözüldü, duruş açık kaldı |
 
-**Muhtemel asıl sebep:** elimizdeki klipler gerçek bir **Mixamo eşli seti**
-değil. Canavarınki (`kill`) ve kurbanınki (`...takedown`) ayrı ayrı indirilmiş,
-ortak bir origin'e göre yazılmamış. Mixamo'dan **eşleşen** bir takedown çifti
-indirmek muhtemelen kod tarafında hiçbir şey değiştirmeden çözer.
+**Asıl sebep bulundu (2026-09-03): iki karakter aynı ölçekte değil.**
+
+Yerleşim aslında doğru. Prefabtan okunan gerçek değerler:
+
+| | Gövde kökü yerel konumu | Yerel ölçek | Ekranda boy |
+|---|---|---|---|
+| Canavar (KillerDoll) | `(0, -0.6858, 0)` | 0.7048 | **1.619 m** |
+| Kaçan (Banana Man) | `(0, -0.6858, 0)` | 0.8630 | **1.372 m** |
+
+İki gövde kökü de hull'un tabanında, aynı yerel konumda — `ApplyDeathPose` de
+kurbanı canavarın kökünün XZ'sine oturtuyor, yani **hizalama hatası yok.**
+Farklı olan tek şey ölçek: canavarda hull boyunun üstüne bölüm 17'deki **1.18**
+çarpanı var, kaçanda 1.
+
+`localScale` altındaki her şeyi dünya uzayında ölçekliyor — animasyonun bütün
+kemik hareketleri dahil. Yani canavarın yakalama koreografisi kurbanınkinden
+**%18 daha büyük** oynuyor: elleri kurbanın gövdesinin olmadığı yere iniyor.
+
+**Bunun sonucu: Mixamo'dan eşleşen bir çift indirmek tek başına ÇÖZMEZ.** Eşli
+bir set bile %18 ölçek farkıyla iç içe geçmez. Yukarıdaki tabloda beş deneme
+başarısız olduysa sebebi buydu — hepsi konumu ve dönüşü kurcaladı, ölçeğe hiç
+dokunmadı.
+
+İki yol var ve seçim tasarıma ait:
+
+- **Kurbanı ölüm boyunca canavarın ölçeğine çıkar** (gövde kökünü 1.18 ile
+  çarp, `ClearDeathPose`'da geri al). Canavarın "olduğundan büyük görünmesi"
+  etkisi kovalamacada korunuyor; kurban 2.6 saniye boyunca %18 büyüyor.
+- **Canavarın 1.18 çarpanını kaldır** (`MonsterSetup.ExtraScale = 1`). İki
+  karakter her yerde aynı ölçekte olur, ama bölüm 17'deki bilinçli tasarım
+  kararı geri alınmış olur.
+
+Hangisi seçilirse seçilsin sayı elle iki yere yazılmamalı: `MonsterSetup` ve
+`RunnerSetup`'taki `ExtraScale` sabitleri tek kaynak olmalı.
 
 ### Kalan büyük işler
 
