@@ -52,10 +52,13 @@ kadro senkronu, hazır işareti, tur başlatma, tur bitince lobiye dönüş, oda
 ayrılma, tuş atama ekranı) · canavarın araba modeli hareketi · canavar modeli,
 animasyonları ve saldırı akışı.
 
-**Bu oturumda oynanışta doğrulananlar (2026-09-03):** çıkış kapısının kit
-gövdesi ve sahanlığı · çıkış kilidi paneli ve on adımlık yön dizilimi · eğilme
-kamerası · kaçan modelinin locomotion animasyonları · materyal onarımı (canavar
-ve kaçan artık kendi dokularıyla görünüyor).
+**Bu oturumda oynanışta doğrulananlar (2026-09-03):** çıkış akışının TAMAMI —
+kilit paneli, on adımlık yön dizilimi, yanlış tuşta başa sarma, dizilim bitince
+kapının açılması, kapıdan geçen kaçanın izleyici moduna düşmesi · çıkış
+kapısının kit gövdesi ve sahanlığı · eğilme kamerası · kaçan modelinin
+locomotion animasyonları · materyal onarımı (canavar ve kaçan artık kendi
+dokularıyla görünüyor) · düğmelerin tek tek basılması · fenerin ağ üzerinden
+doğru çalışması.
 
 **Bu oturumda bulunan ama HENÜZ ÇÖZÜLMEYEN:** yakalama ve ölme animasyonlarının
 göreli duruşu (bölüm 17, bilinen eksikler).
