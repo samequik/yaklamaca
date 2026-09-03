@@ -29,24 +29,27 @@ ve animasyonları (bölüm 14) · katman düzeni ve daraltılmış fizik maskele
 (bölüm 16) · kaçan modeli, animasyonları ve yakalanma animasyonu (bölüm 17) ·
 çıkış görünümü ve on adımlık kilit paneli (bölüm 18) · git deposu.
 
-**Yarım:** lightmap **bitti**, occlusion **bir düğmelik iş kaldı**.
+**Işık tarafı TAMAMEN BİTTİ** (2026-09-03), ikisi de sahne dosyasından
+doğrulandı:
 
-- **Lightmap TAMAM** (2026-09-03). `Assets/_Scenes/SampleScene/` altında
-  `LightingData.asset`, bir lightmap atlası ve bir yansıma probe'u var; sahnedeki
-  17 ışığın 16'sı `Baked` (gölgeleri Soft), tek gerçek zamanlı olan `Fener`.
-  Bu zaten bölüm 3'ün hedeflediği son durum.
-- **Occlusion: veri pişmiş ama sahne ona bakmıyor.**
-  `OcclusionCullingData.asset` diskte var (88 KB, commit'e de girmiş) ama sahne
-  `m_OcclusionCullingData: {fileID: 0}` diyor — yani hiçbir işe yaramıyor.
-  Sebep bulundu ve kod düzeltildi (bölüm 3); **`Işığı Pişir` penceresinden
-  "Occlusion culling'i pişir"e bir kez basmak kaldı.**
+- **Lightmap.** `Assets/_Scenes/SampleScene/` altında `LightingData.asset`, bir
+  lightmap atlası ve bir yansıma probe'u var; sahnedeki 17 ışığın 16'sı `Baked`
+  (gölgeleri Soft), tek gerçek zamanlı olan `Fener` — bölüm 3'ün hedeflediği son
+  durum.
+- **Occlusion culling.** Sahne artık veriye bağlı:
+  `m_OcclusionCullingData: {fileID: 36300000, guid: 3945ca91…}`.
 
 > **Bu iki madde 2026-09-03'e kadar "16 ışık hâlâ Mixed" ve "occlusion hiç
 > pişirilmedi" diye yazıyordu; ikisi de yanlıştı.** Sahne dosyasındaki
 > `m_Lightmapping: 2` **Baked** demek, Mixed değil (`LightmapBakeType`:
 > Mixed=1, Baked=2, Realtime=4) — ışıklar en baştan doğru pişmişti. Occlusion
-> ise pişmişti, yalnızca sahne kaydedilmediği için referansı kaybolmuştu.
+> da pişmişti: `OcclusionCullingData.asset` diskte duruyordu ve commit'e bile
+> girmişti, ama pişirme sonrası sahne kaydedilmediği için referansı
+> kaybolmuştu. Düzeltildiğinde asset **bayt bayt aynı** kaldı, yani veri baştan
+> beri geçerliydi — eksik olan tek şey sahnedeki o satırdı.
+>
 > Ders: durumu belgeye bakarak değil, **sahne dosyasından okuyarak** doğrula.
+> "Diskte dosya var" pişmiş demek değil.
 
 **Hiç başlanmamış:** yakınlık sesi (kalp atışı — **ses dosyası oyuncudan
 gelecek, sentezlenmeyecek**) · yakınlık sesli sohbet.
@@ -593,33 +596,20 @@ ve artık **dokunulmuyor** — bölüm 0'daki kural. O seansta yapılanlar:
 > her şeyi siler (birincisi `Harita`'nın tamamını, ikincisi `Lambalar`
 > grubunu). Elle düzenlemeye başladıktan sonra o ikisine basma.
 
-**2. Lightmap TAMAM, occlusion bir düğmelik iş (2026-09-03).**
+**2. ~~Lightmap + occlusion.~~ YAPILDI (2026-09-03).**
 
-**Lightmap bitti.** `Assets/_Scenes/SampleScene/` altında `LightingData.asset`,
-bir lightmap atlası ve bir yansıma probe'u var. Sahne dosyasından doğrulandı:
-17 ışığın 16'sı `Baked` ve gölgeleri Soft, tek gerçek zamanlı olan `Fener` —
-yani bölüm 3'ün hedeflediği son durum. Yapılacak bir şey kalmadı.
+İkisi de bitti ve sahne dosyasından doğrulandı; ayrıntı ve yanlış çıkan eski
+kayıtlar yukarıdaki "Şu an neredeyiz" bölümünde.
 
-**Occlusion'da tek adım kaldı: pencereden bir kez pişirmek.**
+Haritaya sonradan static bir parça eklenirse ikisi de geçersiz olur ve yeniden
+pişirmek gerekir: `Yakalamaca > Işığı Pişir (lightmap)` → "1-4'ü yap ve PİŞİR",
+sonra aynı pencereden "Occlusion culling'i pişir". Lightmap'i geri almak için
+aynı pencerede "Pişirmeyi sil, ışıkları gerçek zamanlıya döndür" var; UV'ler ve
+probe'lar kalıyor.
 
-Veri aslında pişmiş — `OcclusionCullingData.asset` diskte 88 KB ve commit'te.
-Ama sahne `m_OcclusionCullingData: {fileID: 0}` diyor, yani ona bakmıyor ve
-duvarın arkasındaki her şey hâlâ çiziliyor. Referans, pişirmeden sonra sahne
-kaydedilmediği için kaybolmuştu.
-
-Kod düzeltildi (bölüm 3): araç artık pişirmenin bitmesini bekleyip sahneyi
-kendisi kaydediyor. Yapılacak: **`Yakalamaca > Işığı Pişir (lightmap)` →
-"Occlusion culling'i pişir".** Lightmap'e tekrar dokunmaya gerek yok.
-
-Pişirdikten sonra kontrol:
-
-- Konsolda "Occlusion culling pişti: N KB. Sahne kaydedildi." yazmalı.
-- Sahne dosyasında `m_OcclusionCullingData` artık `{fileID: 0}` olmamalı —
-  gerçek doğrulama bu, gerisi göz kararı.
-- Stats penceresinde haritanın ortasında duvara bakarken Batches düşmeli.
-
-Lightmap'i yeniden pişirmek gerekirse aynı pencerede "Pişirmeyi sil, ışıkları
-gerçek zamanlıya döndür" var; UV'ler ve probe'lar kalıyor.
+**Doğrulaması göz kararı değil:** sahne dosyasında `m_OcclusionCullingData`
+`{fileID: 0}` olmamalı ve ışıkların `m_Lightmapping` değeri 2 (Baked) olmalı.
+Bir kez tam da bu satırlar yüzünden aylarca yanlış bilindi.
 
 **3. Yakalama ve ölme animasyonlarının göreli duruşu — AÇIK.**
 
