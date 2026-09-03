@@ -1,0 +1,214 @@
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+/// <summary>
+/// Elle bırakılan ses dosyalarını yerine taşır, import ayarlarını yapar ve
+/// sahnedeki kapılara bağlar.
+///
+/// İki ayar kritik:
+///
+/// **Force To Mono** — Unity'de stereo klipler 3B konumlandırılmıyor. Bu oyunda
+/// ayak sesinin hangi yönden geldiği doğrudan oynanış; stereo bırakılırsa
+/// canavarın nereden geldiğini duyamazsın. Elindeki dosyaların neredeyse hepsi
+/// stereo geldi.
+///
+/// **Load Type** — kısa efektler bellekte açık dursun (anında çalsın), uzun
+/// döngüler diskten akıtılsın (bellek şişmesin).
+///
+/// Menü: Yakalamaca > Sesleri Yerleştir
+/// </summary>
+public static class AudioImportSetup
+{
+    private const string AudioFolder = "Assets/_Audio";
+
+    /// <summary>
+    /// Kaynak dosya adının **başlangıcı** → hedef ad. Tam eşleşme değil önek
+    /// arıyoruz, çünkü kırpma araçları dosya adının sonuna kendi etiketini
+    /// ekliyor ("yürüme koşma_[cut_0sec].mp3").
+    ///
+    /// Sıra önemli: uzun önekler önce denenmeli, yoksa "zıplama" öneki
+    /// "zıplama yere düşünce" dosyasını da yakalar.
+    /// </summary>
+    private static readonly (string Prefix, string Target)[] Renames =
+    {
+        ("zıplama yere düşünce",  "Inis"),
+        ("canavarkoşma yürüme",   "Adim_Canavar"),
+        ("yürüme koşma",          "Adim_Kacan"),
+        ("kapısesi",              "Kapi"),
+        ("ölmesesi",              "Olum"),
+        ("zıplama",               "Ziplama")
+    };
+
+    /// <summary>Bu eşiğin üstündeki klipler döngü sayılıp diskten akıtılıyor.</summary>
+    private const float StreamingThresholdSeconds = 5f;
+
+    [MenuItem("Yakalamaca/Sesleri Yerleştir", true)]
+    private static bool CanRun() => !EditorApplication.isPlayingOrWillChangePlaymode;
+
+    [MenuItem("Yakalamaca/Sesleri Yerleştir")]
+    private static void Run()
+    {
+        if (!AssetDatabase.IsValidFolder(AudioFolder))
+            AssetDatabase.CreateFolder("Assets", "_Audio");
+
+        List<string> moved = new List<string>();
+
+        foreach ((string prefix, string targetName) in Renames)
+        {
+            string source = FindLooseFile(prefix);
+            if (source == null)
+                continue;
+
+            string extension = System.IO.Path.GetExtension(source);
+            string target = $"{AudioFolder}/{targetName}{extension}";
+
+            if (AssetDatabase.LoadAssetAtPath<AudioClip>(target) != null)
+                AssetDatabase.DeleteAsset(target);
+
+            string error = AssetDatabase.MoveAsset(source, target);
+
+            if (!string.IsNullOrEmpty(error))
+            {
+                Debug.LogWarning($"{source} taşınamadı: {error}");
+                continue;
+            }
+
+            moved.Add($"{System.IO.Path.GetFileName(source)} → {targetName}{extension}");
+        }
+
+        int configured = ConfigureAll();
+        int doors = WireDoors();
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        string report = moved.Count > 0
+            ? "Taşındı ve yeniden adlandırıldı:\n  " + string.Join("\n  ", moved)
+            : "Taşınacak yeni ses bulunamadı (muhtemelen zaten yerindeler).";
+
+        Debug.Log($"{report}\n\n" +
+            $"{configured} klibin import ayarı yapıldı (mono + yükleme tipi).\n" +
+            $"{doors} kapıya ses bağlandı.\n\n" +
+            "Oyuncu sesleri için Yakalamaca > Ağ Kurulumu (1. adım) çalıştır — " +
+            "ayak sesi artık döngü olduğu için prefaba ayrı bir AudioSource gerekiyor.");
+    }
+
+    /// <summary>
+    /// Adı verilen önekle başlayan, henüz düzgün adlandırılmamış klibi bulur.
+    /// _Audio klasörünün içine de bakıyor: kırpılmış dosyalar oraya doğrudan
+    /// bırakılmış olabiliyor, sadece adları bozuk oluyor.
+    /// </summary>
+    private static string FindLooseFile(string prefix)
+    {
+        foreach (string guid in AssetDatabase.FindAssets("t:AudioClip"))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+
+            if (path.Contains("/Mirror/") || path.Contains("/SciFi Warehouse Kit/"))
+                continue;
+
+            if (System.IO.Path.GetFileNameWithoutExtension(path).StartsWith(prefix))
+                return path;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// _Audio altındaki her klibi 3B sese uygun hale getirir. Uzun olanlar
+    /// döngü kabul edilip akıtılıyor, kısalar belleğe açılıyor.
+    /// </summary>
+    private static int ConfigureAll()
+    {
+        int count = 0;
+
+        foreach (string guid in AssetDatabase.FindAssets("t:AudioClip", new[] { AudioFolder }))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+
+            AudioImporter importer = AssetImporter.GetAtPath(path) as AudioImporter;
+            AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+
+            if (importer == null || clip == null)
+                continue;
+
+            AudioImporterSampleSettings settings = importer.defaultSampleSettings;
+
+            settings.loadType = clip.length >= StreamingThresholdSeconds
+                ? AudioClipLoadType.Streaming
+                : AudioClipLoadType.DecompressOnLoad;
+
+            bool changed = importer.forceToMono != true
+                || importer.defaultSampleSettings.loadType != settings.loadType;
+
+            if (!changed)
+                continue;
+
+            importer.forceToMono = true;
+            importer.defaultSampleSettings = settings;
+            importer.SaveAndReimport();
+
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Sahnedeki kapı panellerine AudioSource ekleyip klibi bağlar. Kapılar
+    /// MazeMapBuilder tarafından üretiliyor ama haritayı yeniden kurmak
+    /// giydirmeyi ve süsleri silerdi — o yüzden mevcut kapılar yerinde
+    /// donatılıyor.
+    /// </summary>
+    private static int WireDoors()
+    {
+        AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{AudioFolder}/Kapi.mp3");
+        if (clip == null)
+            return 0;
+
+        GameObject map = GameObject.Find("Harita");
+        Transform doors = map != null ? map.transform.Find("Kapilar") : null;
+
+        if (doors == null)
+            return 0;
+
+        int count = 0;
+
+        foreach (Transform door in doors)
+        {
+            Transform panel = door.Find("Panel");
+            SlidingDoor sliding = panel != null ? panel.GetComponent<SlidingDoor>() : null;
+
+            if (sliding == null)
+                continue;
+
+            AudioSource source = panel.GetComponent<AudioSource>();
+            if (source == null)
+                source = Undo.AddComponent<AudioSource>(panel.gameObject);
+
+            source.playOnAwake = false;
+            source.spatialBlend = 1f;
+            source.rolloffMode = AudioRolloffMode.Linear;
+            source.minDistance = 3f;
+            source.maxDistance = 30f;
+
+            SerializedObject serialized = new SerializedObject(sliding);
+            serialized.FindProperty("audioSource").objectReferenceValue = source;
+            serialized.FindProperty("moveClip").objectReferenceValue = clip;
+            serialized.ApplyModifiedProperties();
+
+            count++;
+        }
+
+        if (count > 0)
+        {
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            EditorSceneManager.SaveOpenScenes();
+        }
+
+        return count;
+    }
+}

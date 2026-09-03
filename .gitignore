@@ -1,0 +1,39 @@
+# Unity'nin ürettiği, yeniden üretilebilen klasörler.
+# Library özellikle önemli: gigabaytlarca import önbelleği ve Unity onu
+# Assets + ProjectSettings'ten kendisi kuruyor.
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# IDE'lerin ürettiği proje dosyaları — Unity her açılışta yeniden yazıyor.
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.opendb
+*.VC.db
+.vs/
+.vscode/
+.idea/
+
+# Build çıktıları
+*.apk
+*.aab
+*.app
+*.unitypackage
+sysinfo.txt
+
+# Kazara kök dizine düşmüş derleme çıktısı (Assets dışında, Unity görmüyor).
+# Assets içindeki .dll'ler GEREKLİ, o yüzden *.dll diye genel bir kural YOK.
+/AtmosphereSetup.dll
