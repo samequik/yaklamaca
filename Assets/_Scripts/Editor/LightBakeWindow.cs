@@ -368,6 +368,8 @@ public class LightBakeWindow : EditorWindow
         }
 
         text.AppendLine();
+        text.AppendLine(ReportLightmapAssignment(maps.Length));
+        text.AppendLine();
         text.AppendLine(
             "Nasıl okunur: en parlak 0'a yakınsa lightmap gerçekten KARA — " +
             "pişirme ışığı hiç yakalamamış (ışık geometrinin içinde kalmış, " +
@@ -379,6 +381,61 @@ public class LightBakeWindow : EditorWindow
         string result = text.ToString();
         Debug.Log(result);
         return result;
+    }
+
+    /// <summary>
+    /// Hangi renderer'ların lightmap'e gerçekten BAĞLANDIĞINI sayar.
+    ///
+    /// Atlasın parlak olması yetmiyor: ışık, atlasa giren yüzeylerin üstünde
+    /// duruyor. Görünen yüzeyler atlasa girmediyse oyunda sıfır ışık görünür
+    /// ama ölçüm "lightmap parlak" der. Bu ayrımı yapan tek sayı burada.
+    ///
+    /// Özellikle bakılan şey: haritanın ham küpleri giydirmenin altında
+    /// KAPALI duruyor ama ContributeGI işaretli. Işığı onlar aldıysa,
+    /// görünen giydirme karanlık kalır.
+    /// </summary>
+    private static string ReportLightmapAssignment(int atlasCount)
+    {
+        var lit = new Dictionary<string, int>();
+        var unlit = new Dictionary<string, int>();
+        int litTotal = 0, unlitTotal = 0;
+
+        foreach (MeshRenderer renderer in Object.FindObjectsOfType<MeshRenderer>())
+        {
+            if ((GameObjectUtility.GetStaticEditorFlags(renderer.gameObject)
+                    & StaticEditorFlags.ContributeGI) == 0)
+                continue;
+
+            // Görünürlük burada kritik: kapalı renderer oyuncunun gördüğü şey
+            // değil, ama lightmap alanını yiyebiliyor.
+            string key = (renderer.enabled ? "GÖRÜNÜR " : "kapalı  ") + Group(renderer.name);
+            bool mapped = renderer.lightmapIndex >= 0 && renderer.lightmapIndex < atlasCount;
+
+            Dictionary<string, int> target = mapped ? lit : unlit;
+            target.TryGetValue(key, out int count);
+            target[key] = count + 1;
+
+            if (mapped) litTotal++;
+            else unlitTotal++;
+        }
+
+        StringBuilder text = new StringBuilder();
+        text.AppendLine($"Lightmap'e BAĞLANAN renderer: {litTotal}, bağlanmayan: {unlitTotal}");
+
+        foreach (var pair in lit.OrderByDescending(p => p.Value))
+            text.AppendLine($"   bağlı    {pair.Key,-28} {pair.Value}");
+
+        foreach (var pair in unlit.OrderByDescending(p => p.Value))
+            text.AppendLine($"   BAĞLI DEĞİL {pair.Key,-25} {pair.Value}");
+
+        return text.ToString();
+    }
+
+    /// <summary>Sondaki sayıyı atıp adları gruplar: Duvar_3_7 → Duvar.</summary>
+    private static string Group(string name)
+    {
+        int cut = name.IndexOf('_');
+        return cut > 0 ? name.Substring(0, cut) : name;
     }
 
     /// <summary>
