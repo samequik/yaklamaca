@@ -146,6 +146,9 @@ public class LightBakeWindow : EditorWindow
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Hazırlık", EditorStyles.boldLabel);
 
+        if (GUILayout.Button("0 · Static bayraklarını alt objelere yay"))
+            report = PropagateStaticFlags();
+
         if (GUILayout.Button("1 · Lightmap UV'lerini üret"))
             report = GenerateLightmapUvs();
 
@@ -163,7 +166,7 @@ public class LightBakeWindow : EditorWindow
 
         using (new EditorGUI.DisabledScope(Lightmapping.isRunning))
         {
-            if (GUILayout.Button("1-4'ü yap ve PİŞİR", GUILayout.Height(32f)))
+            if (GUILayout.Button("0-4'ü yap ve PİŞİR", GUILayout.Height(32f)))
                 RunAllAndBake();
 
             if (GUILayout.Button("Sadece pişir"))
@@ -231,6 +234,24 @@ public class LightBakeWindow : EditorWindow
             ? "Model lightmap UV'si: tamam"
             : $"Model lightmap UV'si EKSİK: {missingUv} dosya — adım 1 gerekli");
 
+        // Sessiz kalırsa lamba gövdeleri kararıyor: bayrağı köke yazılmış ama
+        // mesh'i alt objede olan prefablar lightmap'e hiç girmiyor.
+        int orphan = 0;
+        foreach (MeshRenderer renderer in Object.FindObjectsOfType<MeshRenderer>())
+        {
+            if ((GameObjectUtility.GetStaticEditorFlags(renderer.gameObject)
+                    & StaticEditorFlags.ContributeGI) != 0)
+                continue;
+
+            if (TryFindStaticAncestor(renderer.transform, out _))
+                orphan++;
+        }
+
+        text.AppendLine(orphan == 0
+            ? "Bayrağı eksik alt obje: yok"
+            : $"Bayrağı eksik alt obje: {orphan} — atası ContributeGI ama kendisi " +
+              "değil, yani lightmap'e girmiyor ve sönük kalıyor. Adım 0 düzeltiyor.");
+
         int primitives = CollectPrimitiveFilters(giRenderers).Count;
         text.AppendLine(primitives == 0
             ? "Primitif küp: yok"
@@ -273,6 +294,93 @@ public class LightBakeWindow : EditorWindow
             : "Occlusion verisi: YOK — duvarın arkasındaki her şey de çiziliyor");
 
         return text.ToString();
+    }
+
+    // ---------- 0. Static bayraklarını alt objelere yay ----------
+
+    /// <summary>
+    /// Giydirme prefablarının alt objelerine static bayrağını yayar.
+    ///
+    /// ### Neden gerekli
+    ///
+    /// Giydirme araçları bayrağı prefabın **köküne** yazıyor. Kullanılan 16 kit
+    /// prefabının 14'ünde renderer zaten kökte, yani sorun çıkmıyor. Ama ikisinde
+    /// mesh alt objede duruyor:
+    ///
+    /// | Prefab | Renderer nerede |
+    /// |---|---|
+    /// | `Wall Plain`, `Floor Tile`, `Ceiling Closed`, kasa, varil… | kökte |
+    /// | **`Hanging Light`** (14 lamba) | 2 alt objede |
+    /// | **`Wall BayDoor`** (7 kapı) | 3 alt objede |
+    ///
+    /// Alt objeler bayrağı almayınca zincir şöyle işliyordu: ContributeGI yok →
+    /// `CollectGiRenderers` onları görmüyor → `generateSecondaryUV` hiç
+    /// açılmıyor → lightmap UV'si olmayan mesh pişmiş ışık alamıyor. Işıklar tam
+    /// Baked olduğu için başka ışık kaynağı da yok: **lamba gövdeleri sönük
+    /// kalıyordu.** Hiçbir yerde hata yazmıyor, o yüzden bulunması zor.
+    ///
+    /// CLAUDE.md bölüm 3 bunu zaten söylüyordu ("prefabların alt objelerine de
+    /// uygulanmalı, kökü işaretlemek yetmez"); eksik olan, kuralı uygulayan adım.
+    ///
+    /// ### Kapılara dokunmuyor, bilerek
+    ///
+    /// Yalnızca ContributeGI'sı OLAN bir ataya sahip renderer'lar bayrak alıyor.
+    /// Kapı giydirmelerinin (`Giydirme_Kapi`) kökünde hiç bayrak yok, çünkü kapı
+    /// hareket ediyor — pişmiş ışık kapıyla birlikte kaymaz, yanlış olurdu.
+    /// Onlar ışığı probe'lardan alıyor ve öyle kalmalı.
+    /// </summary>
+    private static string PropagateStaticFlags()
+    {
+        int changed = 0;
+
+        foreach (MeshRenderer renderer in Object.FindObjectsOfType<MeshRenderer>())
+        {
+            GameObject target = renderer.gameObject;
+
+            if ((GameObjectUtility.GetStaticEditorFlags(target) & StaticEditorFlags.ContributeGI) != 0)
+                continue;
+
+            if (!TryFindStaticAncestor(target.transform, out StaticEditorFlags flags))
+                continue;
+
+            Undo.RecordObject(target, "Static Bayrakları");
+            GameObjectUtility.SetStaticEditorFlags(target, flags);
+            EditorUtility.SetDirty(target);
+            changed++;
+        }
+
+        SaveScene();
+
+        string text = changed == 0
+            ? "Static bayrağı eksik alt obje yok."
+            : $"{changed} alt objeye atasının static bayrağı yazıldı — bunlar " +
+              "ContributeGI olmadığı için lightmap'e hiç girmiyordu.\n" +
+              "Adım 1'i tekrar çalıştır: yeni girenlerin lightmap UV'si üretilecek.";
+
+        Debug.Log(text);
+        return text;
+    }
+
+    /// <summary>
+    /// Yukarı doğru ContributeGI'lı ilk atayı arar. Bulursa onun bayraklarını
+    /// veriyor — kendi bayrak setimizi uydurmak yerine, giydirme aracının köke
+    /// yazdığı neyse onu alt objeye taşıyoruz.
+    /// </summary>
+    private static bool TryFindStaticAncestor(Transform start, out StaticEditorFlags flags)
+    {
+        for (Transform parent = start.parent; parent != null; parent = parent.parent)
+        {
+            StaticEditorFlags parentFlags = GameObjectUtility.GetStaticEditorFlags(parent.gameObject);
+
+            if ((parentFlags & StaticEditorFlags.ContributeGI) != 0)
+            {
+                flags = parentFlags;
+                return true;
+            }
+        }
+
+        flags = default;
+        return false;
     }
 
     // ---------- 1. Lightmap UV'leri ----------
@@ -646,7 +754,9 @@ public class LightBakeWindow : EditorWindow
 
     private void RunAllAndBake()
     {
-        report = GenerateLightmapUvs() + "\n\n"
+        // Adım 0 önce: bayrak yazılmadan adım 1 o renderer'ları hiç görmüyor.
+        report = PropagateStaticFlags() + "\n\n"
+            + GenerateLightmapUvs() + "\n\n"
             + ConvertLights() + "\n\n"
             + BuildProbeGrid() + "\n\n"
             + ApplyBakeSettings();

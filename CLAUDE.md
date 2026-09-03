@@ -39,6 +39,11 @@ doğrulandı:
 - **Occlusion culling.** Sahne artık veriye bağlı:
   `m_OcclusionCullingData: {fileID: 36300000, guid: 3945ca91…}`.
 
+**Açık kalan tek ışık işi (2026-09-04):** lamba gövdeleri sönük çıkıyordu —
+sebep bulundu ve araç düzeltildi (bölüm 3'teki "static bayrağı alt objelere"
+kutusu). `Işığı Pişir` penceresinden **"0-4'ü yap ve PİŞİR"** bir kez
+çalıştırılınca kapanıyor.
+
 > **Bu iki madde 2026-09-03'e kadar "16 ışık hâlâ Mixed" ve "occlusion hiç
 > pişirilmedi" diye yazıyordu; ikisi de yanlıştı.** Sahne dosyasındaki
 > `m_Lightmapping: 2` **Baked** demek, Mixed değil (`LightmapBakeType`:
@@ -310,6 +315,35 @@ yok ve yerleşik küpün UV'sinde altı yüz aynı kareye biniyor; araç `Unwrap
 ile ayrık adalı bir kopya üretip `Assets/_Art/Meshes` altına kaydediyor.
 Çarpışma BoxCollider'dan geldiği için mesh'i değiştirmek hiçbir şeyi bozmuyor.
 
+**Static bayrağı prefabın ALT objelerine de yazılmalı — yoksa sessizce sönük
+kalıyorlar.** Giydirme araçları bayrağı prefabın **köküne** yazıyor. Kullanılan
+16 kit prefabının 14'ünde renderer zaten kökte, o yüzden yıllarca sorun
+çıkmadı. İkisinde mesh alt objede duruyor:
+
+| Prefab | Sahnede | Renderer nerede |
+|---|---|---|
+| `Wall Plain`, `Floor Tile 01`, `Ceiling Closed`, kasa, varil… | 625 | kökte |
+| **`Hanging Light`** | 14 lamba | 2 alt objede |
+| **`Wall BayDoor`** | 7 kapı | 3 alt objede |
+
+Alt obje bayrağı almayınca zincir şöyle işliyor: ContributeGI yok →
+`CollectGiRenderers` onu görmüyor → `generateSecondaryUV` hiç açılmıyor →
+lightmap UV'si olmayan mesh pişmiş ışık alamıyor. Işıklar tam Baked olduğu
+için başka kaynak da yok, ambient 0.018 — **lamba gövdeleri kapkara kalıyor.**
+
+Oyunda bu "lambalar ışık vermiyor" diye görünüyordu. Zemin ve duvarlar aslında
+doğru aydınlanıyordu; kararan yalnızca lambanın kendi gövdesiydi. Hiçbir yerde
+hata yazmıyor.
+
+`Işığı Pişir` penceresine **adım 0** eklendi: ContributeGI'lı bir atası olup
+kendisi olmayan renderer'lara atanın bayraklarını yazıyor. Denetim raporu da
+bu durumu sayıyor.
+
+**Kapılara dokunmuyor, bilerek.** Adım 0 yalnızca ContributeGI'lı ataya sahip
+renderer'lara yazıyor; kapı giydirmelerinin (`Giydirme_Kapi`) kökünde hiç
+bayrak yok çünkü kapı hareket ediyor — pişmiş ışık kapıyla birlikte kaymaz.
+Onlar ışığı probe'lardan alıyor ve öyle kalmalı.
+
 **Occlusion culling: pişirmek yetmiyor, sahneyi de kaydetmek gerekiyor.**
 Occluder/Occludee bayrakları harita kurulurken atanıyor. Pişirme aynı pencerede
 ayrı bir düğme — ama pişirmenin **iki** çıktısı var: diske yazılan
@@ -491,7 +525,7 @@ Yeni bir sahnede ya da her şey bozulduğunda bu sırayla:
 7c. Kaçan Modelini Kur            → ağ kurulumundan SONRA (prefabı değiştiriyor)
 7c. Hareket Profillerini Sıfırla  → MovementProfile'a yeni alan eklendiyse ŞART
 8. Mağara Yankısı Kur (reverb)
-9. Işığı Pişir (lightmap)         → "1-4'ü yap ve PİŞİR", sonra occlusion
+9. Işığı Pişir (lightmap)         → "0-4'ü yap ve PİŞİR", sonra occlusion
 10. Test Botu Ekle (isteğe bağlı)
 11. Katmanları Kur (tekrar)       → kurulum sırasında elle eklenen varsa
 ```
@@ -602,7 +636,7 @@ ve artık **dokunulmuyor** — bölüm 0'daki kural. O seansta yapılanlar:
 kayıtlar yukarıdaki "Şu an neredeyiz" bölümünde.
 
 Haritaya sonradan static bir parça eklenirse ikisi de geçersiz olur ve yeniden
-pişirmek gerekir: `Yakalamaca > Işığı Pişir (lightmap)` → "1-4'ü yap ve PİŞİR",
+pişirmek gerekir: `Yakalamaca > Işığı Pişir (lightmap)` → "0-4'ü yap ve PİŞİR",
 sonra aynı pencereden "Occlusion culling'i pişir". Lightmap'i geri almak için
 aynı pencerede "Pişirmeyi sil, ışıkları gerçek zamanlıya döndür" var; UV'ler ve
 probe'lar kalıyor.
