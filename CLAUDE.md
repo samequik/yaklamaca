@@ -1816,6 +1816,24 @@ Aynı desen `MonsterSetup`'ta da var (bölüm 14).
 kapatılıyor: birinci şahıs için gizlenen kafa, izleyici kamerasından bakınca
 kafasız bir ceset olarak görünürdü. Dirilince geri açılıyor.
 
+### Ölüm klibi hızlandırılıyor, bekleme süresi hızlandırılmıyor
+
+Ham klipte kurban yere geç düşüyordu: canavar çoktan yumruklamaya başlamışken
+kaçan hâlâ havadaydı, arada bir saniyeye yakın fark vardı. `RunnerSetup.DeathSpeed`
+(1.7) yalnızca `Olum` durumunun oynatma hızını artırıyor.
+
+**Yalnızca ölüm klibine uygulanıyor.** Locomotion'ın hızı zaten karakterin
+gerçek hızından hesaplanıyor; oraya sabit bir çarpan koymak ayak kaymasını
+bozardı.
+
+**`deathHoldDuration` bu çarpana BÖLÜNMÜYOR, bilerek.** Kurban yere daha erken
+iniyor ama beden yine canavarın `kill` klibi bitene kadar sahnede duruyor;
+aradaki farkta kurban yerde yatıyor, canavar yumruklamayı bitiriyor. Süreyi de
+kısaltmak cesedi canavarın altından çekip alırdı.
+
+Ayarlamak: `DeathSpeed`'i büyüt (daha erken düşer) ya da 1'e yaklaştır (daha
+yumuşak), sonra `Kaçan Modelini Kur`.
+
 ### Kurban canavarla AYNI noktaya oturtuluyor
 
 Beden öldüğü yerde kalsaydı yandan yakalanınca canavar bir yöne yumruk atarken

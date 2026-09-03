@@ -65,6 +65,21 @@ public static class RunnerSetup
     /// </summary>
     private const float ExtraScale = 1f;
 
+    /// <summary>
+    /// Ölüm klibinin oynatma hızı. Ham klipte kurban yere geç düşüyordu —
+    /// canavar çoktan yumruklamaya başlamışken kaçan hâlâ havadaydı, arada bir
+    /// saniyeye yakın fark vardı.
+    ///
+    /// **Yalnızca ölüm klibine uygulanıyor.** Locomotion'ın hızı zaten
+    /// karakterin gerçek hızından hesaplanıyor (`SpeedScaleParameter`); oraya
+    /// sabit bir çarpan koymak ayak kaymasını bozardı.
+    ///
+    /// Ayarlamak için: klip 2.6 sn, yani düşüş anı bu çarpanın tersiyle
+    /// öne geliyor. Daha erken düşsün istiyorsan büyüt, yumuşasın istiyorsan
+    /// 1'e yaklaştır. Değiştirdikten sonra `Kaçan Modelini Kur`.
+    /// </summary>
+    private const float DeathSpeed = 1.7f;
+
     // Klip anahtarları: dosya adında "@" sonrası kısım, küçük harf.
     private const string IdleKey = "idle";
     private const string WalkKey = "walking";
@@ -437,6 +452,7 @@ public static class RunnerSetup
         if (deathClip != null)
         {
             AnimatorState death = CreateClipState(machine, "Olum", deathClip);
+            death.speed = DeathSpeed;
 
             AnimatorStateTransition toDeath = machine.AddAnyStateTransition(death);
             toDeath.hasExitTime = false;
@@ -752,6 +768,12 @@ public static class RunnerSetup
 
         // Beden canavarın yakalama animasyonu boyunca sahnede kalmalı: kısa
         // olursa canavar havayı yumruklar, uzun olursa ceset öylece bekler.
+        //
+        // **`DeathSpeed`'e BÖLÜNMÜYOR, bilerek.** Ölüm klibi hızlandırıldığı
+        // için kurban yere daha erken iniyor, ama beden yine canavarın klibi
+        // bitene kadar durmalı — aradaki farkta kurban yerde yatıyor, canavar
+        // yumruklamayı bitiriyor. Süreyi de kısaltmak cesedi canavarın altından
+        // çekip alırdı.
         SerializedProperty holdField = serializedParticipant.FindProperty("deathHoldDuration");
 
         if (holdField != null)
