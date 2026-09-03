@@ -75,6 +75,36 @@ Input System'e geçilecekse hâlâ tek dosya değişir: `PlayerInputSource`
 
 ---
 
+### HARİTA ELLE DÜZENLENDİ — DOKUNMA
+
+**2026-08-31'den itibaren harita elle düzenleniyor.** Aşağıdaki iki araç elle
+yapılan her şeyi siler ve sahneyi **kendileri kaydettiği** için Ctrl+Z kurtarmaz:
+
+| Araç | Ne siler |
+|---|---|
+| `Labirent Harita Kur` | `Harita`nın **tamamı** |
+| `Atmosfer Kur` | `Lambalar` grubu ve tavan |
+
+**Kural: bu ikisini asla kendiliğinden çalıştırma, çalıştırılmasını da önerme.**
+Gerçekten gerektiğine inanıyorsan **önce sor** ve neyin kaybolacağını say.
+
+Aynı kural yeni kod için de geçerli: `Harita` altındaki objeleri silen, toptan
+taşıyan ya da yeniden üreten bir araç yazmadan önce sor. "Nasıl olsa araç
+yeniden üretir" varsayımı artık geçersiz — üretilen şey elle düzenlenmiş olanı
+geri getirmiyor.
+
+**Güvenli araçlar** (kendi gruplarını yeniden kuruyorlar, haritaya dokunmuyorlar):
+`Terminal ve Çıkış Kur` · `Katmanları Kur` · `Haritayı Giydir` · `Harita Süsle` ·
+`Mağara Yankısı Kur` · `Hataları Temizle` · `Ağ Kurulumu` · `Canavar/Kaçan
+Modelini Kur` · `Işığı Pişir`
+
+**Yedek var.** Proje 2026-08-31'de git deposuna alındı; ilk commit haritanın
+düzenleme öncesi hâli. Kayıt noktaları `git log`, son kayda dönüş
+`git checkout -- .`, belirli bir noktaya dönüş `git reset --hard <commit>`.
+Düzenleme sırasında ara ara `git add -A && git commit -m "..."` yapılmalı.
+
+---
+
 ## 1. Hareket: Source modeli
 
 `PlayerController` Half-Life 2 / Garry's Mod hareket mantığının uyarlaması.

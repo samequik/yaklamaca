@@ -28,7 +28,8 @@ public static class ObjectiveSetup
 {
     private const string MapName = "Harita";
     private const string GroupName = "HedefSistemi";
-    private const string KitProps = "Assets/SciFi Warehouse Kit/Prefabs/Structures/Structure Props";
+    private const string KitRoot = "Assets/SciFi Warehouse Kit/Prefabs/Structures";
+    private const string KitProps = KitRoot + "/Structure Props";
 
     private const int TerminalCount = 5;
 
@@ -309,6 +310,11 @@ public static class ObjectiveSetup
         serializedDoor.FindProperty("autoCloseDelay").floatValue = 0f; // çıkış bir daha kapanmaz
         serializedDoor.ApplyModifiedProperties();
 
+        // Kit gövdesi: çıplak sarı kutu yerine labirent kapılarıyla aynı
+        // görünüm. Katmandan ÖNCE, çünkü giydirme kapının çocuğu oluyor ve
+        // LayerSetup.Apply altındakileri de dolaşıyor.
+        DressExitDoor(door, outDirection, cellSize);
+
         // Çıkış kapısı da katı dünya: diğer kapılarla aynı gerekçe, kapalıyken
         // arkasından vurulmamalı.
         LayerSetup.Apply(door, LayerSetup.Harita);
@@ -347,6 +353,9 @@ public static class ObjectiveSetup
         serializedGate.FindProperty("monsterBlocker").objectReferenceValue = blockerCollider;
         serializedGate.FindProperty("door").objectReferenceValue = sliding;
         serializedGate.ApplyModifiedProperties();
+
+        // Gediğin dışını kapat: yoksa kapıdan gökyüzü görünüyor.
+        BuildVestibule(gate.transform, center, outDirection, cellSize, wallHeight);
 
         HideDressingPanels(parent.parent, cell);
 
@@ -550,6 +559,230 @@ public static class ObjectiveSetup
             Undo.RecordObject(panel.gameObject, "Terminal ve Çıkış Kur");
             panel.gameObject.SetActive(true);
         }
+    }
+
+    // ---------- Çıkışın görünümü ----------
+
+    /// <summary>
+    /// Çıkış kapısına kit gövdesi giydirir — labirent kapılarıyla aynı görünüm.
+    ///
+    /// **`Haritayı Giydir` bunu yapamıyor.** O araç `Harita/Kapilar` altını
+    /// tarıyor; çıkış kapısı ise `HedefSistemi` altında ve giydirmeden SONRA
+    /// kuruluyor, yani araç çalışırken ortada yok. Çıkışın çıplak sarı bir kutu
+    /// olarak kalmasının sebebi buydu.
+    ///
+    /// Ölçek collider'a taşınıyor (`MapDressWindow.UnscalePanel` ile aynı
+    /// numara): kutu 0.25 x 3 x 3.2 ölçekli, o ölçek altındaki kit gövdesini
+    /// eziyor. Çarpışma hacmi değişmiyor.
+    /// </summary>
+    private static void DressExitDoor(GameObject door, Vector3 outDirection, float cellSize)
+    {
+        GameObject prefab = LoadKit("Walls/Wall BayDoor");
+        if (prefab == null)
+            return;
+
+        Vector3 size = door.transform.localScale;
+        BoxCollider box = door.GetComponent<BoxCollider>();
+
+        if (box != null)
+            box.size = size;
+
+        door.transform.localScale = Vector3.one;
+
+        Bounds bounds = MeasurePrefab(prefab);
+        bool thinAlongZ = bounds.size.z <= bounds.size.x;
+        float modelWidth = thinAlongZ ? bounds.size.x : bounds.size.z;
+
+        if (modelWidth <= 0.001f)
+            return;
+
+        Quaternion rotation = Quaternion.LookRotation(outDirection, Vector3.up);
+
+        if (!thinAlongZ)
+            rotation *= Quaternion.Euler(0f, -90f, 0f);
+
+        // Gövde kapının ÇOCUĞU: kapı yukarı kayınca onunla birlikte gidiyor.
+        PlaceKit(prefab, door.transform, "Giydirme_Kapi", door.transform.position,
+            rotation, cellSize / modelWidth, door.transform.position.y - size.y / 2f);
+
+        // Sarı kutu artık yalnızca çarpışma; görüntüyü kit veriyor.
+        Renderer renderer = door.GetComponent<Renderer>();
+
+        if (renderer != null)
+            renderer.enabled = false;
+    }
+
+    /// <summary>
+    /// Gediğin dışına kapalı bir sahanlık kurar: yan duvarlar, arka duvar, tavan.
+    ///
+    /// Çıkışın arkasında hiçbir şey yoktu — kapıdan gökyüzü ve boş zemin
+    /// görünüyordu, çıkış "haritada açılmış bir delik" gibi duruyordu. Zemin
+    /// zaten vardı; eksik olan çevresiydi.
+    ///
+    /// Ölçüler zeminle aynı (2.2 x 1.4 hücre), yani sahanlık tam onun üstüne
+    /// oturuyor. Yüzler `Wall Plain` ile giydiriliyor ki koridorlardan farklı
+    /// durmasın.
+    /// </summary>
+    private static void BuildVestibule(Transform gate, Vector3 center, Vector3 outDirection,
+        float cellSize, float wallHeight)
+    {
+        Vector3 cross = Vector3.Cross(Vector3.up, outDirection).normalized;
+
+        // Sahanlık duvar halkasının DIŞ yüzünden başlayıp zeminin bittiği yerde
+        // bitiyor. Halkanın içine taşsaydı yan duvarlar komşu duvar bloklarının
+        // içinde kalır ve yüzeyler çakışırdı.
+        const float thickness = 0.3f;
+
+        float innerFace = cellSize * 0.5f;   // duvar halkasının dış yüzü
+        float outerEdge = cellSize * 1.85f;  // Cikis_Gecidi/Zemin burada bitiyor
+
+        float depth = outerEdge - innerFace;
+        float width = cellSize * 1.4f;
+
+        Vector3 floorCenter = center + outDirection * ((innerFace + outerEdge) * 0.5f);
+
+        Material wallMaterial = LoadMaterial("Harita_Duvar");
+        Material ceilingMaterial = LoadMaterial("Harita_Tavan");
+
+        // Yan duvarlar.
+        for (int side = -1; side <= 1; side += 2)
+        {
+            Vector3 position = floorCenter
+                + cross * (side * (width / 2f + thickness / 2f))
+                + Vector3.up * (wallHeight / 2f);
+
+            GameObject wall = CreateBox(gate, $"Sahanlik_Yan_{side}", position,
+                AxisSize(outDirection, depth, wallHeight, thickness));
+
+            Paint(wall, wallMaterial);
+            MarkStatic(wall);
+
+            // İç yüz giydiriliyor: dışarıya bakan yüzü kimse görmüyor.
+            DressFace(gate, prefabName: "Walls/Wall Plain",
+                target: position - cross * (side * (thickness / 2f)),
+                normal: -cross * side, opening: depth, height: wallHeight,
+                name: $"Sahanlik_Giydirme_Yan_{side}");
+        }
+
+        // Arka duvar — çıkışın dip noktası.
+        Vector3 backPosition = floorCenter
+            + outDirection * (depth / 2f + thickness / 2f)
+            + Vector3.up * (wallHeight / 2f);
+
+        GameObject back = CreateBox(gate, "Sahanlik_Arka", backPosition,
+            AxisSize(outDirection, thickness, wallHeight, width));
+
+        Paint(back, wallMaterial);
+        MarkStatic(back);
+
+        DressFace(gate, prefabName: "Walls/Wall Plain",
+            target: backPosition - outDirection * (thickness / 2f),
+            normal: -outDirection, opening: width, height: wallHeight,
+            name: "Sahanlik_Giydirme_Arka");
+
+        // Tavan: gökyüzünü kapatan asıl parça.
+        GameObject ceiling = CreateBox(gate, "Sahanlik_Tavan",
+            floorCenter + Vector3.up * (wallHeight + 0.25f),
+            AxisSize(outDirection, depth, 0.5f, width + thickness * 2f));
+
+        Paint(ceiling, ceilingMaterial);
+        MarkStatic(ceiling);
+    }
+
+    /// <summary>Bir yüzeye kit paneli yaslar. Panel yoksa sessizce atlanıyor.</summary>
+    private static void DressFace(Transform parent, string prefabName, Vector3 target,
+        Vector3 normal, float opening, float height, string name)
+    {
+        GameObject prefab = LoadKit(prefabName);
+        if (prefab == null)
+            return;
+
+        Bounds bounds = MeasurePrefab(prefab);
+        bool thinAlongZ = bounds.size.z <= bounds.size.x;
+        float modelWidth = thinAlongZ ? bounds.size.x : bounds.size.z;
+
+        if (modelWidth <= 0.001f)
+            return;
+
+        Quaternion rotation = Quaternion.LookRotation(normal, Vector3.up);
+
+        if (!thinAlongZ)
+            rotation *= Quaternion.Euler(0f, -90f, 0f);
+
+        PlaceKit(prefab, parent, name, target, rotation, opening / modelWidth,
+            target.y - height / 2f);
+    }
+
+    private static GameObject LoadKit(string relativePath) =>
+        AssetDatabase.LoadAssetAtPath<GameObject>($"{KitRoot}/{relativePath}.prefab");
+
+    private static Material LoadMaterial(string name) =>
+        AssetDatabase.LoadAssetAtPath<Material>($"Assets/_Art/Materials/{name}.mat");
+
+    private static void Paint(GameObject target, Material material)
+    {
+        Renderer renderer = target.GetComponent<Renderer>();
+
+        if (renderer != null && material != null)
+            renderer.sharedMaterial = material;
+    }
+
+    /// <summary>
+    /// Kit parçasını ölçekleyip hedefe oturtur — `MapDressWindow.Place` ile aynı
+    /// yöntem. Collider'ları kapatılıyor: çarpışma kutulardan geliyor ve kitin
+    /// kendi kutuları vuruş ışınına fazladan engel olurdu.
+    /// </summary>
+    private static void PlaceKit(GameObject prefab, Transform parent, string name,
+        Vector3 target, Quaternion rotation, float scale, float baseY)
+    {
+        GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+        instance.name = name;
+        instance.transform.SetPositionAndRotation(Vector3.zero, rotation);
+        instance.transform.localScale = Vector3.one * scale;
+
+        Bounds bounds = WorldBounds(instance);
+
+        instance.transform.position += new Vector3(
+            target.x - bounds.center.x,
+            baseY - bounds.min.y,
+            target.z - bounds.center.z);
+
+        foreach (Collider collider in instance.GetComponentsInChildren<Collider>())
+            collider.enabled = false;
+
+        LayerSetup.Apply(instance, LayerSetup.Sus);
+    }
+
+    /// <summary>
+    /// Prefabın ölçek 1, dönüş sıfırken kapladığı yer. Geçici bir örnek
+    /// üzerinden ölçülüyor; prefab asset'inin sınırlarını doğrudan okumak
+    /// güvenilir değil.
+    /// </summary>
+    private static Bounds MeasurePrefab(GameObject prefab)
+    {
+        GameObject temp = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+        temp.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+        temp.transform.localScale = Vector3.one;
+
+        Bounds bounds = WorldBounds(temp);
+        Object.DestroyImmediate(temp);
+
+        return bounds;
+    }
+
+    private static Bounds WorldBounds(GameObject instance)
+    {
+        Renderer[] renderers = instance.GetComponentsInChildren<Renderer>();
+
+        if (renderers.Length == 0)
+            return new Bounds(instance.transform.position, Vector3.zero);
+
+        Bounds bounds = renderers[0].bounds;
+
+        for (int i = 1; i < renderers.Length; i++)
+            bounds.Encapsulate(renderers[i].bounds);
+
+        return bounds;
     }
 
     // ---------- Yardımcılar ----------
