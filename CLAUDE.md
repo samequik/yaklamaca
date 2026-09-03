@@ -94,9 +94,19 @@ yeniden üretir" varsayımı artık geçersiz — üretilen şey elle düzenlenm
 geri getirmiyor.
 
 **Güvenli araçlar** (kendi gruplarını yeniden kuruyorlar, haritaya dokunmuyorlar):
-`Terminal ve Çıkış Kur` · `Katmanları Kur` · `Haritayı Giydir` · `Harita Süsle` ·
-`Mağara Yankısı Kur` · `Hataları Temizle` · `Ağ Kurulumu` · `Canavar/Kaçan
-Modelini Kur` · `Işığı Pişir`
+`Katmanları Kur` · `Haritayı Giydir` · `Harita Süsle` · `Mağara Yankısı Kur` ·
+`Hataları Temizle` · `Ağ Kurulumu` · `Canavar/Kaçan Modelini Kur` ·
+`Işığı Pişir`
+
+**`Terminal ve Çıkış Kur` kısmen güvenli:**
+
+- **Terminallere dokunmuyor.** Var olanlar olduğu yerde kalıyor, yalnızca eksik
+  olan tamamlanıyor. (2026-09-03'e kadar öyle DEĞİLDİ: araç `HedefSistemi`'ni
+  komple silip her şeyi yeniden kuruyordu ve elle taşınmış terminaller her
+  çalıştırmada rastgele yerlere dağılıyordu. Bir kez gerçekten kaybedildi ve
+  git'ten geri alındı.)
+- **Çıkışları yeniden kuruyor.** Gedik deterministik seçildiği için aynı yere
+  geliyor, ama çıkış kapısını/panelini elle ayarladıysan o ayar gider.
 
 **Yedek var.** Proje 2026-08-31'de git deposuna alındı; ilk commit haritanın
 düzenleme öncesi hâli. Kayıt noktaları `git log`, son kayda dönüş
@@ -526,9 +536,9 @@ occlusion pişirme haritaya eklenen her static parçayla geçersiz oluyor, denge
 - ~~İkinci bir çıkış aç.~~ **YAPILDI (2026-08-30): 2 çıkış**, birbirinden en uzak
   iki dış duvar gediğinde (teknik borç 6).
 - Lamba yerleşimini elle düzelt.
-- **Çıkış kapıları tak diye açılmayacak.** Terminaller bitince kapı şu an anında
-  açılıyor. Dead by Daylight'taki gibi bir açılma süreci olacak (süre, belki
-  kapının başında durma) — **tasarımı henüz kararlaşmadı**, not olarak duruyor.
+- ~~Çıkış kapıları tak diye açılmayacak.~~ **YAPILDI (2026-09-03).** Her çıkışın
+  yanında bir kilit paneli var; on adımlık yön dizilimi doğru girilince kapı
+  açılıyor (bölüm 11.5).
 
 > **Uyarı:** `Labirent Harita Kur` ve `Atmosfer Kur` menüleri elle yaptığın
 > her şeyi siler (birincisi `Harita`'nın tamamını, ikincisi `Lambalar`
@@ -730,10 +740,30 @@ haksız hâle getirirdi.
 
 ### 11.5 Çıkış
 
-- Gereken sayıda terminal bitince **iki büyük çıkış kapısı birden** açılır
-  (`ObjectiveSetup.ExitCount`). İkisi de dış duvar halkasında, **birbirinden en
-  uzak** iki gedikte: aynı kenara düşen iki çıkış canavarın ikisini birden
-  görmesi demek olurdu ve ikincisi hiçbir şey değiştirmezdi.
+- Haritada **iki çıkış** var (`ObjectiveSetup.ExitCount`). İkisi de dış duvar
+  halkasında, **birbirinden en uzak** iki gedikte: aynı kenara düşen iki çıkış
+  canavarın ikisini birden görmesi demek olurdu ve ikincisi hiçbir şey
+  değiştirmezdi.
+- **Terminaller bitince kapı KENDİLİĞİNDEN AÇILMIYOR.** Her kapının yanında bir
+  **kilit paneli** var (`ExitLock`); kaçanın oraya gelip **on adımlık yön
+  dizilimini** doğru girmesi gerekiyor.
+  - Panel yalnızca terminaller bitince çalışıyor — terminal sistemi hâlâ kapıyı
+    kilitleyen şey.
+  - Panel başında **hareket kilitli**, bakış dar bir koniye sıkışıyor —
+    terminaldeki odak mekanizmasının aynısı.
+  - **Yanlış tuş başa sarıyor.** Dizilim değişmiyor: yenisini üretmek ekrandaki
+    diziyi okumayı anlamsız kılar ve cezayı orantısız yapardı.
+  - Panelden ayrılmak ilerlemeyi sıfırlıyor; her bağlanışta yeni dizilim
+    üretiliyor, yani aynı kapıyı ikinci kez açan ezberden geçemiyor.
+  - **Yalnızca kaçan kullanabiliyor.** Canavara panel hiçbir şey yazmıyor.
+
+  Gerekçe: terminaller bitince kapının açılıvermesi turun son perdesini bedavaya
+  veriyordu — kaçan koşup çıkıyordu, canavarın yapabileceği bir şey yoktu. On
+  adım seni bir yere çiviliyor ve canavara son bir pencere açıyor.
+
+  **Panel yoksa eski davranışa düşülüyor** (terminaller bitince kapı açılır):
+  aksi hâlde eksik bir referans, kapının hiç açılmadığı ve sebebi görünmeyen bir
+  tur kilidine dönüşürdü.
 - Kaçan ancak oradan geçerse kurtulur.
 - **Canavar çıkıştan geçemez.** Kural olarak değil, fiziksel engelle: kapının
   ağzındaki katı collider yalnızca canavarın istemcisinde açık. Hareket istemci
@@ -758,6 +788,14 @@ Hepsi Inspector'da, `Terminal` bileşeninde. Oynayarak ayarlanacak:
 | `monsterLockDuration` | 1.5 sn | Canavarın kilitleme süresi |
 | `focusYawLimit` | 35° | Terminal başında sağa-sola bakış |
 | `focusPitchLimit` | 12° | Terminal başında yukarı-aşağı bakış |
+
+Çıkış kilidinde ayarlanabilenler (`ExitLock`):
+
+| Alan | Değer | Ne yapar |
+|---|---|---|
+| `SequenceLength` | 10 | Yön dizilimindeki adım sayısı (sabit, kod içinde) |
+| `focusYawLimit` | 35° | Panel başında sağa-sola bakış |
+| `focusPitchLimit` | 12° | Panel başında yukarı-aşağı bakış |
 
 `RoundManager.terminalGoal` = 5 (haritadaki terminal sayısı, aynı zamanda
 gereken sayının **tavanı**).

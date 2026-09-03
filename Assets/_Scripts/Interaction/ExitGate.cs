@@ -30,6 +30,10 @@ public class ExitGate : NetworkBehaviour
         "geçit hep açıktır ve sadece tetikleyici çalışır.")]
     [SerializeField] private SlidingDoor door;
 
+    [Tooltip("Kapının yanındaki kilit paneli. VARSA kapı kendiliğinden açılmaz; " +
+        "kaçanın on adımlık yön dizilimini girmesi gerekir.")]
+    [SerializeField] private ExitLock exitLock;
+
     private bool doorOpened;
 
     private void Update()
@@ -43,9 +47,14 @@ public class ExitGate : NetworkBehaviour
         if (!isServer)
             return;
 
-        // Çıkış açıldığı anda kapı bir kez açılır; SlidingDoor gerisini
-        // kendi halleder ve durumu SyncVar ile herkese taşır.
-        if (!doorOpened && manager.Phase == RoundPhase.Playing && manager.ExitOpen)
+        // Kapı artık terminaller bitince KENDİLİĞİNDEN AÇILMIYOR: yanındaki
+        // panelde on adımlık yön dizilimi girilmeli (ExitLock). Terminaller
+        // bitince kapının açılıvermesi turun son perdesini bedavaya veriyordu.
+        //
+        // Panel yoksa eski davranışa düşülüyor — aksi hâlde kapı hiç açılmayan,
+        // sebebi görünmeyen bir tur kilidine dönüşürdü.
+        if (exitLock == null && !doorOpened
+            && manager.Phase == RoundPhase.Playing && manager.ExitOpen)
         {
             doorOpened = true;
 
@@ -53,9 +62,18 @@ public class ExitGate : NetworkBehaviour
                 door.SetOpen(true);
         }
 
-        // Yeni tur için sıfırla.
+        // Yeni tur: kapı kapanıyor, dizilim sıfırlanıyor. Çıkış kapısının
+        // autoCloseDelay'i 0 (bir daha kapanmaz), o yüzden kapatmak buranın işi.
         if (manager.Phase == RoundPhase.Waiting)
+        {
             doorOpened = false;
+
+            if (exitLock != null)
+                exitLock.ServerReset();
+
+            if (door != null)
+                door.SetOpen(false);
+        }
     }
 
     /// <summary>
@@ -87,7 +105,17 @@ public class ExitGate : NetworkBehaviour
     /// Tur burada bitmiyor: sahada başka kaçan varsa onlar oynamaya devam
     /// ediyor, kurtulan da onları izliyor.
     /// </summary>
-    private void OnTriggerEnter(Collider other)
+    private void OnTriggerEnter(Collider other) => ReportEscapeTrigger(other);
+
+    /// <summary>
+    /// Kaçan tetikleyiciden geçti.
+    ///
+    /// **Ayrı bir public metot, çünkü Unity mesajı buraya göndermiyor.** Trigger
+    /// olayları collider'ın kendi objesine gidiyor; tetikleyici `Tetik`
+    /// çocuğunda, bu bileşen ise geçidin kökünde. `ExitTriggerRelay` iletiyor.
+    /// Aynı objede bir collider olursa OnTriggerEnter de buraya düşüyor.
+    /// </summary>
+    public void ReportEscapeTrigger(Collider other)
     {
         if (!isServer)
             return;

@@ -66,19 +66,20 @@ public static class ObjectiveSetup
         float cellSize = sample.localScale.x;
         float wallHeight = sample.localScale.y;
 
-        // Önceki kurulumu geri al: gedik açılan duvar tekrar görünür olsun.
-        Transform existing = map.transform.Find(GroupName);
-        if (existing != null)
-            Undo.DestroyObjectImmediate(existing.gameObject);
+        Transform group = EnsureGroup(map.transform);
 
+        // TERMİNALLERE DOKUNULMUYOR. Bu araç eskiden HedefSistemi'ni komple
+        // silip her şeyi yeniden kuruyordu; elle taşınmış ya da döndürülmüş
+        // terminaller her çalıştırmada rastgele yerlere dağılıyordu. Var olanlar
+        // olduğu yerde kalıyor, yalnızca eksik olan tamamlanıyor.
+        int placed = BuildTerminals(group, cellSize);
+
+        // Çıkışlar yeniden kuruluyor: gedik deterministik seçildiği için aynı
+        // yere geliyor, ama kapı ve panel yapısı geliştikçe güncellenmeli.
+        DestroyExits(group);
         RestoreAllWalls(map.transform, wallCells);
 
-        GameObject group = new GameObject(GroupName);
-        group.transform.SetParent(map.transform, false);
-        Undo.RegisterCreatedObjectUndo(group, "Terminal ve Çıkış Kur");
-
-        int placed = BuildTerminals(group.transform, cellSize);
-        int exits = BuildExits(group.transform, wallCells, gridSize, cellSize, wallHeight);
+        int exits = BuildExits(group, wallCells, gridSize, cellSize, wallHeight);
 
         SyncTerminalGoal(placed);
 
@@ -86,8 +87,8 @@ public static class ObjectiveSetup
         EditorSceneManager.SaveOpenScenes();
 
         Debug.Log(
-            $"{placed}/{TerminalCount} terminal duvara yerleştirildi. " +
-            $"{exits}/{ExitCount} çıkış kuruldu." +
+            $"{placed}/{TerminalCount} terminal hazır (var olanlar korundu). " +
+            $"{exits}/{ExitCount} çıkış kuruldu (her birinin yanında kilit paneli)." +
             (placed < TerminalCount
                 ? "\nUYARI: terminal eksik kaldı; terminalGoal yerleşen sayıya çekildi."
                 : "") +
@@ -109,6 +110,18 @@ public static class ObjectiveSetup
         List<Vector3> placedPositions = new List<Vector3>();
         float halfSpan = cellSize * 7f;
         int placed = 0;
+
+        // Var olan terminaller KORUNUYOR: konumları aralık hesabına giriyor ama
+        // kendilerine dokunulmuyor. Elle taşınmış bir terminali yeniden
+        // yerleştirmek, oyuncunun harita üstünde yaptığı işi çöpe atmak demek.
+        foreach (Terminal terminal in parent.GetComponentsInChildren<Terminal>(true))
+        {
+            placedPositions.Add(terminal.transform.position);
+            placed++;
+        }
+
+        if (placed >= TerminalCount)
+            return placed;
 
         // Aralık kademeli gevşiyor. Sabit eşikte beşinci terminal yerleşemeyip
         // sessizce eksik kalabiliyordu ve eksik terminal turu bozuyor: çıkış
@@ -341,6 +354,10 @@ public static class ObjectiveSetup
         BoxCollider triggerCollider = trigger.AddComponent<BoxCollider>();
         triggerCollider.isTrigger = true;
 
+        // Trigger mesajı collider'ın KENDİ objesine gidiyor, geçidin köküne
+        // değil. Bu aktarıcı olmadan çıkıştan geçmek hiçbir şey yapmıyordu.
+        trigger.AddComponent<ExitTriggerRelay>();
+
         // Canavar engeli gediğin tam ağzında: kaçan geçerken canavar burada
         // duruyor. Sadece canavarın istemcisinde açık olacak.
         GameObject blocker = CreateInvisible(gate.transform, "Engel",
@@ -348,10 +365,18 @@ public static class ObjectiveSetup
             AxisSize(outDirection, 0.3f, wallHeight, cellSize));
         BoxCollider blockerCollider = blocker.AddComponent<BoxCollider>();
 
+        // Kilit paneli: kapı artık terminaller bitince kendiliğinden açılmıyor.
+        GameObject panelBody = AssetDatabase.LoadAssetAtPath<GameObject>($"{KitProps}/Fusebox 02.prefab")
+            ?? AssetDatabase.LoadAssetAtPath<GameObject>($"{KitProps}/Fusebox 01.prefab");
+
+        ExitLock exitLock = BuildExitLock(parent, panelBody, center, outDirection,
+            cellSize, sliding, index);
+
         SerializedObject serializedGate = new SerializedObject(exitGate);
         serializedGate.FindProperty("escapeTrigger").objectReferenceValue = triggerCollider;
         serializedGate.FindProperty("monsterBlocker").objectReferenceValue = blockerCollider;
         serializedGate.FindProperty("door").objectReferenceValue = sliding;
+        serializedGate.FindProperty("exitLock").objectReferenceValue = exitLock;
         serializedGate.ApplyModifiedProperties();
 
         // Gediğin dışını kapat: yoksa kapıdan gökyüzü görünüyor.
@@ -558,6 +583,105 @@ public static class ObjectiveSetup
 
             Undo.RecordObject(panel.gameObject, "Terminal ve Çıkış Kur");
             panel.gameObject.SetActive(true);
+        }
+    }
+
+    /// <summary>
+    /// Çıkışın yanına kilit panelini kurar.
+    ///
+    /// **Konum sabit hesaplanıyor, ışın atılmıyor.** İlk sürüm terminallerdeki
+    /// gibi dört yöne ışın atıp duvar arıyordu ve panel HİÇ kurulmuyordu:
+    /// `TryFindWall` önce 0.5 m yarıçaplı bir boşluk sınaması yapıyor, çıkışın
+    /// önündeki koridorda bir şeye takılıyor ve sessizce vazgeçiyordu.
+    ///
+    /// Yeri artık gediğin yanındaki halka duvarı: kapının solunda, duvarın iç
+    /// yüzünde. Halka iki gedik dışında dolu olduğu için o hücrenin duvar olduğu
+    /// garanti. Beğenilmezse elle taşınabilir — araç bir daha çalıştırılırsa
+    /// buraya döner.
+    /// </summary>
+    private static ExitLock BuildExitLock(Transform parent, GameObject body, Vector3 center,
+        Vector3 outDirection, float cellSize, SlidingDoor door, int index)
+    {
+        Vector3 cross = Vector3.Cross(Vector3.up, outDirection).normalized;
+
+        // Kapının yanı: yana bir hücrenin yarısından fazla (gediğin dışına),
+        // içeri doğru duvarın iç yüzünden 8 cm önde.
+        Vector3 position = new Vector3(center.x, TerminalHeight, center.z)
+            - outDirection * (cellSize * 0.5f + 0.08f)
+            + cross * (cellSize * 0.62f);
+
+        GameObject panel = new GameObject($"Cikis_Kilidi_{index}");
+        panel.transform.SetParent(parent, false);
+        panel.transform.SetPositionAndRotation(
+            position, Quaternion.LookRotation(-outDirection, Vector3.up));
+
+        BoxCollider box = panel.AddComponent<BoxCollider>();
+        box.size = new Vector3(0.6f, 0.8f, 0.16f);
+
+        panel.AddComponent<NetworkIdentity>();
+        ExitLock exitLock = panel.AddComponent<ExitLock>();
+
+        if (body != null)
+        {
+            GameObject visual = (GameObject)PrefabUtility.InstantiatePrefab(body, panel.transform);
+            visual.name = "Govde";
+            visual.transform.localPosition = Vector3.zero;
+            visual.transform.localRotation = Quaternion.identity;
+
+            foreach (Collider collider in visual.GetComponentsInChildren<Collider>())
+                collider.enabled = false;
+        }
+
+        // Gösterge: karanlıkta paneli tanıyabilmek ve durumunu renkten okumak
+        // için. Işıktan etkilenmeyen materyal şart (CLAUDE.md 11.2).
+        GameObject light = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        light.name = "Gosterge";
+        Object.DestroyImmediate(light.GetComponent<Collider>());
+        light.transform.SetParent(panel.transform, false);
+        light.transform.localPosition = new Vector3(0f, 0.28f, -0.09f);
+        light.transform.localScale = new Vector3(0.34f, 0.08f, 0.03f);
+        light.GetComponent<Renderer>().sharedMaterial =
+            GetOrCreateUnlitMaterial("Cikis_Kilit_Gosterge", Color.white);
+
+        SerializedObject serialized = new SerializedObject(exitLock);
+        serialized.FindProperty("door").objectReferenceValue = door;
+        serialized.FindProperty("statusLight").objectReferenceValue = light.GetComponent<Renderer>();
+        serialized.ApplyModifiedProperties();
+
+        LayerSetup.Apply(panel, LayerSetup.Etkilesim);
+        Undo.RegisterCreatedObjectUndo(panel, "Terminal ve Çıkış Kur");
+
+        return exitLock;
+    }
+
+    /// <summary>`HedefSistemi` grubunu bulur, yoksa kurar.</summary>
+    private static Transform EnsureGroup(Transform map)
+    {
+        Transform existing = map.Find(GroupName);
+
+        if (existing != null)
+            return existing;
+
+        GameObject group = new GameObject(GroupName);
+        group.transform.SetParent(map, false);
+        Undo.RegisterCreatedObjectUndo(group, "Terminal ve Çıkış Kur");
+
+        return group.transform;
+    }
+
+    /// <summary>
+    /// Yalnızca çıkışa ait objeleri siler; terminaller yerinde kalıyor.
+    /// Adla ayırt ediliyor çünkü bir çıkış birden çok kök obje üretiyor
+    /// (kapı, geçit, kilit paneli).
+    /// </summary>
+    private static void DestroyExits(Transform group)
+    {
+        for (int i = group.childCount - 1; i >= 0; i--)
+        {
+            Transform child = group.GetChild(i);
+
+            if (child.name.StartsWith("Cikis_"))
+                Undo.DestroyObjectImmediate(child.gameObject);
         }
     }
 
