@@ -627,9 +627,34 @@ dikey kök hareketi poza gömüldü.
 | XZ + dönüş de poza gömüldü | Canavar ileri uçtu, daha kötü |
 | Yalnızca dikey gömüldü | Havada yatma çözüldü, duruş açık kaldı |
 
-**Asıl sebep bulundu (2026-09-03): iki karakter aynı ölçekte değil.**
+**ÇÖZÜLDÜ (2026-09-03) — iki ayrı sebep vardı, oynanışta doğrulanacak.**
 
-Yerleşim aslında doğru. Prefabtan okunan gerçek değerler:
+Ekran görüntüsünde canavar kurbanın **bir buçuk metre arkasında** diz
+çöküyordu. İki sebep bulundu; ikisi de düzeltildi.
+
+### Sebep 1: klibin yatay referansı "Original"
+
+İki klip de `keepOriginalPositionXZ: 1` ile import ediliyordu — yani "Based
+Upon: Original". Bu, klipte yazılı **özgün dünya offsetini pozun içinde
+tutuyor.** Mixamo'nun eşli takedown'ında iki karakter sahnenin ayrı
+noktalarında yazılmış, o yüzden `ApplyDeathPose` ikisini aynı köke oturtsa
+bile aralarında o mesafe kalıyordu. Resimdeki 1.5 m tam olarak buydu.
+
+`ClipRootMotion` artık ağırlık merkezine geçiriyor: her klip kendi kökünde
+ortalanıyor ve ikisi iç içe geçiyor.
+
+> **Bu, eski teşhisi çürüttü.** Belge "klipler gerçek bir Mixamo çifti değil,
+> ayrı ayrı indirilmiş, ortak origin'i yok" diyordu. Meta dosyaları tersini
+> söylüyor: ikisi de `KillerDollUnity_BaseBody` rig'inde, ikisi de **78 kare**,
+> import ayarları birebir aynı — eşleşen bir çift. Yeni klip indirmeye gerek
+> yoktu.
+>
+> Dönüşe dokunulmadı: yukarıdaki tabloda "zıt rotasyon → **doğru yön**, hâlâ
+> tam oturmuyor" yazıyor, yani yön zaten çözülmüştü. Bozuk olan mesafeydi.
+
+### Sebep 2: iki karakter aynı ölçekte değil
+
+Prefabtan okunan gerçek değerler:
 
 | | Gövde kökü yerel konumu | Yerel ölçek | Ekranda boy |
 |---|---|---|---|
@@ -650,17 +675,40 @@ bir set bile %18 ölçek farkıyla iç içe geçmez. Yukarıdaki tabloda beş de
 başarısız olduysa sebebi buydu — hepsi konumu ve dönüşü kurcaladı, ölçeğe hiç
 dokunmadı.
 
-İki yol var ve seçim tasarıma ait:
+**Seçilen yol:** kurbanın gövdesi ölüm klibi boyunca canavarın ölçeğine
+çıkıyor (`PlayerBodyVisual.deathScaleMatch`), `ClearDeathPose` geri alıyor.
+Canavarın "olduğundan büyük görünmesi" etkisi kovalamacada korunuyor; kurban
+yalnızca 2.6 saniye boyunca %18 büyüyor ve o sırada zaten yerde yatıyor.
 
-- **Kurbanı ölüm boyunca canavarın ölçeğine çıkar** (gövde kökünü 1.18 ile
-  çarp, `ClearDeathPose`'da geri al). Canavarın "olduğundan büyük görünmesi"
-  etkisi kovalamacada korunuyor; kurban 2.6 saniye boyunca %18 büyüyor.
-- **Canavarın 1.18 çarpanını kaldır** (`MonsterSetup.ExtraScale = 1`). İki
-  karakter her yerde aynı ölçekte olur, ama bölüm 17'deki bilinçli tasarım
-  kararı geri alınmış olur.
+Diğer yol canavarın 1.18'ini büsbütün kaldırmaktı; bölüm 17'deki bilinçli
+tasarım kararını geri alacağı için seçilmedi.
 
-Hangisi seçilirse seçilsin sayı elle iki yere yazılmamalı: `MonsterSetup` ve
-`RunnerSetup`'taki `ExtraScale` sabitleri tek kaynak olmalı.
+**Çarpanı `Kaçan Modelini Kur` yazıyor**, iki aracın `ExtraScale` sabitlerinin
+oranından. Elle değiştirilirse bir sonraki kurulum geri alır — sayı iki yere
+elle yazılmıyor.
+
+### Kilit sırasında kamera artık sabit
+
+Yakalama kilidinde kamera geriye çekilirken "hızlı gir, tut, yavaş çık"
+kayması vardı. Yakalama animasyonu zaten hareketli olduğu için kameranın da
+kayması görüntüyü okunmaz yapıyordu. Rampalar sıfırlandı: kamera anında
+yerine oturuyor ve kilit boyunca kıpırdamıyor — ortaya sabit bir omuz üstü
+çekim çıkıyor.
+
+Rampalar `MonsterAttack`'te alan olarak duruyor (`killCameraRampIn`,
+`killCameraRampOut`); yumuşak geçiş istenirse büyütmek yetiyor.
+
+### Bunu denemek için
+
+Klip import ayarı ve ölçek çarpanı **kurulum araçlarından** yazılıyor, yani
+kodu değiştirmek tek başına yetmiyor. Sırayla:
+
+1. `Yakalamaca > Canavar Modelini Kur` (yakalama klibi)
+2. `Yakalamaca > Kaçan Modelini Kur` (ölüm klibi + ölçek çarpanı)
+
+Bu sırayla, çünkü kaçanın ölüm klibi canavarın `kill` klibiyle aynı süreye
+kırpılıyor (bölüm 17). Kamera değişikliği için araç çalıştırmak gerekmiyor,
+yeni alanların C# varsayılanı zaten istenen değer.
 
 ### Kalan büyük işler
 

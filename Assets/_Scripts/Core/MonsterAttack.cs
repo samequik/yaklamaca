@@ -100,6 +100,15 @@ public class MonsterAttack : NetworkBehaviour
         "Birinci şahısta kendi öldürme animasyonunu göremiyordun. 0 = kapalı.")]
     [SerializeField] private float killCameraPullBack = 0.7f;
 
+    [Tooltip("Kameranın geri çekilmeye oturma süresi (saniye). 0 = anında " +
+        "oturur ve kilit boyunca hiç kıpırdamaz — istenen bu. Büyütmek " +
+        "kaydırma efekti veriyor, ama yakalama animasyonu zaten hareketli " +
+        "olduğu için görüntü okunmaz hâle geliyordu.")]
+    [SerializeField] private float killCameraRampIn;
+
+    [Tooltip("Kilit biterken kameranın geri gelme süresi (saniye). 0 = anında.")]
+    [SerializeField] private float killCameraRampOut;
+
     [Tooltip("Kilitliyken sağa-sola bakabilme açısı (derece).")]
     [SerializeField] private float lockYawLimit = 45f;
 
@@ -298,7 +307,7 @@ public class MonsterAttack : NetworkBehaviour
         lockUntil = Time.time + duration;
 
         if (cameraPullBack > 0f)
-            controller.PushCameraBack(cameraPullBack, duration);
+            controller.PushCameraBack(cameraPullBack, duration, killCameraRampIn, killCameraRampOut);
     }
 
     private void TickLock()

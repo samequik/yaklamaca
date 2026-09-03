@@ -148,6 +148,8 @@ public class PlayerController : MonoBehaviour
     private float cameraPullDistance;
     private float cameraPullDuration;
     private float cameraPullTimer;
+    private float cameraPullRampIn;
+    private float cameraPullRampOut;
 
     private bool isSliding;
     private float slideTimer;
@@ -254,16 +256,28 @@ public class PlayerController : MonoBehaviour
     /// Süreyi ve mesafeyi çağıran veriyor; temizlik gerekmiyor, sayaç kendi
     /// bitiyor. Kilit yarıda kesilse bile kamera geri geliyor.
     /// </summary>
-    public void PushCameraBack(float distance, float duration)
+    /// <param name="rampIn">Geri çekilmenin oturma süresi (saniye). 0 = anında.</param>
+    /// <param name="rampOut">Sonunda geri gelme süresi (saniye). 0 = anında.</param>
+    public void PushCameraBack(float distance, float duration, float rampIn, float rampOut)
     {
         cameraPullDistance = distance;
         cameraPullDuration = Mathf.Max(duration, 0.01f);
         cameraPullTimer = cameraPullDuration;
+        cameraPullRampIn = Mathf.Max(rampIn, 0f);
+        cameraPullRampOut = Mathf.Max(rampOut, 0f);
     }
 
     /// <summary>
-    /// Geri çekilme: hızlı gir, tut, sonunda yumuşak çık. Ani sıçrama
-    /// yakalamanın etkisini bozuyor.
+    /// Geri çekilme. Rampalar 0 ise kamera anında yerine oturup **kilit
+    /// boyunca kıpırdamıyor**.
+    ///
+    /// Başlangıçta yumuşak giriş/çıkış vardı ("hızlı gir, tut, yavaş çık").
+    /// Yakalama animasyonunda istenmiyor: animasyon zaten hareketli, kameranın
+    /// da kayması görüntüyü okunmaz yapıyordu. Kayma silinince ortaya sabit bir
+    /// "omuz üstü" çekim çıkıyor ve öldürme animasyonu izlenebiliyor.
+    ///
+    /// Rampalar alan olarak duruyor: yumuşak geçiş istenirse
+    /// `MonsterAttack`'teki iki sayıyı büyütmek yetiyor.
     /// </summary>
     private void UpdateCameraPull()
     {
@@ -276,8 +290,12 @@ public class PlayerController : MonoBehaviour
         cameraPullTimer -= Time.deltaTime;
 
         float elapsed = cameraPullDuration - cameraPullTimer;
-        float rampIn = Mathf.Clamp01(elapsed / 0.25f);
-        float rampOut = Mathf.Clamp01(cameraPullTimer / 0.35f);
+
+        // Sıfır rampa bölmeye girmemeli; 1 yazmak "zaten tamam" demek.
+        float rampIn = cameraPullRampIn > 0f ? Mathf.Clamp01(elapsed / cameraPullRampIn) : 1f;
+        float rampOut = cameraPullRampOut > 0f
+            ? Mathf.Clamp01(cameraPullTimer / cameraPullRampOut)
+            : 1f;
 
         cameraPull = cameraPullDistance * Mathf.Min(rampIn, rampOut);
     }

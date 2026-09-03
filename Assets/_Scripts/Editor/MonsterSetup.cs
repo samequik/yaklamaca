@@ -40,7 +40,14 @@ public static class MonsterSetup
     /// çarpışma kutusundan biraz taşıyor — kovalayan bir şeyin olduğundan büyük
     /// görünmesi zaten istenen etki.
     /// </summary>
-    private const float ExtraScale = 1.18f;
+    /// <summary>
+    /// Canavar hull boyunun bu katı çiziliyor — kovalayan şeyin olduğundan
+    /// büyük görünmesi istenen etki (CLAUDE.md bölüm 17).
+    ///
+    /// `RunnerSetup` bunu okuyor: ölüm pozunda kurbanı aynı ölçeğe çıkarmak
+    /// için oran gerekiyor ve sayı iki yere elle yazılmamalı.
+    /// </summary>
+    public const float ExtraScale = 1.18f;
 
     // Klip adları: dosya adında "@" sonrası kısım.
     private const string LungeClipKey = "attack";

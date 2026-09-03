@@ -715,6 +715,14 @@ public static class RunnerSetup
         for (int i = 0; i < headParts.Count; i++)
             headArray.GetArrayElementAtIndex(i).objectReferenceValue = headParts[i];
 
+        // Ölüm pozunda kurbanı canavarın ölçeğine çıkaran oran. İki modelin
+        // ikisi de hull boyuna normalleniyor, üstüne kendi ExtraScale'i
+        // geliyor — yani ekrandaki boy oranı sadece bu ikisinin oranı.
+        // Sayıyı burada yazmak, iki aracın sabitlerini tek kaynak yapıyor.
+        SerializedProperty scaleMatch = serializedVisual.FindProperty("deathScaleMatch");
+        if (scaleMatch != null)
+            scaleMatch.floatValue = MonsterSetup.ExtraScale / ExtraScale;
+
         serializedVisual.ApplyModifiedProperties();
 
         SerializedObject serializedAnimator = new SerializedObject(runnerAnimator);

@@ -59,6 +59,16 @@ public class PlayerBodyVisual : MonoBehaviour
 
     [SerializeField] private Renderer[] runnerHeadRenderers;
 
+    [Header("Ölüm pozu")]
+    [Tooltip("Kurbanın gövdesi ölüm klibi boyunca bu çarpanla ölçekleniyor. " +
+        "Canavar hull boyunun 1.18 katı çiziliyor (MonsterSetup.ExtraScale), " +
+        "kaçan 1 katı; yani canavarın yakalama koreografisi %18 daha büyük " +
+        "oynuyor ve elleri kurbanın gövdesinin olmadığı yere iniyor. Çarpan " +
+        "ikisini ölüm süresince aynı ölçeğe getiriyor. 1 = kapalı. " +
+        "`Kaçan Modelini Kur` bunu iki aracın ExtraScale oranından yazıyor — " +
+        "elle değiştirirsen bir sonraki kurulum geri alır.")]
+    [SerializeField] private float deathScaleMatch = 1f;
+
     private RoundRole role = RoundRole.None;
     private bool onField = true;
     private bool firstPerson;
@@ -72,6 +82,7 @@ public class PlayerBodyVisual : MonoBehaviour
     private Transform posedBody;
     private Vector3 posedLocalPosition;
     private Quaternion posedLocalRotation;
+    private Vector3 posedLocalScale;
 
     private void Start() => Refresh();
 
@@ -128,6 +139,13 @@ public class PlayerBodyVisual : MonoBehaviour
         posedBody = body;
         posedLocalPosition = body.localPosition;
         posedLocalRotation = body.localRotation;
+        posedLocalScale = body.localScale;
+
+        // Ölçek eşitleme, konumdan ÖNCE: ölçek gövdenin kendi kökünde
+        // uygulanıyor ve dünya konumunu kaydırmıyor, ama sırayı tersine
+        // çevirmek okuyanı "acaba kaydırıyor mu" diye düşündürüyor.
+        if (deathScaleMatch > 0f && !Mathf.Approximately(deathScaleMatch, 1f))
+            body.localScale = posedLocalScale * deathScaleMatch;
 
         Vector3 forward = Vector3.ProjectOnPlane(killer.forward, Vector3.up);
 
@@ -149,6 +167,7 @@ public class PlayerBodyVisual : MonoBehaviour
 
         posedBody.localPosition = posedLocalPosition;
         posedBody.localRotation = posedLocalRotation;
+        posedBody.localScale = posedLocalScale;
         posedBody = null;
     }
 

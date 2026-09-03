@@ -21,13 +21,30 @@ using UnityEditor;
 /// atılışı artık kökten bağımsız olarak mesh'i taşıyordu, canavar ileri uçup
 /// kurbandan ayrılıyordu.
 ///
-/// Sebep, elimizdeki kliplerin **gerçek bir Mixamo çifti olmaması**: canavarın
-/// klibi ve kurbanınki ayrı ayrı indirilmiş, ortak bir origin'e göre yazılmamış.
-/// Her birinin kendi yatay yer değiştirmesi var ve ikisi birbirini tutmuyor.
-///
 /// Doğru kurulum: **yatay ve dönüş kök hareketi atılsın** (ikisi de yerinde
 /// oynasın), yalnızca dikey poza gömülsün ki yere insinler. İki kök zaten
 /// `PlayerBodyVisual.ApplyDeathPose` ile aynı noktaya oturtuluyor.
+///
+/// ### Yatay referans: ağırlık merkezi, "Original" değil
+///
+/// Yerinde oynatmak tek başına yetmedi — canavar kurbanın **bir buçuk metre
+/// arkasında** diz çöküyordu. Sebep `keepOriginalPositionXZ` ("Based Upon:
+/// Original"): klipte yazılı özgün dünya offseti pozun içinde kalıyor. Mixamo'nun
+/// eşli takedown'ında iki karakter sahnenin ayrı noktalarında yazılmış, o yüzden
+/// aynı köke oturtulsalar bile aralarında o mesafe duruyordu.
+///
+/// Ağırlık merkezine geçince her klip kendi kökünde ortalanıyor ve ikisi iç içe
+/// geçiyor — yakalama koreografisinin istediği de bu.
+///
+/// **Bu, uzun süre yazılı olan teşhisi çürüttü.** Belgede "klipler gerçek bir
+/// Mixamo çifti değil, ayrı ayrı indirilmiş" yazıyordu. Meta dosyaları bunun
+/// tersini söylüyor: ikisi de `KillerDollUnity_BaseBody` rig'inde, ikisi de
+/// 78 kare, import ayarları birebir aynı. Eşleşen bir çiftti; bozuk olan tek
+/// şey bu referans ayarıydı.
+///
+/// **Dönüşe dokunulmuyor.** Yön zaten doğruydu (CLAUDE.md bölüm 10'daki deneme
+/// tablosunda "zıt rotasyon → doğru yön, hâlâ tam oturmuyor"). Bozuk olan
+/// mesafeydi.
 ///
 /// XZ ve dönüş **açıkça kapatılıyor**, sadece atlanmıyor: önceki sürüm onları
 /// açmıştı ve kırpma gibi bu ayar da import dosyasında kalıcı.
@@ -73,6 +90,27 @@ public static class ClipRootMotion
         if (take.lockRootRotation)
         {
             take.lockRootRotation = false;
+            changed = true;
+        }
+
+        // Yatay referans ağırlık merkezi, klipte yazılı özgün konum DEĞİL.
+        //
+        // Aradaki fark bu çiftte 1.5 metre: Mixamo'nun eşli takedown'ında iki
+        // karakter sahnenin ayrı noktalarında yazılmış ve "Original" o offseti
+        // pozun içinde tutuyor. İki kökü `ApplyDeathPose` ile aynı noktaya
+        // oturtsan bile karakterler o kadar ayrı duruyordu — canavar kurbanın
+        // bir buçuk metre arkasında diz çöküyordu.
+        //
+        // Ağırlık merkezine geçince her klip kendi kökünde ortalanıyor ve ikisi
+        // iç içe geçiyor; yakalama koreografisinin istediği de bu.
+        //
+        // **Dönüşe dokunulmuyor** (`keepOriginalOrientation`). Yön zaten
+        // doğruydu — CLAUDE.md'deki deneme tablosunda "zıt rotasyon → doğru
+        // yön, hâlâ tam oturmuyor" satırı bunu söylüyor. Bozuk olan tek şey
+        // mesafeydi.
+        if (take.keepOriginalPositionXZ)
+        {
+            take.keepOriginalPositionXZ = false;
             changed = true;
         }
 
