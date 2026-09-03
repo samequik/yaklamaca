@@ -168,6 +168,9 @@ public class LightBakeWindow : EditorWindow
         if (GUILayout.Button("Denetle (hiçbir şeyi değiştirmez)"))
             report = Audit();
 
+        if (GUILayout.Button("Pişmiş ışığı ÖLÇ (hiçbir şeyi değiştirmez)"))
+            report = MeasureLightmaps();
+
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Hazırlık", EditorStyles.boldLabel);
 
@@ -319,6 +322,109 @@ public class LightBakeWindow : EditorWindow
             : "Occlusion verisi: YOK — duvarın arkasındaki her şey de çiziliyor");
 
         return text.ToString();
+    }
+
+    // ---------- Ölçüm ----------
+
+    /// <summary>
+    /// Pişmiş lightmap dokusunun gerçek parlaklığını ölçer.
+    ///
+    /// "Işık yok" ile "ışık var ama sönük" tamamen farklı iki arıza ve dosyaya
+    /// bakarak ayırt edilemiyor: atlas dolu görünüyor, doku doğru türde import
+    /// edilmiş, LightingData bağlı — hepsi doğruyken bile oyunda sıfır ışık
+    /// olabiliyor. Bu düğme tahmini bitiriyor.
+    ///
+    /// Doku okunabilir değil (EXR, isReadable kapalı), o yüzden GetPixels
+    /// çalışmıyor. RenderTexture'a blit edip oradan okuyoruz — okunabilirlikten
+    /// bağımsız ve içeriği hiç değiştirmiyor.
+    /// </summary>
+    private static string MeasureLightmaps()
+    {
+        LightmapData[] maps = LightmapSettings.lightmaps;
+
+        if (maps == null || maps.Length == 0)
+            return "Sahnede pişmiş lightmap YOK — LightmapSettings.lightmaps boş.";
+
+        StringBuilder text = new StringBuilder();
+        text.AppendLine($"Pişmiş atlas: {maps.Length} adet");
+
+        for (int i = 0; i < maps.Length; i++)
+        {
+            Texture2D color = maps[i].lightmapColor;
+
+            if (color == null)
+            {
+                text.AppendLine($"  [{i}] renk dokusu YOK");
+                continue;
+            }
+
+            Color[] pixels = ReadPixels(color);
+            float max = 0f, sum = 0f;
+            int lit = 0;
+
+            foreach (Color pixel in pixels)
+            {
+                float luma = pixel.r * 0.2126f + pixel.g * 0.7152f + pixel.b * 0.0722f;
+                sum += luma;
+                if (luma > max) max = luma;
+                if (luma > 0.01f) lit++;
+            }
+
+            float mean = pixels.Length > 0 ? sum / pixels.Length : 0f;
+            float litPercent = pixels.Length > 0 ? 100f * lit / pixels.Length : 0f;
+
+            text.AppendLine(
+                $"  [{i}] {color.width}x{color.height}  en parlak={max:0.###}  " +
+                $"ortalama={mean:0.####}  aydınlık texel=%{litPercent:0.#}");
+        }
+
+        text.AppendLine();
+        text.AppendLine(
+            "Nasıl okunur: en parlak 0'a yakınsa lightmap gerçekten KARA — " +
+            "pişirme ışığı hiç yakalamamış (ışık geometrinin içinde kalmış, " +
+            "şiddet çok düşük ya da pişirme yarıda kalmış). En parlak yüksek ama " +
+            "ortalama çok düşükse ışık var, yayılmıyor: şiddet ve sekme " +
+            "çarpanlarını büyüt. İkisi de makulse sorun pişirmede değil, " +
+            "dokunun oyuna uygulanmasında.");
+
+        string result = text.ToString();
+        Debug.Log(result);
+        return result;
+    }
+
+    /// <summary>
+    /// Okunabilir olmayan bir dokuyu RenderTexture üzerinden okur.
+    /// Lightmap EXR'i her zaman okunamaz gelir; import ayarını kurcalamak
+    /// yerine kopyasını alıyoruz.
+    /// </summary>
+    private static Color[] ReadPixels(Texture2D source)
+    {
+        RenderTexture target = RenderTexture.GetTemporary(
+            source.width, source.height, 0, RenderTextureFormat.ARGBFloat,
+            RenderTextureReadWrite.Linear);
+
+        RenderTexture previous = RenderTexture.active;
+
+        try
+        {
+            Graphics.Blit(source, target);
+            RenderTexture.active = target;
+
+            Texture2D readable = new Texture2D(
+                source.width, source.height, TextureFormat.RGBAFloat, false, true);
+
+            readable.ReadPixels(new Rect(0f, 0f, source.width, source.height), 0, 0);
+            readable.Apply();
+
+            Color[] pixels = readable.GetPixels();
+            Object.DestroyImmediate(readable);
+            return pixels;
+        }
+        finally
+        {
+            RenderTexture.active = previous;
+            RenderTexture.ReleaseTemporary(target);
+        }
     }
 
     // ---------- 0. Static bayraklarını alt objelere yay ----------
