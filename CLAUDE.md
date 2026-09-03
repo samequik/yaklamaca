@@ -26,7 +26,8 @@ isabet) · izler (yalnızca canavara) · duruş senkronu · ses (adım, iniş, k
 kaçış sistemi (bölüm 11) · harita giydirme ve prop dağıtımı · mağara yankısı
 (bölüm 12) · menü, lobi, ayarlar ve tuş atamaları (bölüm 13) · canavar modeli
 ve animasyonları (bölüm 14) · katman düzeni ve daraltılmış fizik maskeleri
-(bölüm 16) · kaçan modeli, animasyonları ve yakalanma animasyonu (bölüm 17).
+(bölüm 16) · kaçan modeli, animasyonları ve yakalanma animasyonu (bölüm 17) ·
+çıkış görünümü ve on adımlık kilit paneli (bölüm 18) · git deposu.
 
 **Yarım:** lightmap aracı yazıldı (`Yakalamaca > Işığı Pişir`) ama **pişirme
 hiç çalıştırılmadı** — bkz. bölüm 3. Occlusion culling de öyle.
@@ -41,9 +42,21 @@ kadro senkronu, hazır işareti, tur başlatma, tur bitince lobiye dönüş, oda
 ayrılma, tuş atama ekranı) · canavarın araba modeli hareketi · canavar modeli,
 animasyonları ve saldırı akışı.
 
-**Harita henüz elden geçirilmedi.** Elle düzenlenecek; o yüzden lightmap ve
-occlusion pişirme bekliyor (haritaya eklenen her static parça ikisini de
-geçersiz kılıyor).
+**Bu oturumda oynanışta doğrulananlar (2026-09-03):** çıkış kapısının kit
+gövdesi ve sahanlığı · çıkış kilidi paneli ve on adımlık yön dizilimi · eğilme
+kamerası · kaçan modelinin locomotion animasyonları · materyal onarımı (canavar
+ve kaçan artık kendi dokularıyla görünüyor).
+
+**Bu oturumda bulunan ama HENÜZ ÇÖZÜLMEYEN:** yakalama ve ölme animasyonlarının
+göreli duruşu (bölüm 17, bilinen eksikler).
+
+**Harita elden geçirildi (2026-09-03).** Elle düzenlendi: duvar panelleri, zemin
+karoları, EXIT tabelası eklendi, terminaller elle yerleştirildi. Bundan sonra
+haritayı silen araçlar çalıştırılmayacak — bkz. bölüm 0'daki kural.
+
+**Sırada lightmap + occlusion pişirme var.** İkisi de haritaya eklenen her
+static parçayla geçersiz olduğu için sona bırakılmıştı; harita kesinleştiğine
+göre artık yapılabilir (bölüm 3 ve 10).
 
 ---
 
@@ -1234,6 +1247,17 @@ Kilit sayacı `Update`'in en başında işliyor: tur biterse ya da canavar
 elenirse aşağıdaki erken çıkışlar devreye giriyor ve kilit sonsuza kadar
 kalırdı.
 
+### Yakalarken kamera geriye çekiliyor
+
+Birinci şahısta canavar **kendi öldürme animasyonunu göremiyordu.** Yakalama
+kilidi boyunca kamera geriye çekilip sonunda yumuşakça geri geliyor
+(`MonsterAttack.killCameraPullBack`, 0.7 m): hızlı gir, tut, yavaş çık. 0
+yapılırsa kapanıyor.
+
+Değer `PlayerController.CameraForwardOffset` üzerinden geçiyor — eğilme payıyla
+aynı kanal. `CameraBob` kameranın yerel z'sini MUTLAK yazdığı için tek kaynak
+şart; ayrı bir yazıcı eklemek bölüm 1'deki tuzağı tekrar üretirdi.
+
 ### Bıçak kaldırıldı
 
 Animasyonlar elle saldırıyor. Bıçak hem gereksiz hem de saldırı animasyonunun
@@ -1615,13 +1639,24 @@ Sebep: hareketi `PlayerController` verdiği için Animator'da
 koşmada istediğimiz tam olarak bu. Ama yakalama/ölme çifti yere kök hareketiyle
 iniyor; o hareket atılınca karakter aşağı hiç gelmiyor.
 
-Çözüm klibi **"Bake Into Pose"** yapmak (`ClipRootMotion`): yer değiştirme kök
-hareketi olarak çıkarılmak yerine pozun içinde kalıyor, `applyRootMotion` kapalı
-olsa bile karakter yere iniyor. Yalnızca tek atımlık kliplerde — koşu döngüsüne
-uygulanırsa karakter kökten uzaklaşarak süzülür.
+Çözüm klibin **dikey** kök hareketini "Bake Into Pose" yapmak
+(`ClipRootMotion`): yer değiştirme kök hareketi olarak çıkarılmak yerine pozun
+içinde kalıyor, `applyRootMotion` kapalı olsa bile karakter yere iniyor.
+Yalnızca tek atımlık kliplerde — koşu döngüsüne uygulanırsa karakter kökten
+uzaklaşarak süzülür.
 
-"Based Upon" hepsinde **Original**: klip çifti birbirine göre yazılmış, başka bir
-referans (Center of Mass, Feet, Body Orientation) göreli duruşu bozup iki
+**Yalnızca DİKEY gömülüyor.** İlk denemede yatay (XZ) ve dönüş de gömüldü ve
+sonuç daha kötü oldu: canavarın atılışı kökten bağımsız olarak mesh'i taşıyordu,
+canavar ileri uçup kurbandan ayrılıyordu. Sebep, elimizdeki kliplerin **gerçek
+bir Mixamo çifti olmaması** — canavarınki ve kurbanınki ayrı ayrı indirilmiş,
+ortak bir origin'e göre yazılmamış. Doğru kurulum: yatay ve dönüş kök hareketi
+atılsın (ikisi de yerinde oynasın), yalnızca dikey poza gömülsün. İki kök zaten
+`PlayerBodyVisual.ApplyDeathPose` ile aynı noktaya oturtuluyor.
+
+XZ ve dönüş **açıkça kapatılıyor**, sadece atlanmıyor: kırpma gibi bu ayar da
+import dosyasında kalıcı, yani önceki sürümün açtığını geri almak gerekiyor.
+
+Dikeyde "Based Upon" **Original**: başka bir
 karakteri birbirinden kaydırıyor.
 
 Alan adları serileştirmede farklı görünüyor (`lockRootHeightY` →
@@ -1722,3 +1757,86 @@ görünüyordu, o yüzden ikisi ayrı ayrı ele alınıyor.
   kadroyu doldurmak, kaçanı taklit etmek değil.
 - **Havada olma klibi `Jumping`.** `Falling Idle` varsa araç onu tercih ediyor;
   gerçek bir döngü olduğu için uzun düşüşlerde daha doğru duruyor.
+
+---
+
+## 18. Çıkışın görünümü ve tetikleyicisi
+
+Çıkış oyun içinde bozuk duruyordu: gedikte havada asılı duran çıplak sarı bir
+kutu ve arkasında gökyüzü. Sebebi iki ayrı şeydi ve ikisi de sessizdi.
+
+### 1. Kapı hiç giydirilmemişti
+
+`Haritayı Giydir` labirent kapılarına `Wall BayDoor` kit gövdesi takıyor — ama
+yalnızca `Harita/Kapilar` altını tarıyor. Çıkış kapısı `HedefSistemi` altında
+**ve giydirmeden SONRA** kuruluyor (kurulum sırasında adım 3 vs adım 6), yani o
+araç çalışırken ortada bile yok. Görünen şey, giydirilmemiş ham kutuydu.
+
+Diğer kapılar düzgün göründüğü için sorun "çıkışa özel bir bozukluk" gibi
+duruyordu; oysa aynı sistemin görmediği bir yerdi.
+
+Çözüm: `ObjectiveSetup` kendi kapısını kendisi giydiriyor (`DressExitDoor`).
+Ölçek collider'a taşınıyor (`MapDressWindow.UnscalePanel` ile aynı numara):
+kutu 0.25 × 3 × 3.2 ölçekli ve o ölçek altındaki kit gövdesini ezerdi.
+
+### 2. Çıkışın arkasında hiçbir şey yoktu
+
+`Cikis_Gecidi` yalnızca bir zemin koyuyordu; yan duvar, tavan, arka duvar yok.
+Kapıdan gökyüzü ve boş zemin görünüyordu.
+
+**Geometri doğruydu** — kapı `(0.25, 3, 3.2)`, gedik `(3.2, 3)`, birebir
+doluyor. "Kapı küçük kalmış" gibi görünen boşluk aslında haritanın dışıydı.
+Ölçüler sahne dosyasından okunarak doğrulandı; tahminle uğraşmak gerekmedi.
+
+`BuildVestibule` gediğin dışına kapalı bir sahanlık kuruyor: iki yan duvar,
+arka duvar, tavan; iç yüzleri `Wall Plain` ile giydirilmiş.
+
+Sahanlık duvar halkasının **dış yüzünden** başlayıp `Cikis_Gecidi/Zemin`'in
+bittiği yerde bitiyor. Halkanın içine taşsaydı yan duvarlar komşu duvar
+bloklarının içinde kalır ve yüzeyler çakışırdı.
+
+### 3. Çıkıştan geçmek hiçbir şey yapmıyordu
+
+Bu en ciddisiydi ve sistem yazıldığından beri öyleydi.
+
+`ExitGate` geçidin kökünde, tetikleyici collider ise `Tetik` **çocuğunda**.
+Unity trigger mesajlarını collider'ın **kendi objesine** gönderiyor (ve collider
+bir Rigidbody'ye bağlıysa onunkine) — parent'a değil. Yani
+`ExitGate.OnTriggerEnter` **bir kez bile çağrılmamıştı**: kaçan kapıdan geçiyor,
+ne kurtuluyor ne izleyiciye düşüyordu.
+
+`ExitTriggerRelay` tetikleyicinin üstünde durup olayı geçide iletiyor
+(`ExitGate.ReportEscapeTrigger`). Köke kinematik bir Rigidbody eklemek de
+çözerdi ama o, canavar engelini de aynı gövdeye bağlardı; bu yol fiziğe hiç
+dokunmuyor.
+
+**Ders:** trigger olayı beklerken collider'ın hangi objede olduğuna bak.
+
+### 4. Kilit paneli ışın atmıyor
+
+İlk sürüm paneli terminaller gibi yerleştiriyordu: dört yöne ışın at, en yakın
+duvarı bul. Panel **hiç kurulmadı** — `TryFindWall` ışından önce 0.5 m yarıçaplı
+bir boşluk sınaması yapıyor (`Physics.CheckSphere`) ve çıkışın önündeki koridorda
+takılıp sessizce vazgeçiyordu.
+
+Yer artık sabit hesaplanıyor: gediğin yanındaki halka duvarının iç yüzü, kapının
+solunda. Halka iki gedik dışında dolu olduğu için orada duvar olduğu garanti.
+
+**Panel `Cikis_` ile başlıyor**, yani `Terminal ve Çıkış Kur` her çalıştığında
+çıkış objeleriyle birlikte yeniden kuruluyor — elle taşınırsa sabit yerine
+döner. Beğenilen bir konum bulunursa koda yazılmalı.
+
+### Panel ekranı
+
+Terminaldekiyle aynı yerde: nişangahın olduğu nokta, ekranın tam ortası.
+Nişangah o sırada çizilmiyor (`PlayerInteractor.InputCaptured`).
+
+Görsel dil tek renk ailesi — **her şey sarının bir tonu.** Tamamlanan adımlar
+bir ara yeşildi; panelin kimliği renkten geldiği için sönük sarıya çevrildi.
+
+- Tam çerçeve + **köşe ayraçları**. Çerçevenin tamamını kalınlaştırmak paneli
+  ağırlaştırıyordu; vurgu köşelerde toplanınca hem oturaklı hem hafif duruyor.
+- Her adım kendi hücresinde. **Sıradaki hücre dolu sarı, yazısı koyu** — göz
+  sıradakini aramak zorunda kalmıyor.
+- Panel tam ekran değil, bilerek: panel başındaki oyuncunun tek savunması
+  etrafını duyup görebilmek.
