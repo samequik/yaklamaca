@@ -521,6 +521,21 @@ yan koridora sızsaydı canavarın yeri duvarın arkasından belli olurdu. Bu,
 bölüm 4'teki "istemciye görmesi gerekmeyen bilgiyi gönderme" kuralının görsel
 karşılığı — izlerin yalnızca canavara gönderilmesiyle aynı gerekçe.
 
+**Işık ikiye ayrıldı** (2026-09-05). Yalnızca hâle varken canavar önünü
+yeterince göremiyordu:
+
+| Işık | Nerede | İşi |
+|---|---|---|
+| **Hâle** (nokta, 10 m) | Gövdede | Çevresini gösteriyor: yandaki duvar, ayağının dibi |
+| **Huzme** (spot, 13 m) | Kamerada | Baktığı yeri gösteriyor — fener gibi, bakışı takip ediyor |
+
+Huzme fenerden bilerek **kısa ve sönük** (fener 26 m / 2.6): canavar avlanan
+değil avlayan, koridorun sonunu görmesi kovalamacayı bitirir.
+
+**Huzme kapatılamıyor.** Fener kaçanın takası; canavarda o takasın karşılığı
+yok. Kapatılabilir olsaydı canavar hem görünmez hem gören olurdu ve kaçanın tek
+erken uyarısı — kırmızının yaklaşması — ortadan kalkardı.
+
 > **Düzeltme (2026-08-31).** Fenerin üçüncü ayağı uzun süre **hiç çalışmıyordu.**
 > `Flashlight` düz bir `MonoBehaviour`'dı, durumu ağda taşınmıyordu ve `Update`
 > yerel oyuncu kontrolü yapmadan klavyeyi okuyordu: F'ye basınca o istemcideki
@@ -990,6 +1005,10 @@ Seçim tur başında da olsun istenirse `ObjectiveSetup.TerminalCount` 6 yapıl�
   Renk normalleştiriliyor, çünkü Unity ışık rengini şiddetle çarpıyor ve doygun
   `lockedColor` ile sönük `idleColor` aynı şiddette çok farklı parlıyordu.
 
+  **Çıkış kilit paneli de aynı çalışma sesini kullanıyor** (`ExitLock`,
+  2026-09-05). İkisi de "makinenin başında duruyorsun" mekaniği; ayrı ses
+  ikisini farklı şeylermiş gibi gösterirdi. Dizilim çözülünce susuyor.
+
   Işık **çalışma anında kuruluyor** (`Terminal.GetOrCreateStateLight`).
   Terminaller elle yerleştirildi ve `Terminal ve Çıkış Kur` var olanlara bilerek
   dokunmuyor (bölüm 0), yani editör aracına eklemek mevcut beş terminale hiç
@@ -1171,7 +1190,7 @@ bağlıyor. Aynı isimle üzerine yazarsan referanslar bozulmaz.
 | `Adim_Kacan` | Kaçan adım sesi |
 | `Adim_Canavar` | Canavar adım sesi |
 | `Inis` | Yere değme |
-| `Kapi` | Kapı açılma/kapanma |
+| `Kapi` | Kapı açılma/kapanma — **labirent ve çıkış kapıları** |
 | `Olum` | Yakalanma |
 | `Bicak_Savurma`, `Bicak_Isabet` | Bıçak (hâlâ yer tutucu) |
 | `Terminal_Calisma` | Terminal dolarken dönen çalışma sesi |

@@ -47,9 +47,74 @@ public class MonsterAura : MonoBehaviour
         "göğüs hizası, ışık ne yere ne tavana yapışıyor.")]
     [SerializeField] private float height = 0.6f;
 
+    [Header("Bakış ışığı")]
+    [Tooltip("Canavarın baktığı yöne giden kırmızı huzme. Kameranın çocuğu, " +
+        "yani fener gibi bakışı takip ediyor — ama kapatılamıyor.")]
+    [SerializeField] private Light viewLight;
+
+    [Tooltip("Huzmenin menzili (metre). Fener 26 m; bu bilerek çok daha kısa. " +
+        "Canavar avlanan değil avlayan: koridorun sonunu görmesi kovalamacayı " +
+        "bitirir, ayağının önünü görmesi yeter.")]
+    [SerializeField] private float viewRange = 13f;
+
+    [Tooltip("Huzmenin şiddeti. Fener 2.6; bu daha düşük, çünkü hâleyle " +
+        "toplanıyor ve ikisi birden canavarın etrafını fazla aydınlatmamalı.")]
+    [SerializeField] private float viewIntensity = 1.4f;
+
+    [Tooltip("Huzmenin açısı (derece). Fenerinkiyle (55) yakın: dar bir huzme " +
+        "canavarı el feneriyle arayan biri gibi gösteriyor, oysa o avcı.")]
+    [SerializeField] private float viewAngle = 60f;
+
     private void Awake()
     {
         auraLight = GetOrCreateLight();
+        viewLight = GetOrCreateViewLight();
+    }
+
+    /// <summary>
+    /// Bakış yönüne giden kırmızı huzmeyi kurar.
+    ///
+    /// **Hâlenin yerine değil, YANINA.** İkisi farklı iş yapıyor: hâle
+    /// canavarın çevresini gösteriyor (yandaki duvar, ayağının dibi), huzme
+    /// baktığı yeri. Yalnızca hâle olunca canavar önünü yeterince göremiyordu.
+    ///
+    /// **Kameranın çocuğu**, hâleden farklı olarak: bakışı takip etmesi
+    /// gerekiyor, fener gibi.
+    ///
+    /// **Kapatılamıyor**, bilerek. Fener kaçanın takası — "açarsan görürsün
+    /// ama görünürsün" (bölüm 5). Canavarda o takas yok: gizlenmesi gereken o
+    /// değil, zaten avlayan o. Kapatılabilir olsaydı canavar hem görünmez hem
+    /// gören olurdu ve kaçanın tek erken uyarısı (kırmızının yaklaşması)
+    /// ortadan kalkardı.
+    ///
+    /// **Gölgesi açık:** gölgesiz huzme duvarı delip yan koridora sızar ve
+    /// canavarın yeri duvarın arkasından belli olur (bölüm 4).
+    /// </summary>
+    private Light GetOrCreateViewLight()
+    {
+        if (viewLight != null)
+            return viewLight;
+
+        Camera camera = GetComponentInChildren<Camera>(true);
+
+        if (camera == null)
+            return null;
+
+        GameObject holder = new GameObject("CanavarHuzmesi");
+        holder.transform.SetParent(camera.transform, false);
+        holder.layer = gameObject.layer;
+
+        Light light = holder.AddComponent<Light>();
+        light.type = LightType.Spot;
+        light.range = viewRange;
+        light.spotAngle = viewAngle;
+        light.intensity = viewIntensity;
+        light.color = color;
+        light.shadows = LightShadows.Hard;
+        light.lightmapBakeType = LightmapBakeType.Realtime;
+        light.enabled = false;
+
+        return light;
     }
 
     /// <summary>
@@ -103,6 +168,9 @@ public class MonsterAura : MonoBehaviour
     /// </summary>
     public void SetMonster(bool value)
     {
+        if (viewLight != null)
+            viewLight.enabled = value;
+
         if (auraLight != null)
             auraLight.enabled = value;
     }

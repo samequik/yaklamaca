@@ -92,7 +92,8 @@ public static class AudioImportSetup
 
         Debug.Log($"{report}\n\n" +
             $"{configured} klibin import ayarı yapıldı (mono + yükleme tipi).\n" +
-            $"{doors} kapıya ses bağlandı.\n\n" +
+            $"{doors} kapıya ses bağlandı (labirent + çıkış).\n" +
+            $"{terminals} terminal/çıkış kilidine çalışma sesi bağlandı.\n\n" +
             "Oyuncu sesleri için Yakalamaca > Ağ Kurulumu (1. adım) çalıştır — " +
             "ayak sesi artık döngü olduğu için prefaba ayrı bir AudioSource gerekiyor.");
     }
@@ -199,6 +200,17 @@ public static class AudioImportSetup
             count++;
         }
 
+        // Çıkış kilidi de bir terminal gibi çalışıyor: başında duruyorsun,
+        // makine çalışıyor. Aynı klip, aynı his — ayrı bir ses ikisini
+        // birbirinden farklı iki mekanikmiş gibi gösterirdi.
+        foreach (ExitLock exitLock in Object.FindObjectsOfType<ExitLock>(true))
+        {
+            SerializedObject serialized = new SerializedObject(exitLock);
+            serialized.FindProperty("workingClip").objectReferenceValue = working;
+            serialized.ApplyModifiedProperties();
+            count++;
+        }
+
         if (count > 0)
         {
             EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
@@ -214,25 +226,17 @@ public static class AudioImportSetup
         if (clip == null)
             return 0;
 
-        GameObject map = GameObject.Find("Harita");
-        Transform doors = map != null ? map.transform.Find("Kapilar") : null;
-
-        if (doors == null)
-            return 0;
-
         int count = 0;
 
-        foreach (Transform door in doors)
+        // Sahnedeki BÜTÜN sürgülü kapılar. Eskiden yalnızca `Harita/Kapilar`
+        // altı taranıyordu ve **çıkış kapıları sessiz kalıyordu**: onlar
+        // `HedefSistemi` altında duruyor. Bileşene göre aramak yeri sormaktan
+        // daha sağlam — sonradan başka bir yere kapı konursa da yakalanıyor.
+        foreach (SlidingDoor sliding in Object.FindObjectsOfType<SlidingDoor>(true))
         {
-            Transform panel = door.Find("Panel");
-            SlidingDoor sliding = panel != null ? panel.GetComponent<SlidingDoor>() : null;
-
-            if (sliding == null)
-                continue;
-
-            AudioSource source = panel.GetComponent<AudioSource>();
+            AudioSource source = sliding.GetComponent<AudioSource>();
             if (source == null)
-                source = Undo.AddComponent<AudioSource>(panel.gameObject);
+                source = Undo.AddComponent<AudioSource>(sliding.gameObject);
 
             source.playOnAwake = false;
             source.spatialBlend = 1f;

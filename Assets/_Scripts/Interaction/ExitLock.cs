@@ -55,6 +55,21 @@ public class ExitLock : NetworkBehaviour, IInteractable
         "siyah görünür (CLAUDE.md 11.2).")]
     [SerializeField] private Renderer statusLight;
 
+    [Header("Ses")]
+    [Tooltip("Panelin hoparlörü. Boş bırakılırsa Awake kendi kuruyor.")]
+    [SerializeField] private AudioSource stateSource;
+
+    [Tooltip("Panel başındayken dönen çalışma sesi. Terminallerle AYNI klip: " +
+        "ikisi de 'makinenin başında duruyorsun' mekaniği, ayrı ses ikisini " +
+        "farklı şeylermiş gibi gösterirdi. `Sesleri Yerleştir` bağlıyor.")]
+    [SerializeField] private AudioClip workingClip;
+
+    [SerializeField] private float workingVolume = 0.45f;
+
+    [Tooltip("Sesin duyulduğu mesafe (metre). Terminaldekiyle aynı: panelde " +
+        "uğraşmak da kendini ele vermek demek.")]
+    [SerializeField] private float soundRange = 18f;
+
     [SyncVar] private int code;
     [SyncVar] private int entered;
     [SyncVar] private uint activeUserNetId;
@@ -78,6 +93,33 @@ public class ExitLock : NetworkBehaviour, IInteractable
             ReleaseLocalFocus();
     }
 
+    private void Awake()
+    {
+        stateSource = GetOrCreateStateSource();
+    }
+
+    /// <summary>
+    /// Panelin hoparlörünü kurar. `Terminal.GetOrCreateStateSource` ile aynı
+    /// gerekçe: paneli kuran araç var olan sahneye dokunmuyor, hoparlörün
+    /// çalışma anında kurulması tek çıkar yol.
+    /// </summary>
+    private AudioSource GetOrCreateStateSource()
+    {
+        AudioSource source = stateSource != null ? stateSource : GetComponent<AudioSource>();
+
+        if (source == null)
+            source = gameObject.AddComponent<AudioSource>();
+
+        source.playOnAwake = false;
+        source.loop = true;
+        source.spatialBlend = 1f;
+        source.rolloffMode = AudioRolloffMode.Linear;
+        source.minDistance = 2f;
+        source.maxDistance = soundRange;
+
+        return source;
+    }
+
     private void Update()
     {
         if (isServer)
@@ -86,6 +128,45 @@ public class ExitLock : NetworkBehaviour, IInteractable
         UpdateLocalFocus();
         ReadLocalInput();
         UpdateStatusLight();
+        UpdateAudio();
+    }
+
+    /// <summary>
+    /// Panel başında biri varken çalışma sesi dönüyor.
+    ///
+    /// Terminaldekinin aynısı ve aynı sebeple ağdan hiçbir şey gelmiyor:
+    /// `activeUserNetId` ve `solved` zaten SyncVar, her istemci aynı sonucu
+    /// kendi hesaplıyor (bölüm 4).
+    ///
+    /// Dizilim çözülünce susuyor — kapı açıldıktan sonra ötmeye devam eden
+    /// bir panel, işi bitmiş bir makine gibi durmazdı.
+    /// </summary>
+    private void UpdateAudio()
+    {
+        if (stateSource == null)
+            return;
+
+        bool working = IsBusy && !solved && workingClip != null;
+
+        if (!working)
+        {
+            if (stateSource.isPlaying)
+                stateSource.Stop();
+
+            return;
+        }
+
+        stateSource.volume = workingVolume;
+
+        if (stateSource.clip != workingClip)
+        {
+            stateSource.clip = workingClip;
+            stateSource.Play();
+            return;
+        }
+
+        if (!stateSource.isPlaying)
+            stateSource.Play();
     }
 
     // ---------- İstemci ----------

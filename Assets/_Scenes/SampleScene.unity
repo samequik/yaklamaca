@@ -4313,19 +4313,22 @@ MonoBehaviour:
   doneColor: {r: 0.25, g: 1, b: 0.35, a: 1}
   stateLight: {fileID: 0}
   stateLightIntensity: 0.6
-  stateLightRange: 4
+  stateLightRange: 6
   stateSource: {fileID: 0}
   workingClip: {fileID: 8300000, guid: ffa4aa3af8fee5b4c9b35e8423c2b317, type: 3}
   warningClip: {fileID: 8300000, guid: 92d5fa5d85f475847ab5c9799daf3f80, type: 3}
   workingVolume: 0.45
   warningVolume: 0.85
-  soundRange: 18
+  soundRange: 25
   alarmLightColor: {r: 1, g: 0.06, b: 0.03, a: 1}
   alarmPeakIntensity: 4
   alarmDimIntensity: 0.5
   alarmLightRange: 9
   alarmAudioGain: 6
   alarmFalloff: 4
+  silentBlinkRate: 1.2
+  alarmDuration: 20
+  alarmSteadyIntensity: 1.5
   promptInterval: {x: 3.5, y: 7}
   promptWindow: 1.6
   startDelay: 1
@@ -62446,19 +62449,22 @@ MonoBehaviour:
   doneColor: {r: 0.25, g: 1, b: 0.35, a: 1}
   stateLight: {fileID: 0}
   stateLightIntensity: 0.6
-  stateLightRange: 4
+  stateLightRange: 6
   stateSource: {fileID: 0}
   workingClip: {fileID: 8300000, guid: ffa4aa3af8fee5b4c9b35e8423c2b317, type: 3}
   warningClip: {fileID: 8300000, guid: 92d5fa5d85f475847ab5c9799daf3f80, type: 3}
   workingVolume: 0.45
   warningVolume: 0.85
-  soundRange: 18
+  soundRange: 25
   alarmLightColor: {r: 1, g: 0.06, b: 0.03, a: 1}
   alarmPeakIntensity: 4
   alarmDimIntensity: 0.5
   alarmLightRange: 9
   alarmAudioGain: 6
   alarmFalloff: 4
+  silentBlinkRate: 1.2
+  alarmDuration: 20
+  alarmSteadyIntensity: 1.5
   promptInterval: {x: 3.5, y: 7}
   promptWindow: 1.6
   startDelay: 1
@@ -82365,19 +82371,22 @@ MonoBehaviour:
   doneColor: {r: 0.25, g: 1, b: 0.35, a: 1}
   stateLight: {fileID: 0}
   stateLightIntensity: 0.6
-  stateLightRange: 4
+  stateLightRange: 6
   stateSource: {fileID: 0}
   workingClip: {fileID: 8300000, guid: ffa4aa3af8fee5b4c9b35e8423c2b317, type: 3}
   warningClip: {fileID: 8300000, guid: 92d5fa5d85f475847ab5c9799daf3f80, type: 3}
   workingVolume: 0.45
   warningVolume: 0.85
-  soundRange: 18
+  soundRange: 25
   alarmLightColor: {r: 1, g: 0.06, b: 0.03, a: 1}
   alarmPeakIntensity: 4
   alarmDimIntensity: 0.5
   alarmLightRange: 9
   alarmAudioGain: 6
   alarmFalloff: 4
+  silentBlinkRate: 1.2
+  alarmDuration: 20
+  alarmSteadyIntensity: 1.5
   promptInterval: {x: 3.5, y: 7}
   promptWindow: 1.6
   startDelay: 1
@@ -106834,19 +106843,22 @@ MonoBehaviour:
   doneColor: {r: 0.25, g: 1, b: 0.35, a: 1}
   stateLight: {fileID: 0}
   stateLightIntensity: 0.6
-  stateLightRange: 4
+  stateLightRange: 6
   stateSource: {fileID: 0}
   workingClip: {fileID: 8300000, guid: ffa4aa3af8fee5b4c9b35e8423c2b317, type: 3}
   warningClip: {fileID: 8300000, guid: 92d5fa5d85f475847ab5c9799daf3f80, type: 3}
   workingVolume: 0.45
   warningVolume: 0.85
-  soundRange: 18
+  soundRange: 25
   alarmLightColor: {r: 1, g: 0.06, b: 0.03, a: 1}
   alarmPeakIntensity: 4
   alarmDimIntensity: 0.5
   alarmLightRange: 9
   alarmAudioGain: 6
   alarmFalloff: 4
+  silentBlinkRate: 1.2
+  alarmDuration: 20
+  alarmSteadyIntensity: 1.5
   promptInterval: {x: 3.5, y: 7}
   promptWindow: 1.6
   startDelay: 1
@@ -120479,19 +120491,22 @@ MonoBehaviour:
   doneColor: {r: 0.25, g: 1, b: 0.35, a: 1}
   stateLight: {fileID: 0}
   stateLightIntensity: 0.6
-  stateLightRange: 4
+  stateLightRange: 6
   stateSource: {fileID: 0}
   workingClip: {fileID: 8300000, guid: ffa4aa3af8fee5b4c9b35e8423c2b317, type: 3}
   warningClip: {fileID: 8300000, guid: 92d5fa5d85f475847ab5c9799daf3f80, type: 3}
   workingVolume: 0.45
   warningVolume: 0.85
-  soundRange: 18
+  soundRange: 25
   alarmLightColor: {r: 1, g: 0.06, b: 0.03, a: 1}
   alarmPeakIntensity: 4
   alarmDimIntensity: 0.5
   alarmLightRange: 9
   alarmAudioGain: 6
   alarmFalloff: 4
+  silentBlinkRate: 1.2
+  alarmDuration: 20
+  alarmSteadyIntensity: 1.5
   promptInterval: {x: 3.5, y: 7}
   promptWindow: 1.6
   startDelay: 1
