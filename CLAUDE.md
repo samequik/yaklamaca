@@ -723,7 +723,8 @@ probe'lar kalıyor.
 `{fileID: 0}` olmamalı ve ışıkların `m_Lightmapping` değeri 2 (Baked) olmalı.
 Bir kez tam da bu satırlar yüzünden aylarca yanlış bilindi.
 
-**3. Yakalama ve ölme animasyonlarının göreli duruşu — AÇIK.**
+**3. ~~Yakalama ve ölme animasyonlarının göreli duruşu.~~ YAPILDI (2026-09-04),
+oynanışta doğrulandı.**
 
 Altyapı bitti (bölüm 17): beden ölüm klibi boyunca sahnede kalıyor, öldürenin
 `netId`'si taşınıyor, gövde kökü canavarınkine oturtuluyor, süreler eşitlendi,
@@ -739,7 +740,7 @@ dikey kök hareketi poza gömüldü.
 | XZ + dönüş de poza gömüldü | Canavar ileri uçtu, daha kötü |
 | Yalnızca dikey gömüldü | Havada yatma çözüldü, duruş açık kaldı |
 
-**ÇÖZÜLDÜ (2026-09-03) — iki ayrı sebep vardı, oynanışta doğrulanacak.**
+**ÇÖZÜLDÜ — iki ayrı sebep vardı; düzeltildi ve oynanışta doğrulandı.**
 
 Ekran görüntüsünde canavar kurbanın **bir buçuk metre arkasında** diz
 çöküyordu. İki sebep bulundu; ikisi de düzeltildi.
