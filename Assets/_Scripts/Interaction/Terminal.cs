@@ -357,13 +357,18 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// çalsın" kuralına birebir uyuyordu. Ama sesin her sınavda kesilip
     /// başlaması kesik kesik duyuluyordu; makine bağlıyken çalışmayı sürdürmeli.
     /// Ses artık bağlantı boyunca kesintisiz.
+    ///
+    /// **`fillReadyTime`'a da BAKMIYOR.** Bir sürüm E'den sonraki bir saniyelik
+    /// bağlanma gecikmesini bekliyordu, yani ses geç geliyordu. Ses makinenin
+    /// açılması; klibin adı da bunu söylüyor (*açılma* ve çalışma sesi).
+    /// Dolumun ne zaman başladığı ekranın işi (`BAĞLANTI` → `VERİ AKTARIMI`),
+    /// sesin değil — E'ye basınca makine çalışmaya başlıyor.
     /// </summary>
     private bool IsWorking =>
         IsBusy
         && !locked
         && !IsCompleted
-        && monsterLockEndTime <= 0d           // başındaki canavarsa iş kilitlemek
-        && NetworkTime.time >= fillReadyTime; // E'den sonraki bağlanma gecikmesi
+        && monsterLockEndTime <= 0d;  // başındaki canavarsa iş kilitlemek
 
     /// <summary>
     /// Yön tuşlarını okur. Sınav sırasında cevap, kilitliyken örüntü girişi

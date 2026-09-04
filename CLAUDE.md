@@ -1141,10 +1141,17 @@ klipleri `Sesleri Yerleştir` bağlıyor. Karar veren dört alan (`locked`,
 gelebiliyor. Bölüm 5'teki hız/gizlilik takasının aynı mantığı — ilerleme
 kaydetmek kendini ele vermek.
 
-**Çalışma sesi bağlantı boyunca kesintisiz.** İlk sürüm sınav ekrandayken
-sesi de kesiyordu — ilerleme o sırada durduğu için mantıklı görünüyordu, ama
-her sınavda kesilip başlayan ses kesik kesik duyuluyordu. Makine bağlıyken
-çalışmayı sürdürüyor.
+**Çalışma sesi E'ye basar basmaz başlıyor ve bağlantı boyunca kesintisiz.**
+İki şart tek tek denendi ve ikisi de kaldırıldı:
+
+- `prompt == 0` — ilerleme sınav ekrandayken durduğu için mantıklı görünüyordu,
+  ama her sınavda kesilip başlayan ses kesik kesik duyuluyordu.
+- `fillReadyTime` — E'den sonraki bir saniyelik bağlanma gecikmesini bekliyordu,
+  ses geç geliyordu.
+
+Doğru ölçüt "dolum ilerliyor mu" değil, **makine çalışıyor mu**. Klibin adı da
+bunu söylüyor: *açılma* ve çalışma sesi. Dolumun ne zaman başladığını ekran
+anlatıyor (`BAĞLANTI` → `VERİ AKTARIMI`), sesin işi değil.
 
 ### Alarm: ışık sesi takip ediyor
 
