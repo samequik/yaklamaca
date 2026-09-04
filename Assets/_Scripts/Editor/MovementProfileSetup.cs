@@ -93,9 +93,14 @@ public static class MovementProfileSetup
 
         profile.walkSpeed = 200f;
 
-        // Taban hız kaçandan yalnızca biraz yüksek. Asıl fark burada değil,
-        // aşağıdaki hız payında.
-        profile.sprintSpeed = 420f;
+        // Taban hız kaçandan %5 DÜŞÜK (400 → 380). Canavar koşuya kaçandan
+        // geride başlıyor; farkı kapatan şey aşağıdaki hız payı.
+        //
+        // Eskiden 420'ydi, yani canavar baştan hızlıydı ve pay yalnızca üstüne
+        // ekliyordu. Böyle olunca kovalamacanın başı da sonu da canavarın
+        // lehineydi. Şimdi ilk saniyeler kaçanın: kaçmak istiyorsa köşeyi
+        // dönüp koşuyu kesmeli, yoksa pay dolar ve canavar geçer.
+        profile.sprintSpeed = 380f;
 
         profile.crouchSpeedMultiplier = 0.35f;
         profile.slideBoost = 60f;
@@ -115,13 +120,19 @@ public static class MovementProfileSetup
         // bakınca kafa gövdenin içine giriyordu; aşağısı daraltıldı.
         profile.maxLookDownAngle = 55f;
 
-        // Asıl silah: kesintisiz koştukça açılan pay. 420 → 600 u/s.
-        // Kaçan 400'de sabit, yani canavar ancak koşuyu sürdürebilirse
-        // yaklaşabiliyor — ve her köşe onu geri gönderiyor.
+        // Asıl silah: kesintisiz koştukça açılan pay. 380 → 560 u/s.
+        // Kaçan 400'de sabit, yani canavar başta GERİDE ama koşuyu
+        // sürdürebilirse geçiyor — ve her köşe onu başa döndürüyor.
         profile.boostSpeed = 180f;
         profile.boostBuildTime = 3.5f;
         profile.boostDecayTime = 1.2f;
-        profile.boostMinSpeed = 380f;
+
+        // Eşik taban hızın ALTINDA olmalı. 380'de bırakılsaydı canavarın
+        // tavanı tam eşiğe oturur ve sürtünme/ivme salınımı yüzünden pay ya
+        // hiç dolmaz ya da kesik kesik dolardı — "sonradan hızlanır" fikri
+        // sessizce çalışmazdı. 340, yürümenin (200) belirgin üstünde, yani
+        // yürüyerek sinsice pay depolamak hâlâ mümkün değil.
+        profile.boostMinSpeed = 340f;
 
         // Duvara kafa kafaya 280 u/s'nin üstünde girerse tam duruş VE pay sıfır.
         profile.crashSpeed = 280f;

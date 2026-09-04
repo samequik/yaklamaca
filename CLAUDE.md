@@ -203,7 +203,7 @@ olarak ayrıldı ve `MovementProfile` üzerinden veriliyor:
 
 | | Kaçan | Canavar |
 |---|---|---|
-| Taban koşu | 400 u/s | **420 u/s** |
+| Taban koşu | 400 u/s | **380 u/s — %5 DÜŞÜK** |
 | İvme (`accelerate`) | 14 | **14 — aynı** |
 | Sürtünme (`friction`) | 5.5 | **5.5 — aynı** |
 | Hız payı | yok | **+180 u/s**, 3.5 sn koşuyla dolar |
@@ -217,9 +217,20 @@ Doğrusu tabanı normal bırakıp **üstüne** eklemek — araba da duruştan se
 hızına çabuk çıkar, yavaş olan kısım SON hıza varmaktır.
 
 Mantığı: canavar hızını *momentum hilesinden* değil, **kesintisiz koşarak**
-kazanıyor. Zıplayamadığı için bhop da yapamıyor. Pay yalnızca 380 u/s üstünde
+kazanıyor. Zıplayamadığı için bhop da yapamıyor. Pay yalnızca 340 u/s üstünde
 koşarken doluyor (yürüyerek sinsice hız depolayamıyor) ve koşu kesilince 1.2
 saniyede boşalıyor: kazanması emek, kaybetmesi kolay.
+
+**Taban hız 2026-09-04'te 420'den 380'e indirildi** — artık kaçanınkinin %5
+*altında*. Canavar kovalamacaya geride başlıyor ve öne geçmesi tamamen paya
+bağlı: 3.5 saniye kesintisiz koşabilirse 560 u/s'ye (10.67 m/s) çıkıp kaçanın
+7.62'sini rahatlıkla geçiyor, ama her köşe onu başa döndürüyor. Kovalamacanın
+ilk saniyeleri artık kaçanın.
+
+> **Eşik taban hızın ALTINDA olmalı.** `boostMinSpeed` 380'de bırakılsaydı
+> canavarın tavanı tam eşiğe oturur, sürtünme/ivme salınımı yüzünden pay ya hiç
+> dolmaz ya da kesik kesik dolardı — "sonradan hızlanır" fikri sessizce
+> çalışmazdı. 340 yapıldı; yürümenin (200) hâlâ belirgin üstünde.
 
 **Çarpışmanın ölçütü temas değil, yüzeye GİREN hız bileşeni**
 (`PlayerController.TryCrash`). Koridorda duvarı sıyırarak koşmak neredeyse

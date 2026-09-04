@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: CanavarProfili
   m_EditorClassIdentifier: 
   walkSpeed: 200
-  sprintSpeed: 420
+  sprintSpeed: 380
   crouchSpeedMultiplier: 0.35
   slideBoost: 60
   slideFriction: 1.2
@@ -25,6 +25,6 @@ MonoBehaviour:
   boostSpeed: 180
   boostBuildTime: 3.5
   boostDecayTime: 1.2
-  boostMinSpeed: 380
+  boostMinSpeed: 340
   crashSpeed: 280
   crashSpeedRetained: 0
