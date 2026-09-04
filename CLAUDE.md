@@ -33,16 +33,19 @@ ve animasyonları (bölüm 14) · katman düzeni ve daraltılmış fizik maskele
 doğrulandı:
 
 - **Lightmap.** `Assets/_Scenes/SampleScene/` altında `LightingData.asset`, bir
-  lightmap atlası ve bir yansıma probe'u var; sahnedeki 17 ışığın 16'sı `Baked`
-  (gölgeleri Soft), tek gerçek zamanlı olan `Fener` — bölüm 3'ün hedeflediği son
-  durum.
+  lightmap atlası ve bir yansıma probe'u var. Sahnedeki 17 ışığın 16'sı
+  **`Mixed` (Shadowmask)**, gölgeleri Soft; tek gerçek zamanlı olan `Fener`.
+  Lamba şiddeti 0.75.
 - **Occlusion culling.** Sahne artık veriye bağlı:
   `m_OcclusionCullingData: {fileID: 36300000, guid: 3945ca91…}`.
 
-**Açık kalan tek ışık işi (2026-09-04):** lamba gövdeleri sönük çıkıyordu —
-sebep bulundu ve araç düzeltildi (bölüm 3'teki "static bayrağı alt objelere"
-kutusu). `Işığı Pişir` penceresinden **"0-4'ü yap ve PİŞİR"** bir kez
-çalıştırılınca kapanıyor.
+**Oyunda doğrulandı (2026-09-04):** lambalar aydınlatıyor, kapalı kapı ışığı
+kesiyor, oyuncular gölge düşürüyor, lambaların arası zifiri kalıyor.
+
+Buraya gelene kadar dört ayrı arıza vardı ve hepsi ayrı ayrı belgelendi
+(bölüm 3): pişirme sonrası sahnenin kaydedilmemesi · giydirme bayrağının
+prefabın alt objelerine yazılmaması · iki modun farklı düşüş eğrisi kullanması ·
+kapıların static olmadığı için pişmiş ışıkta hiç görünmemesi.
 
 > **Bu iki madde 2026-09-03'e kadar "16 ışık hâlâ Mixed" ve "occlusion hiç
 > pişirilmedi" diye yazıyordu; ikisi de yanlıştı.** Sahne dosyasındaki
@@ -289,10 +292,21 @@ pişirmek gerekir (dakikalar sürer).
 
 Aracın kararları — değiştirmeden önce sebeplerini oku:
 
-**Baked, Mixed değil.** Mixed'in tek faydası dinamik nesnelere gerçek zamanlı
-direkt ışık ve gölge vermesi. Bu haritada lambaların gölgesi zaten kapalıydı
-("gölgeyi fener veriyor"), yani Mixed hiçbir şey kazandırmaz, sadece 14 ışığı
-çalışır durumda tutar.
+**Mixed (Shadowmask) — 2026-09-04'te Baked'den çevrildi.** Burada uzun süre
+"Baked, Mixed değil" yazıyordu; gerekçesi "lambaların gölgesi zaten kapalı,
+Mixed hiçbir şey kazandırmaz"dı. O gerekçe pişirmeyle birlikte **gölgeler
+açılınca geçersizleşti** ve tam Baked oynanışta bozuk çıktı: kapılar hareketli
+olduğu için static değiller, pişirici onları hiç görmüyor — ışık **kapalı
+kapının içinden geçiyordu** ve oyuncular gölge düşürmüyordu. Karanlığın ve
+gölgenin oynanışın kendisi olduğu bir oyunda bu kabul edilemez (bölüm 5).
+
+Mixed'de dolaylı ışık ve static gölgeler yine pişiyor; yalnızca doğrudan ışık
+çalışma anında veriliyor, böylece hareketli her şey gölge düşürüyor. Bedeli
+14 lambanın motordan tamamen düşmemesi — `pixelLightCount` 4'te ve gölge
+mesafesi 35 m'de (sis görüşü ~25 m) tutulduğu için sınırlı.
+
+Pencerede **"Karışık aydınlatma"** onay kutusu kapatılırsa tam Baked'e
+dönülüyor. Dönülürse lamba şiddeti ~5 yapılmalı — sebebi hemen aşağıda.
 
 **Gölgeler pişirme için AÇILIYOR.** Ters gibi görünüyor. Gerçek zamanlı
 gölgesiz nokta ışık duvarı tanımaz — bugün 8 m menzilli lamba yan koridora
