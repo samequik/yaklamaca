@@ -1391,6 +1391,20 @@ değildir, işlem gücü içermez."*
 kurulum penceresi kullanılıyor: Edgegap API anahtarı + bir servis adı → Create.
 Anahtar [app.edgegap.com](https://app.edgegap.com) → User Settings → Tokens.
 
+İki tuzak, ikisi de kurulum penceresinin kendi metninde yazıyor ama gözden
+kaçıyor:
+
+- **Servis adı 4-5 karakteri geçmemeli.** Edgegap'te bilinen bir hata var; daha
+  uzun adlar dağıtımda `503 Service Temporarily Unavailable` veriyor. `yaka`
+  gibi kısa bir ad kullan. Bu ad servisin kimliği; oyuncuların gördüğü oda
+  koduyla ilgisi yok.
+- **Anahtarın başındaki `token ` öneki sorun değil**, pencere onu kendi
+  kırpıyor (`LobbyApi.TrimApiKey`). Panelden kopyaladığını olduğu gibi
+  yapıştırabilirsin.
+
+Anahtar hiçbir yere kaydedilmiyor. `lobbyUrl`'ü kaybedersen **aynı adla**
+tekrar oluştur: yenisini kurmuyor, mevcut servisi buluyor.
+
 `lobbyUrl` boşken LOBİ KUR denenirse `LobbyNetwork.FailRelay` oyuncuyu ana
 menüye döndürüp sebebi yazıyor — aksi hâlde "Oda kuruluyor…" ekranında sonsuza
 kadar asılı kalırdı, çünkü **host tarafında bağlanma zaman aşımı yok**
