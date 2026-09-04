@@ -72,6 +72,32 @@ public class Terminal : NetworkBehaviour, IInteractable
         "duyulmasını sağlıyor — terminalde çalışmak ses çıkarmak demek.")]
     [SerializeField] private float soundRange = 18f;
 
+    [Header("Kilit alarmı")]
+    [Tooltip("Kilitliyken ışığın rengi. Göstergenin kendi kırmızısından daha " +
+        "doygun: gösterge durumu okutuyor, bu ışık uyarı veriyor.")]
+    [SerializeField] private Color alarmLightColor = new Color(1f, 0.06f, 0.03f);
+
+    [Tooltip("Alarm tepe noktasındayken ışık şiddeti. Normal durum ışığının " +
+        "birkaç katı — kilitli terminal koridordan fark edilmeli.")]
+    [SerializeField] private float alarmPeakIntensity = 4f;
+
+    [Tooltip("Alarm sönümdeyken ışık şiddeti. Sıfır DEĞİL, bilerek: tamamen " +
+        "sönen ışık bozuk lamba gibi duruyor, kısılan ışık nabız gibi.")]
+    [SerializeField] private float alarmDimIntensity = 0.5f;
+
+    [Tooltip("Alarm sırasında ışığın menzili (metre). Normalden geniş: uyarı " +
+        "terminale bakmadan da fark edilmeli.")]
+    [SerializeField] private float alarmLightRange = 9f;
+
+    [Tooltip("Ses genliğinin ışığa çevrilirken çarpanı. Işık sesi TAKİP " +
+        "ediyor, ayrı bir sayaçla yanıp sönmüyor — ikisi bu yüzden hiç " +
+        "kaymıyor. Işık sesle birlikte yeterince parlamıyorsa bunu büyüt.")]
+    [SerializeField] private float alarmAudioGain = 6f;
+
+    [Tooltip("Alarm parlaması saniyede kaç birim sönüyor. Yükselme anında, " +
+        "sönme yavaş: bipin kendisi kısa ama ışığın izi kalıyor.")]
+    [SerializeField] private float alarmFalloff = 4f;
+
     /// <summary>0-1 arası doluluk. Yalnızca sunucu yazar.</summary>
     [SyncVar] private float progress;
 
@@ -143,6 +169,10 @@ public class Terminal : NetworkBehaviour, IInteractable
 
     private GUIStyle screenStyle;
     private MaterialPropertyBlock propertyBlock;
+
+    // Alarm nabzı: sesin anlık genliğinden geliyor, ayrı bir sayaçtan değil.
+    private float alarmLevel;
+    private readonly float[] audioSamples = new float[64];
     private static readonly int ColorId = Shader.PropertyToID("_Color");
 
     public float Progress => progress;
@@ -248,8 +278,12 @@ public class Terminal : NetworkBehaviour, IInteractable
 
         UpdateLocalFocus();
         ReadLocalInput();
-        UpdateVisual();
+
+        // Sıra önemli: ses kaynağı önce doğru klibe geçmeli, alarm seviyesi
+        // ondan okunuyor, görsel de o seviyeyi kullanıyor.
         UpdateAudio();
+        UpdateAlarmLevel();
+        UpdateVisual();
     }
 
     /// <summary>
@@ -281,7 +315,7 @@ public class Terminal : NetworkBehaviour, IInteractable
             wanted = warningClip;
             volume = warningVolume;
         }
-        else if (IsFilling)
+        else if (IsWorking)
         {
             wanted = workingClip;
             volume = workingVolume;
@@ -315,13 +349,21 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// çıkış koşullarının aynısı — biri değişirse öbürü de değişmeli, yoksa
     /// ses ilerlemeyen bir terminalde çalmaya devam eder.
     /// </summary>
-    private bool IsFilling =>
+    /// <summary>
+    /// Terminal şu an bir kaçan tarafından çalıştırılıyor mu.
+    ///
+    /// **Sınava BAKMIYOR, bilerek.** İlk sürüm `prompt == 0` şartını da
+    /// arıyordu — ilerleme sınav ekrandayken durduğu için "ilerleme sırasında
+    /// çalsın" kuralına birebir uyuyordu. Ama sesin her sınavda kesilip
+    /// başlaması kesik kesik duyuluyordu; makine bağlıyken çalışmayı sürdürmeli.
+    /// Ses artık bağlantı boyunca kesintisiz.
+    /// </summary>
+    private bool IsWorking =>
         IsBusy
         && !locked
         && !IsCompleted
-        && monsterLockEndTime <= 0d          // başındaki canavarsa iş kilitlemek
-        && NetworkTime.time >= fillReadyTime // E'den sonraki bağlanma gecikmesi
-        && prompt == 0;                      // sınav ekrandayken ilerleme durur
+        && monsterLockEndTime <= 0d           // başındaki canavarsa iş kilitlemek
+        && NetworkTime.time >= fillReadyTime; // E'den sonraki bağlanma gecikmesi
 
     /// <summary>
     /// Yön tuşlarını okur. Sınav sırasında cevap, kilitliyken örüntü girişi
@@ -1056,9 +1098,6 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// </summary>
     private void UpdateVisual()
     {
-        if (progressLight == null)
-            return;
-
         Color color;
 
         if (IsCompleted)
@@ -1070,8 +1109,14 @@ public class Terminal : NetworkBehaviour, IInteractable
         else
             color = Color.Lerp(idleColor, activeColor, progress);
 
-        propertyBlock.SetColor(ColorId, color);
-        progressLight.SetPropertyBlock(propertyBlock);
+        // Gösterge isteğe bağlı; ışık ona bağlı DEĞİL. Eskiden metot gösterge
+        // yoksa en başta çıkıyordu ve göstergesi olmayan bir terminalde ışık
+        // da hiç güncellenmezdi — alarm sessizce çalışmazdı.
+        if (progressLight != null)
+        {
+            propertyBlock.SetColor(ColorId, color);
+            progressLight.SetPropertyBlock(propertyBlock);
+        }
 
         ApplyStateLight(color);
     }
@@ -1091,6 +1136,18 @@ public class Terminal : NetworkBehaviour, IInteractable
         if (stateLight == null)
             return;
 
+        // Kilitliyken gösterge ve ışık ayrışıyor, bilerek: gösterge durumu
+        // OKUTUYOR (kırmızı = kilitli), ışık ise UYARI VERİYOR. Uyarının daha
+        // doygun ve daha parlak olması gerekiyor, yoksa alarm alarm gibi
+        // durmuyor. Diğer bütün durumlarda ikisi aynı renkten besleniyor.
+        if (locked)
+        {
+            stateLight.color = alarmLightColor;
+            stateLight.range = alarmLightRange;
+            stateLight.intensity = Mathf.Lerp(alarmDimIntensity, alarmPeakIntensity, alarmLevel);
+            return;
+        }
+
         float peak = Mathf.Max(color.r, Mathf.Max(color.g, color.b));
 
         stateLight.color = peak > 0.001f
@@ -1099,5 +1156,51 @@ public class Terminal : NetworkBehaviour, IInteractable
 
         stateLight.intensity = stateLightIntensity;
         stateLight.range = stateLightRange;
+    }
+
+    /// <summary>
+    /// Alarm nabzını sesin **anlık genliğinden** çıkarır.
+    ///
+    /// ### Neden ayrı bir sayaçla yanıp sönmüyor
+    ///
+    /// "Işık saniyede iki kez yanıp sönsün" yazmak kolaydı ama ses ve ışık
+    /// bağımsız iki saat olurdu: klibin uzunluğu sayacın periyoduna tam
+    /// bölünmediği sürece ikisi yavaş yavaş kayar ve birkaç saniye sonra ışık
+    /// sessizlikte yanar. Klip değişirse baştan ayar gerekirdi.
+    ///
+    /// Işığı doğrudan sesin dalga biçiminden sürünce **kayma diye bir şey
+    /// kalmıyor**: bip varsa ışık parlıyor, sessizlik varsa sönüyor. Hangi klip
+    /// konursa konsun kendiliğinden uyuyor.
+    ///
+    /// ### Yükselme anında, sönme yavaş
+    ///
+    /// Ham genlik ses dalgasının kendisi, yani saniyede yüzlerce kez sıfırdan
+    /// geçiyor — doğrudan bağlansa ışık titrerdi. Tepeyi anında alıp yavaş
+    /// bırakmak (`alarmFalloff`) dalgayı zarfa çeviriyor: bip kısa, ışığın izi
+    /// biraz daha uzun.
+    ///
+    /// Uzaktaki terminalde genlik zaten düşük geliyor ve ışık sönük kalıyor —
+    /// istenmeyen bir şey değil: ışığın menzili 9 m, o mesafede zaten
+    /// görünmüyor.
+    /// </summary>
+    private void UpdateAlarmLevel()
+    {
+        float target = 0f;
+
+        if (locked && stateSource != null && stateSource.isPlaying)
+        {
+            stateSource.GetOutputData(audioSamples, 0);
+
+            float sum = 0f;
+            foreach (float sample in audioSamples)
+                sum += sample * sample;
+
+            float rms = Mathf.Sqrt(sum / audioSamples.Length);
+            target = Mathf.Clamp01(rms * alarmAudioGain);
+        }
+
+        alarmLevel = target > alarmLevel
+            ? target
+            : Mathf.MoveTowards(alarmLevel, target, alarmFalloff * Time.deltaTime);
     }
 }

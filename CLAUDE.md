@@ -1141,8 +1141,32 @@ klipleri `Sesleri Yerleştir` bağlıyor. Karar veren dört alan (`locked`,
 gelebiliyor. Bölüm 5'teki hız/gizlilik takasının aynı mantığı — ilerleme
 kaydetmek kendini ele vermek.
 
-**Sınav ekrandayken çalışma sesi de duruyor**, çünkü ilerleme duruyor
-(bölüm 11.3). Sesin kesilmesi "ekrana bak" işareti oluyor.
+**Çalışma sesi bağlantı boyunca kesintisiz.** İlk sürüm sınav ekrandayken
+sesi de kesiyordu — ilerleme o sırada durduğu için mantıklı görünüyordu, ama
+her sınavda kesilip başlayan ses kesik kesik duyuluyordu. Makine bağlıyken
+çalışmayı sürdürüyor.
+
+### Alarm: ışık sesi takip ediyor
+
+Kilitli terminalin kırmızı ışığı **sesin anlık genliğinden** sürülüyor
+(`Terminal.UpdateAlarmLevel`), ayrı bir sayaçla yanıp sönmüyor.
+
+Sebebi kayma: "saniyede iki kez yanıp sön" demek, ses ve ışığı bağımsız iki
+saate bağlamak olurdu. Klip uzunluğu sayacın periyoduna tam bölünmediği sürece
+ikisi yavaş yavaş ayrışır ve birkaç saniye sonra ışık sessizlikte yanar; klip
+değişirse baştan ayar gerekir. Işığı doğrudan dalga biçiminden sürünce kayma
+diye bir şey kalmıyor — bip varsa parlıyor, sessizlik varsa sönüyor, hangi klip
+konursa konsun kendiliğinden uyuyor.
+
+Ham genlik saniyede yüzlerce kez sıfırdan geçtiği için doğrudan bağlanmıyor:
+tepe anında alınıp yavaş bırakılıyor (`alarmFalloff`), yani dalga zarfa
+dönüşüyor. Bip kısa, ışığın izi biraz daha uzun.
+
+**Alarmda gösterge ve ışık ayrışıyor, bilerek.** Gösterge durumu OKUTUYOR
+(kırmızı = kilitli), ışık ise UYARI VERİYOR: daha doygun kırmızı, birkaç kat
+parlak, daha geniş menzil. Diğer bütün durumlarda ikisi aynı renkten besleniyor.
+Sönüm noktasında ışık tamamen sönmüyor (`alarmDimIntensity`) — sıfıra inen ışık
+bozuk lamba gibi duruyor, kısılan ışık nabız gibi.
 
 **Adım sesi klipleri tek adım olmalı, döngü değil.** Adımlar zamanla değil kat
 edilen mesafeyle tetikleniyor; koşarken kendiliğinden sıklaşıyor. Koşu adım
