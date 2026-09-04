@@ -536,9 +536,30 @@ Elenen oyuncu izleyici moduna geçer ve **canavarı asla izleyemez** (sesli
 konuşulan bir oyunda bu doğrudan hile olurdu).
 
 **Karanlık oynanışın parçası.**
-Ortam ışığı ~0.018, sis yoğunluğu 0.045 (görüş ~25 m), 14 loş lamba ve
+Ortam ışığı **0.006**, sis yoğunluğu 0.045 (görüş ~25 m), 14 loş lamba ve
 aralarında zifiri bölgeler. Sis süs değil: 48 metreye uzayabilen koridorlarda
 görüş kısıtlanmazsa labirent labirent olmaktan çıkar.
+
+**Ölçüt tek cümle: fenersiz görülmemeli.** Fenerin "açarsan görürsün ama
+görünürsün" takası ancak fenersiz GÖRÜLMÜYORSA bir takas. 2026-09-05'te
+oynandığında lambasız koridorda fenersiz yürünebiliyordu; taban aydınlığı dört
+ayrı yerden besleniyordu ve hepsi birden indirildi:
+
+| Kaynak | Eski | Yeni | Neden |
+|---|---|---|---|
+| `RenderSettings.ambientLight` | 0.018 | **0.006** | Doğrudan taban aydınlık |
+| `RenderSettings.fogColor` | 0.02 | **0.008** | Sis rengi de bir taban: yoğunluk arttıkça yüzeyler ona yaklaşıyor, ortamdan parlaksa uzak duvarlar ışıksız yerde bile görünür kalıyor |
+| `RenderSettings.reflectionIntensity` | 1 | **0.2** | Yansıma varsayılan gökyüzünden pişiyor; kapalı labirentte karşılığı yok |
+| `indirectScale` / `albedoBoost` | 2 / 1.6 | **1 / 1** | Aşağıdaki kutu |
+
+> **Son ikisi bir hatanın kalıntısıydı.** 2026-09-04'te "pişmiş ışık çok sönük"
+> diye yanlış teşhis kovalanırken köşeleri doldurmak için kondu. Teşhis yanlış
+> çıktı (sorun lamba şiddetiydi, bölüm 3) ama çarpanlar kaldı ve haritayı
+> fenersiz yürünebilir hâle getirdi.
+>
+> Ders: **bir teşhis çürüdüğünde, o teşhis için yapılan değişiklikleri de geri
+> al.** Yoksa sebebi unutulmuş ayarlar birikiyor ve sonraki sorunun kaynağı
+> oluyor.
 
 ---
 

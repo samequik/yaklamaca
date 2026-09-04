@@ -197,15 +197,29 @@ public static class AtmosphereSetup
     private static void ConfigureRenderSettings()
     {
         // Ortam ışığı neredeyse sıfır: aydınlatma lambalardan ve fenerden gelsin.
+        //
+        // 0.018'di ve oynandığında fazla çıktı: lambasız koridorda fenersiz
+        // yürünebiliyordu. Karanlık bu oyunda süs değil oynanışın kendisi
+        // (bölüm 5) — fenerin "açarsan görürsün ama görünürsün" takası ancak
+        // fenersiz GÖRÜLMÜYORSA bir takas.
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-        RenderSettings.ambientLight = new Color(0.018f, 0.018f, 0.028f);
+        RenderSettings.ambientLight = new Color(0.006f, 0.006f, 0.010f);
 
         // Sis, görüş mesafesini ~25 metreye indiriyor. 48 metrelik koridorun
         // sonunu göremiyorsun; labirent yeniden labirent oluyor.
+        //
+        // Sis rengi bir taban aydınlık: yoğunluk arttıkça yüzeyler bu renge
+        // yaklaşıyor, yani sis rengi ortam ışığından parlaksa uzak duvarlar
+        // ışıksız yerde bile görünür kalıyor. Ortamla birlikte indirildi.
         RenderSettings.fog = true;
         RenderSettings.fogMode = FogMode.ExponentialSquared;
-        RenderSettings.fogColor = new Color(0.02f, 0.02f, 0.035f);
+        RenderSettings.fogColor = new Color(0.008f, 0.008f, 0.014f);
         RenderSettings.fogDensity = 0.045f;
+
+        // Yansıma, sahnenin gökyüzünden pişiyor ve varsayılan gökyüzü parlak
+        // mavi. Kapalı bir labirentte bunun karşılığı yok; tam şiddette
+        // yüzeylere ışıksız yerde bile bir parlaklık veriyordu.
+        RenderSettings.reflectionIntensity = 0.2f;
     }
 
     private static void DimDirectionalLight()

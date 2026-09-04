@@ -79,15 +79,21 @@ public class LightBakeWindow : EditorWindow
     private bool useMixedLighting = true;
 
     [SerializeField]
-    [Tooltip("Sekmeli (dolaylı) ışığın çarpanı. Karanlık bir labirentte köşeleri " +
-        "dolduran şey bu; doğrudan ışığı artırmadan mekânı okunur yapıyor.")]
-    private float indirectScale = 2f;
+    [Tooltip("Sekmeli (dolaylı) ışığın çarpanı. 1 = gerçekçi.
+
+" +
+        "Bir ara 2'ydi: pişmiş ışık sönük sanılıyordu ve köşeleri doldurmak " +
+        "için kondu. Teşhis yanlış çıktı (sorun lamba şiddetiydi) ama çarpan " +
+        "kaldı ve haritayı fenersiz yürünebilir hâle getirdi — lambasız " +
+        "koridorda bile önü görülüyordu. Karanlık bu oyunda oynanışın kendisi " +
+        "(bölüm 5), o yüzden gerçekçiye döndürüldü.")]
+    private float indirectScale = 1f;
 
     [SerializeField]
-    [Tooltip("Yüzeylerin ışığı ne kadar geri yansıttığı. 1 gerçekçi, üstü " +
-        "abartı — koyu duvarlı dar koridorlarda sekme neredeyse yok oluyor, " +
-        "bu onu telafi ediyor.")]
-    private float albedoBoost = 1.6f;
+    [Tooltip("Yüzeylerin ışığı ne kadar geri yansıttığı. 1 = gerçekçi. " +
+        "indirectScale ile aynı hikâye: 1.6'ydı, aynı turda aynı yanlış " +
+        "gerekçeyle kondu, aynı sebeple geri alındı.")]
+    private float albedoBoost = 1f;
 
     [Header("Işık probe'ları")]
     [SerializeField]
