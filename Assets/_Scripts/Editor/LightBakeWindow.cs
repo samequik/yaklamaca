@@ -79,9 +79,7 @@ public class LightBakeWindow : EditorWindow
     private bool useMixedLighting = true;
 
     [SerializeField]
-    [Tooltip("Sekmeli (dolaylı) ışığın çarpanı. 1 = gerçekçi.
-
-" +
+    [Tooltip("Sekmeli (dolaylı) ışığın çarpanı. 1 = gerçekçi. " +
         "Bir ara 2'ydi: pişmiş ışık sönük sanılıyordu ve köşeleri doldurmak " +
         "için kondu. Teşhis yanlış çıktı (sorun lamba şiddetiydi) ama çarpan " +
         "kaldı ve haritayı fenersiz yürünebilir hâle getirdi — lambasız " +
