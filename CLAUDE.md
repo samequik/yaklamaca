@@ -1577,7 +1577,7 @@ kapsülünde dönecek kafa yok.
 
 ### Ayak kayması
 
-Canavar 9.9 m/s'ye çıkıyor, Mixamo koşusu ~4 m/s ilerliyor. Oynatma hızı
+Canavar 11.43 m/s'ye çıkıyor (600 u/s), Mixamo koşusu ~4 m/s ilerliyor. Oynatma hızı
 orantılanıyor ama **sınırlı** (0.7–1.6): tam orantı bacakları gülünç şekilde
 çırpıyor. Biraz kayma, çok hızlı animasyondan iyi.
 
