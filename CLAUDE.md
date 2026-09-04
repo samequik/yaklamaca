@@ -1056,6 +1056,21 @@ haksız hâle getirirdi.
 - Terminalin başında aynı anda tek kişi olabiliyor: kaçan doldururken canavar
   kilitlemeye başlayamıyor (zaten onu öldürmesi daha mantıklı).
 - Canavarın kurduğu kilitte **alarm gönderilmiyor** — zaten orada duruyor.
+- **Canavarın kilidi SESSİZ de** (2026-09-05). Uyarı sesi 18 metreden
+  duyuluyor, yani öten bir terminal "canavar az önce buradaydı" diye bağırırdı.
+  Kaçanın kendi hatası ise duyuluyor: hatayı yapan da, yakındakiler de bilmeli.
+
+  **Işık ikisinde de yanıyor.** Menzili 9 m — kilitli terminali yanına gelen
+  görüyor, bu zaten olması gereken. Sesle ışığın ayrılma sebebi **menzil
+  farkı**: ses uzağa yayılıyor, ışık yayılmıyor.
+
+  Sessiz alarmda ışığın takip edeceği bir dalga olmadığı için nabız
+  zamanlayıcıdan geliyor (`silentBlinkRate`). Kayma sorunu yok, kayacağı bir
+  şey yok.
+
+  Ayrımı `lockedByMonster` SyncVar'ı taşıyor. `!alertMonster` çıkarımı
+  kullanılmadı, bilerek: bugün ikisi çakışıyor ama üçüncü bir kilitleme sebebi
+  eklenirse çıkarım sessizce yanlış sonuç verirdi.
 
 ### 11.5 Çıkış
 

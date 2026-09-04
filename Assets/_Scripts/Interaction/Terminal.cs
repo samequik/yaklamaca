@@ -98,6 +98,10 @@ public class Terminal : NetworkBehaviour, IInteractable
         "sönme yavaş: bipin kendisi kısa ama ışığın izi kalıyor.")]
     [SerializeField] private float alarmFalloff = 4f;
 
+    [Tooltip("Ses çalmayan alarmda ışığın saniyedeki nabız sayısı. Canavarın " +
+        "kurduğu kilit sessiz olduğu için ışığın takip edeceği bir dalga yok.")]
+    [SerializeField] private float silentBlinkRate = 1.2f;
+
     /// <summary>0-1 arası doluluk. Yalnızca sunucu yazar.</summary>
     [SyncVar] private float progress;
 
@@ -155,6 +159,22 @@ public class Terminal : NetworkBehaviour, IInteractable
 
     /// <summary>Canavarın kilitleme işleminin biteceği ağ zamanı. 0 = kilitlemiyor.</summary>
     [SyncVar] private double monsterLockEndTime;
+
+    /// <summary>
+    /// Kilidi canavar mı kurdu. Sesli alarmı SUSTURAN tek şey bu.
+    ///
+    /// Canavarın kilidi sessiz olmalı: uyarı sesi 18 metreden duyuluyor, yani
+    /// öten bir terminal "canavar az önce buradaydı" diye bağırırdı. Kaçanın
+    /// kendi hatası ise duyulmalı — hatayı yapan da, yakındakiler de bilmeli.
+    ///
+    /// **Işık ikisinde de yanıyor.** Işığın menzili 9 m: kilitli terminali
+    /// yanına gelen görüyor, bu zaten olması gereken. Sesle ışığın ayrılma
+    /// sebebi menzil farkı — ses uzağa yayılıyor, ışık yayılmıyor.
+    ///
+    /// Bölüm 11.4 bunu zaten söylüyordu ("canavarın kurduğu kilitte alarm
+    /// gönderilmiyor"); eksik olan sesin de o kurala uyması.
+    /// </summary>
+    [SyncVar] private bool lockedByMonster;
 
     /// <summary>Dolumun başlayacağı ağ zamanı — bağlanma gecikmesi.</summary>
     [SyncVar] private double fillReadyTime;
@@ -310,7 +330,8 @@ public class Terminal : NetworkBehaviour, IInteractable
         AudioClip wanted = null;
         float volume = 0f;
 
-        if (locked)
+        // Canavarın kurduğu kilit SESSİZ. Gerekçe lockedByMonster'da.
+        if (locked && !lockedByMonster)
         {
             wanted = warningClip;
             volume = warningVolume;
@@ -568,7 +589,7 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// rotasını seçmesini sağlayan asıl bilgi.
     /// </summary>
     [Server]
-    private void ServerFailPrompt(string reason) => ServerApplyLock(true, reason);
+    private void ServerFailPrompt(string reason) => ServerApplyLock(true, false, reason);
 
     /// <summary>
     /// Terminali kilitler ve kilit örüntüsünü üretir.
@@ -577,8 +598,13 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// kendisi kurduğunda haber göndermenin anlamı yok — zaten orada duruyor.
     /// </summary>
     [Server]
-    private void ServerApplyLock(bool alertMonster, string reason)
+    private void ServerApplyLock(bool alertMonster, bool byMonster, string reason)
     {
+        // Ayrı parametre, `!alertMonster` çıkarımı DEĞİL: bugün ikisi
+        // çakışıyor ama üçüncü bir kilitleme sebebi (tuzak, olay) eklenirse
+        // çıkarım sessizce yanlış sonuç verirdi.
+        lockedByMonster = byMonster;
+
         prompt = 0;
         unlockEntered = 0;
 
@@ -625,7 +651,7 @@ public class Terminal : NetworkBehaviour, IInteractable
         if (NetworkTime.time < monsterLockEndTime)
             return;
 
-        ServerApplyLock(false, "canavar kilitledi");
+        ServerApplyLock(false, true, "canavar kilitledi");
 
         monsterLockEndTime = 0;
         ServerRelease();
@@ -667,6 +693,7 @@ public class Terminal : NetworkBehaviour, IInteractable
     {
         progress = 0f;
         locked = false;
+        lockedByMonster = false;
         activeUserNetId = 0;
         prompt = 0;
         unlockEntered = 0;
@@ -783,6 +810,7 @@ public class Terminal : NetworkBehaviour, IInteractable
 
         // Örüntü tamam: kilit açılıyor, ilerleme kaldığı yerden devam ediyor.
         locked = false;
+        lockedByMonster = false;
         unlockEntered = 0;
         prompt = 0;
         ServerScheduleNextPrompt();
@@ -1192,16 +1220,26 @@ public class Terminal : NetworkBehaviour, IInteractable
     {
         float target = 0f;
 
-        if (locked && stateSource != null && stateSource.isPlaying)
+        if (locked)
         {
-            stateSource.GetOutputData(audioSamples, 0);
+            if (stateSource != null && stateSource.isPlaying)
+            {
+                stateSource.GetOutputData(audioSamples, 0);
 
-            float sum = 0f;
-            foreach (float sample in audioSamples)
-                sum += sample * sample;
+                float sum = 0f;
+                foreach (float sample in audioSamples)
+                    sum += sample * sample;
 
-            float rms = Mathf.Sqrt(sum / audioSamples.Length);
-            target = Mathf.Clamp01(rms * alarmAudioGain);
+                float rms = Mathf.Sqrt(sum / audioSamples.Length);
+                target = Mathf.Clamp01(rms * alarmAudioGain);
+            }
+            else
+            {
+                // Sessiz alarm (canavarın kilidi, ya da klip bağlanmamış).
+                // Takip edilecek ses yok, o yüzden zamanlayıcı — ve burada
+                // kayma diye bir sorun da yok, kayacağı bir şey yok.
+                target = Mathf.PingPong(Time.time * silentBlinkRate * 2f, 1f);
+            }
         }
 
         alarmLevel = target > alarmLevel
