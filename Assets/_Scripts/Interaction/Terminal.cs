@@ -98,9 +98,19 @@ public class Terminal : NetworkBehaviour, IInteractable
         "sönme yavaş: bipin kendisi kısa ama ışığın izi kalıyor.")]
     [SerializeField] private float alarmFalloff = 4f;
 
-    [Tooltip("Ses çalmayan alarmda ışığın saniyedeki nabız sayısı. Canavarın " +
-        "kurduğu kilit sessiz olduğu için ışığın takip edeceği bir dalga yok.")]
+    [Tooltip("Klip bağlanmamışsa ışığın saniyedeki nabız sayısı. Normalde " +
+        "nabız sesin genliğinden geliyor; bu yalnızca yedek.")]
     [SerializeField] private float silentBlinkRate = 1.2f;
+
+    [Tooltip("Kaçanın hatasından sonra alarmın kaç saniye çalacağı. Bitince " +
+        "terminal susuyor ve ışık sabit kırmızıya dönüyor — kilitli olduğu " +
+        "hâlâ belli ama artık dikkat çekmiyor. Amaç canavara uyarı vermek, " +
+        "terminali kalıcı sirene çevirmek değil.")]
+    [SerializeField] private float alarmDuration = 10f;
+
+    [Tooltip("Alarm süresi bittikten sonraki sabit kırmızı. Kilitli olduğunu " +
+        "söylüyor, yanıp sönmüyor.")]
+    [SerializeField] private float alarmSteadyIntensity = 1.5f;
 
     /// <summary>0-1 arası doluluk. Yalnızca sunucu yazar.</summary>
     [SyncVar] private float progress;
@@ -160,21 +170,20 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// <summary>Canavarın kilitleme işleminin biteceği ağ zamanı. 0 = kilitlemiyor.</summary>
     [SyncVar] private double monsterLockEndTime;
 
+
     /// <summary>
-    /// Kilidi canavar mı kurdu. Sesli alarmı SUSTURAN tek şey bu.
+    /// Sesli alarmın biteceği ağ zamanı. 0 = alarm hiç çalmayacak.
     ///
-    /// Canavarın kilidi sessiz olmalı: uyarı sesi 18 metreden duyuluyor, yani
-    /// öten bir terminal "canavar az önce buradaydı" diye bağırırdı. Kaçanın
-    /// kendi hatası ise duyulmalı — hatayı yapan da, yakındakiler de bilmeli.
+    /// Alarm **süreli**, bilerek: amaç canavara "burada biri hata yaptı" diye
+    /// bir uyarı vermek, terminali kalıcı bir siren yapmak değil. Kilit
+    /// açılana kadar ötseydi haritada üç kilitli terminal birikince ses
+    /// kirliliğinden başka bir şey kalmazdı ve uyarı değerini de yitirirdi —
+    /// sürekli çalan alarm duyulmaz olur.
     ///
-    /// **Işık ikisinde de yanıyor.** Işığın menzili 9 m: kilitli terminali
-    /// yanına gelen görüyor, bu zaten olması gereken. Sesle ışığın ayrılma
-    /// sebebi menzil farkı — ses uzağa yayılıyor, ışık yayılmıyor.
-    ///
-    /// Bölüm 11.4 bunu zaten söylüyordu ("canavarın kurduğu kilitte alarm
-    /// gönderilmiyor"); eksik olan sesin de o kurala uyması.
+    /// Süre bitince terminal susuyor ama **kırmızı kalıyor**: durum bilgisi
+    /// kaybolmuyor, yalnızca dikkat çekmeyi bırakıyor.
     /// </summary>
-    [SyncVar] private bool lockedByMonster;
+    [SyncVar] private double lockAlarmEndTime;
 
     /// <summary>Dolumun başlayacağı ağ zamanı — bağlanma gecikmesi.</summary>
     [SyncVar] private double fillReadyTime;
@@ -330,8 +339,7 @@ public class Terminal : NetworkBehaviour, IInteractable
         AudioClip wanted = null;
         float volume = 0f;
 
-        // Canavarın kurduğu kilit SESSİZ. Gerekçe lockedByMonster'da.
-        if (locked && !lockedByMonster)
+        if (AlarmActive)
         {
             wanted = warningClip;
             volume = warningVolume;
@@ -600,10 +608,14 @@ public class Terminal : NetworkBehaviour, IInteractable
     [Server]
     private void ServerApplyLock(bool alertMonster, bool byMonster, string reason)
     {
-        // Ayrı parametre, `!alertMonster` çıkarımı DEĞİL: bugün ikisi
-        // çakışıyor ama üçüncü bir kilitleme sebebi (tuzak, olay) eklenirse
-        // çıkarım sessizce yanlış sonuç verirdi.
-        lockedByMonster = byMonster;
+        // Canavarın kilidi hiç ötmüyor: uyarı sesi 18 metreden duyuluyor ve
+        // öten bir terminal "canavar az önce buradaydı" diye bağırırdı.
+        // Kaçanın hatası alarmDuration kadar ötüyor, sonra susuyor.
+        //
+        // `byMonster` ayrı bir parametre, `!alertMonster` çıkarımı DEĞİL:
+        // bugün ikisi çakışıyor ama üçüncü bir kilitleme sebebi (tuzak, olay)
+        // eklenirse çıkarım sessizce yanlış sonuç verirdi.
+        lockAlarmEndTime = byMonster ? 0d : NetworkTime.time + Mathf.Max(0f, alarmDuration);
 
         prompt = 0;
         unlockEntered = 0;
@@ -693,7 +705,7 @@ public class Terminal : NetworkBehaviour, IInteractable
     {
         progress = 0f;
         locked = false;
-        lockedByMonster = false;
+        lockAlarmEndTime = 0d;
         activeUserNetId = 0;
         prompt = 0;
         unlockEntered = 0;
@@ -810,7 +822,7 @@ public class Terminal : NetworkBehaviour, IInteractable
 
         // Örüntü tamam: kilit açılıyor, ilerleme kaldığı yerden devam ediyor.
         locked = false;
-        lockedByMonster = false;
+        lockAlarmEndTime = 0d;
         unlockEntered = 0;
         prompt = 0;
         ServerScheduleNextPrompt();
@@ -1177,7 +1189,14 @@ public class Terminal : NetworkBehaviour, IInteractable
         {
             stateLight.color = alarmLightColor;
             stateLight.range = alarmLightRange;
-            stateLight.intensity = Mathf.Lerp(alarmDimIntensity, alarmPeakIntensity, alarmLevel);
+
+            // Alarm penceresi boyunca nabız, sonrasında sabit. Kırmızı kalıyor
+            // ki terminalin kilitli olduğu belli olsun; yanıp sönmeyi bırakması
+            // "artık dikkatini istemiyorum" demek.
+            stateLight.intensity = AlarmActive
+                ? Mathf.Lerp(alarmDimIntensity, alarmPeakIntensity, alarmLevel)
+                : alarmSteadyIntensity;
+
             return;
         }
 
@@ -1216,11 +1235,30 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// istenmeyen bir şey değil: ışığın menzili 9 m, o mesafede zaten
     /// görünmüyor.
     /// </summary>
+    /// <summary>
+    /// Sesli-ışıklı alarm şu an sürüyor mu. Ses de nabız da tek bu ölçüte bağlı,
+    /// yani ikisi hiçbir durumda ayrışamıyor.
+    ///
+    /// Üç hâl var:
+    ///
+    /// | Durum | Ses | Işık |
+    /// |---|---|---|
+    /// | Kaçan hata yaptı, ilk 10 sn | var | yanıp sönüyor |
+    /// | 10 sn sonra, hâlâ kilitli | yok | sabit kırmızı |
+    /// | Canavar kilitledi | yok | sabit kırmızı |
+    ///
+    /// Canavarın kilidinde `lockAlarmEndTime` zaten 0 kuruluyor, yani tek
+    /// karşılaştırma üç hâli birden kapsıyor. Ayrı bir "kilidi kim kurdu"
+    /// bayrağı da denendi ve kaldırıldı: hiçbir yerde okunmuyordu, ağda
+    /// boşuna yer kaplayan bir SyncVar'dı.
+    /// </summary>
+    private bool AlarmActive => locked && NetworkTime.time < lockAlarmEndTime;
+
     private void UpdateAlarmLevel()
     {
         float target = 0f;
 
-        if (locked)
+        if (AlarmActive)
         {
             if (stateSource != null && stateSource.isPlaying)
             {
@@ -1235,9 +1273,7 @@ public class Terminal : NetworkBehaviour, IInteractable
             }
             else
             {
-                // Sessiz alarm (canavarın kilidi, ya da klip bağlanmamış).
-                // Takip edilecek ses yok, o yüzden zamanlayıcı — ve burada
-                // kayma diye bir sorun da yok, kayacağı bir şey yok.
+                // Yedek: klip bağlanmamışsa takip edilecek dalga yok.
                 target = Mathf.PingPong(Time.time * silentBlinkRate * 2f, 1f);
             }
         }

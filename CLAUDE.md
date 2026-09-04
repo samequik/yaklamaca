@@ -1056,21 +1056,30 @@ haksız hâle getirirdi.
 - Terminalin başında aynı anda tek kişi olabiliyor: kaçan doldururken canavar
   kilitlemeye başlayamıyor (zaten onu öldürmesi daha mantıklı).
 - Canavarın kurduğu kilitte **alarm gönderilmiyor** — zaten orada duruyor.
-- **Canavarın kilidi SESSİZ de** (2026-09-05). Uyarı sesi 18 metreden
-  duyuluyor, yani öten bir terminal "canavar az önce buradaydı" diye bağırırdı.
-  Kaçanın kendi hatası ise duyuluyor: hatayı yapan da, yakındakiler de bilmeli.
+- **Alarm süreli, kilit kalıcı** (2026-09-05). Üç hâl var:
 
-  **Işık ikisinde de yanıyor.** Menzili 9 m — kilitli terminali yanına gelen
-  görüyor, bu zaten olması gereken. Sesle ışığın ayrılma sebebi **menzil
-  farkı**: ses uzağa yayılıyor, ışık yayılmıyor.
+  | Durum | Ses | Işık |
+  |---|---|---|
+  | Kaçan hata yaptı, ilk **10 sn** | var | yanıp sönüyor |
+  | 10 sn sonra, hâlâ kilitli | yok | **sabit kırmızı** |
+  | **Canavar kilitledi** | yok | **sabit kırmızı** |
 
-  Sessiz alarmda ışığın takip edeceği bir dalga olmadığı için nabız
-  zamanlayıcıdan geliyor (`silentBlinkRate`). Kayma sorunu yok, kayacağı bir
-  şey yok.
+  **Neden süreli.** Amaç canavara "burada biri hata yaptı" diye bir uyarı
+  vermek, terminali kalıcı sirene çevirmek değil. Kilit açılana kadar ötseydi
+  üç kilitli terminal birikince ses kirliliğinden başkası kalmaz, üstelik
+  sürekli çalan alarm duyulmaz olurdu. Süre bitince terminal susuyor ama
+  **kırmızı kalıyor**: durum bilgisi kaybolmuyor, yalnızca dikkat çekmeyi
+  bırakıyor.
 
-  Ayrımı `lockedByMonster` SyncVar'ı taşıyor. `!alertMonster` çıkarımı
-  kullanılmadı, bilerek: bugün ikisi çakışıyor ama üçüncü bir kilitleme sebebi
-  eklenirse çıkarım sessizce yanlış sonuç verirdi.
+  **Neden canavarınki hiç ötmüyor.** Uyarı sesi 18 metreden duyuluyor; öten bir
+  terminal "canavar az önce buradaydı" diye bağırırdı. Işık ise 9 m — kilitli
+  terminali yanına gelen görüyor, bu zaten olması gereken. Sesle ışığın
+  ayrılma sebebi **menzil farkı**.
+
+  Üçünü de tek ölçüt sürüyor (`Terminal.AlarmActive`), yani ses ve nabız
+  hiçbir durumda ayrışamıyor. Canavarın kilidinde alarm penceresi zaten sıfır
+  kuruluyor, o yüzden ayrı bir "kilidi kim kurdu" bayrağı gerekmedi — bir tane
+  eklenmiş ve hiçbir yerde okunmadığı görülünce kaldırılmıştı.
 
 ### 11.5 Çıkış
 
