@@ -614,6 +614,7 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Haritayı Giydir (SciFi Kit) | Küplerin üstünü kit modelleriyle kaplar |
 | Harita Süsle (prop dağıt) | Duvar diplerine varil/kasa dağıtır |
 | Ağ Kurulumu (1. adım) | Oyuncu prefabı + NetworkManager + doğum noktaları |
+| Relay Transport'unu Kur | Yalnızca Edgegap relay'ini kurar; hiçbir şey silmiyor |
 | Menü Kur | Menü, lobi, ayarlar ve tuş atama ekranları (bkz. bölüm 13) |
 | Terminal ve Çıkış Kur | 5 terminali duvarlara, 2 çıkışı en uzak iki gediğe kurar |
 | Sesleri Yerleştir | Sesleri adlandırır, mono yapar, kapılara ve terminallere bağlar |
@@ -1372,8 +1373,21 @@ sayaçları hepsi orada (bölüm 4). Relay yalnızca kuryelik yapıyor, karar
 vermiyor. Edgegap'in kendi deyişiyle: *"relay'ler otoriter oyun sunucusu
 değildir, işlem gücü içermez."*
 
-**Kurulum sende, kodda değil.** `NetworkManager > EdgegapLobbyKcpTransport`
-bileşenindeki `lobbyUrl` boşsa relay çalışmıyor. Doldurmak için o bileşenin
+> **Relay AYRI bir alt objede duruyor** (`NetworkManager/RelayTransport`).
+> Aynı objeye konulamıyor: `KcpTransport` sınıfında
+> `[DisallowMultipleComponent]` var ve relay ondan türüyor, yani Unity aynı
+> türden ikinci bileşeni **sessizce reddediyor** — `AddComponent` hiçbir hata
+> yazmadan null döndürüyor. İlk denemede tam bu oldu ve bileşen Inspector'da
+> hiç görünmedi, sebebi de hiçbir yerde yazmadı. Mirror'ın transport'u
+> NetworkManager ile aynı objede olmak zorunda değil.
+>
+> Var olan bir projeye sonradan eklemek için `Yakalamaca > Relay Transport'unu
+> Kur` var: hiçbir şey silmiyor, yalnızca alt objeyi kurup referansları
+> yazıyor. `Ağ Kurulumu` bunu da yapıyor ama o prefabı sıfırdan kurduğu için
+> bütün zinciri (model, ses, menü, yankı) tekrar gerektiriyor.
+
+**Kurulum sende, kodda değil.** `RelayTransport` objesindeki
+`EdgegapLobbyKcpTransport` bileşeninin `lobbyUrl` alanı boşsa relay çalışmıyor. Doldurmak için o bileşenin
 kurulum penceresi kullanılıyor: Edgegap API anahtarı + bir servis adı → Create.
 Anahtar [app.edgegap.com](https://app.edgegap.com) → User Settings → Tokens.
 

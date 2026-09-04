@@ -337,8 +337,10 @@ public static class MenuSetup
 
         SerializedObject serialized = new SerializedObject(network);
 
+        // Alt objede duruyor: KcpTransport'ta DisallowMultipleComponent var ve
+        // relay ondan türüyor, aynı objeye ikisi birden konulamıyor.
         serialized.FindProperty("relayTransport").objectReferenceValue =
-            managerObject.GetComponent<Edgegap.EdgegapLobbyKcpTransport>();
+            managerObject.GetComponentInChildren<Edgegap.EdgegapLobbyKcpTransport>(true);
 
         serialized.FindProperty("localTransport").objectReferenceValue =
             managerObject.GetComponent<kcp2k.KcpTransport>();
