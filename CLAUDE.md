@@ -500,6 +500,16 @@ Ses (koşarsan duyulursun), iz (koşarsan yerde iz bırakırsın, sadece canavar
 görür), fener (açarsan görürsün ama görünürsün). Üçü birlikte çalışıyor; birini
 bozan değişiklik diğer ikisini de anlamsızlaştırır.
 
+**Fener KAÇANIN aracı** (2026-09-04). Canavarda fener yok; etrafında sönmeyen
+kırmızı bir hâle var (`MonsterAura`). Takas canavarda zaten yoktu — gizlenmesi
+gereken o değil. Hâle iki işi birden yapıyor: canavar önünü görüyor, kaçan da
+köşeyi dönmeden kırmızının yaklaştığını fark ediyor.
+
+Hâlenin **gölgesi açık**, bilerek: gölgesiz nokta ışık duvar tanımaz ve kırmızı
+yan koridora sızsaydı canavarın yeri duvarın arkasından belli olurdu. Bu,
+bölüm 4'teki "istemciye görmesi gerekmeyen bilgiyi gönderme" kuralının görsel
+karşılığı — izlerin yalnızca canavara gönderilmesiyle aynı gerekçe.
+
 > **Düzeltme (2026-08-31).** Fenerin üçüncü ayağı uzun süre **hiç çalışmıyordu.**
 > `Flashlight` düz bir `MonoBehaviour`'dı, durumu ağda taşınmıyordu ve `Update`
 > yerel oyuncu kontrolü yapmadan klavyeyi okuyordu: F'ye basınca o istemcideki
@@ -936,6 +946,21 @@ Seçim tur başında da olsun istenirse `ObjectiveSetup.TerminalCount` 6 yapıl�
 
 - Haritada **5 terminal**, hepsi **duvara monte** (`ObjectiveSetup.TerminalCount`).
 - **E** ile etkileşim. İlerleme **yüzde** olarak dolar.
+- Her terminal **göstergesiyle aynı renkte az ışık** döküyor (2026-09-04):
+  boşta mavi, çalışırken parlak, kilitliyken kırmızı, bitince yeşil. Şiddet
+  bilerek düşük (0.6) ve menzil kısa (4 m) — terminal koridoru aydınlatan bir
+  lamba değil, uzaktan rengi okunan bir işaret. Yükseltmek karanlığı oynanıştan
+  çıkarır (bölüm 5).
+
+  Renk **tek kaynaktan** çıkıyor: `UpdateVisual` göstergeye ne yazıyorsa ışığa
+  da onu veriyor. İki yerde ayrı renk tutulsaydı biri değişince öbürü unutulurdu.
+  Renk normalleştiriliyor, çünkü Unity ışık rengini şiddetle çarpıyor ve doygun
+  `lockedColor` ile sönük `idleColor` aynı şiddette çok farklı parlıyordu.
+
+  Işık **çalışma anında kuruluyor** (`Terminal.GetOrCreateStateLight`).
+  Terminaller elle yerleştirildi ve `Terminal ve Çıkış Kur` var olanlara bilerek
+  dokunmuyor (bölüm 0), yani editör aracına eklemek mevcut beş terminale hiç
+  ulaşmazdı. Aynı desen `MonsterAura`'da da var.
 - İlerleme **kalıcı**: yarıda bırakılan terminal sıfırlanmaz, başkası devam
   eder. Ölen kişinin emeği kaybolmaz.
 - Terminal başındayken kaçan:

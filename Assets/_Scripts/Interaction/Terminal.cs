@@ -38,6 +38,19 @@ public class Terminal : NetworkBehaviour, IInteractable
     [SerializeField] private Color lockedColor = new Color(1f, 0.25f, 0.1f);
     [SerializeField] private Color doneColor = new Color(0.25f, 1f, 0.35f);
 
+    [Tooltip("Terminalin etrafına göstergeyle AYNI rengi döken ışık. Boş " +
+        "bırakılırsa Awake kendi kuruyor — ayrıntı GetOrCreateStateLight'ta.")]
+    [SerializeField] private Light stateLight;
+
+    [Tooltip("Terminal ışığının şiddeti. Bilerek düşük: terminal koridoru " +
+        "aydınlatan bir lamba değil, rengini belli eden bir işaret. " +
+        "Yükseltmek karanlığı oynanıştan çıkarır (bölüm 5).")]
+    [SerializeField] private float stateLightIntensity = 0.6f;
+
+    [Tooltip("Terminal ışığının menzili (metre). Koridor 3.2 m; 4 m, ışığın " +
+        "terminalin önünde kalıp yan koridora taşmamasını sağlıyor.")]
+    [SerializeField] private float stateLightRange = 4f;
+
     /// <summary>0-1 arası doluluk. Yalnızca sunucu yazar.</summary>
     [SyncVar] private float progress;
 
@@ -125,6 +138,46 @@ public class Terminal : NetworkBehaviour, IInteractable
     private void Awake()
     {
         propertyBlock = new MaterialPropertyBlock();
+        stateLight = GetOrCreateStateLight();
+    }
+
+    /// <summary>
+    /// Terminalin durum ışığını bulur, yoksa kurar.
+    ///
+    /// **Neden çalışma anında kuruluyor.** Terminaller elle yerleştirildi ve
+    /// `Terminal ve Çıkış Kur` var olanlara bilerek dokunmuyor (bölüm 0), yani
+    /// editör aracına eklemek mevcut beş terminale hiç ulaşmazdı. Burada
+    /// kurmak, hiçbir araç çalıştırmadan hepsinde çalışıyor.
+    ///
+    /// Alan yine de serileştirilmiş: elle bir ışık bağlanırsa ona dokunmuyor.
+    ///
+    /// **Gölge kapalı.** Beş terminalin beşi de gölge düşüren nokta ışığı
+    /// olsaydı altı yüzlü gölge haritası beş kez hesaplanırdı; ışık zaten
+    /// düşük şiddetli ve menzili kısa, sızdığı yer de terminalin kendi duvarı.
+    /// </summary>
+    private Light GetOrCreateStateLight()
+    {
+        if (stateLight != null)
+            return stateLight;
+
+        GameObject holder = new GameObject("DurumIsigi");
+        holder.transform.SetParent(transform, false);
+
+        // Göstergenin önünde: ışık duvara gömülürse dışarı hiç çıkmıyor.
+        holder.transform.localPosition = new Vector3(0f, 0f, 0.25f);
+        holder.layer = gameObject.layer;
+
+        Light light = holder.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.range = stateLightRange;
+        light.intensity = stateLightIntensity;
+        light.shadows = LightShadows.None;
+
+        // Gerçek zamanlı olmak zorunda: renk duruma göre her karede değişiyor,
+        // pişmiş ışık bunu takip edemez.
+        light.lightmapBakeType = LightmapBakeType.Realtime;
+
+        return light;
     }
 
     /// <summary>
@@ -899,5 +952,32 @@ public class Terminal : NetworkBehaviour, IInteractable
 
         propertyBlock.SetColor(ColorId, color);
         progressLight.SetPropertyBlock(propertyBlock);
+
+        ApplyStateLight(color);
+    }
+
+    /// <summary>
+    /// Işığı göstergeyle AYNI renkten sürer: yeşilse az yeşil, maviyse az mavi.
+    /// İki yerde ayrı renk tutulsaydı biri değişince öbürü unutulurdu — durum
+    /// rengi tek kaynaktan çıkıyor (bölüm 5, "tur verisi tek yerde").
+    ///
+    /// Renk normalleştiriliyor: `lockedColor` gibi doygun renkler ile
+    /// `idleColor` gibi sönükler aynı şiddette çok farklı parlıyordu, çünkü
+    /// Unity'nin ışık rengi şiddetle çarpılıyor. En parlak kanala bölünce
+    /// yalnızca renk kalıyor, parlaklığı `stateLightIntensity` belirliyor.
+    /// </summary>
+    private void ApplyStateLight(Color color)
+    {
+        if (stateLight == null)
+            return;
+
+        float peak = Mathf.Max(color.r, Mathf.Max(color.g, color.b));
+
+        stateLight.color = peak > 0.001f
+            ? new Color(color.r / peak, color.g / peak, color.b / peak)
+            : Color.white;
+
+        stateLight.intensity = stateLightIntensity;
+        stateLight.range = stateLightRange;
     }
 }

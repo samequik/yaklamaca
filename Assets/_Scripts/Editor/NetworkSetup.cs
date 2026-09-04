@@ -120,6 +120,28 @@ public static class NetworkSetup
         knifeObject.transform.localPosition = new Vector3(0.26f, -0.2f, 0.42f);
         knifeObject.transform.localScale = new Vector3(0.035f, 0.3f, 0.07f);
 
+        // Canavarın kırmızı hâlesi. KAMERANIN değil KÖKÜN çocuğu, bilerek:
+        // fener bakışı takip etmeli ama hâle canavarın etrafında durmalı —
+        // kameraya bağlansaydı canavar başını çevirince ışık da savrulurdu.
+        GameObject auraObject = new GameObject("CanavarHalesi");
+        auraObject.transform.SetParent(root.transform, false);
+        auraObject.transform.localPosition = new Vector3(0f, 0.6f, 0f);
+
+        Light aura = auraObject.AddComponent<Light>();
+        aura.type = LightType.Point;
+        aura.range = 10f;
+        aura.intensity = 2.2f;
+        aura.color = new Color(1f, 0.13f, 0.08f);
+
+        // Gölgesiz nokta ışık duvar tanımaz; hâle yan koridora sızsaydı
+        // canavarın yeri duvarın arkasından belli olurdu (bölüm 4).
+        // Hard: nokta ışığın gölgesi altı yüzlü ve pahalı, oyunda böyle tek
+        // ışık var ve yumuşaklık burada bir şey kazandırmıyor.
+        aura.shadows = LightShadows.Hard;
+
+        // Rol gelene kadar kapalı. RoundParticipant.ApplyRole açıyor.
+        aura.enabled = false;
+
         GameObject flashlightObject = new GameObject("Fener");
         flashlightObject.transform.SetParent(cameraObject.transform, false);
         Light spot = flashlightObject.AddComponent<Light>();
@@ -137,6 +159,7 @@ public static class NetworkSetup
         CapsuleBodyVisual bodyVisual = root.AddComponent<CapsuleBodyVisual>();
         CameraBob bob = root.AddComponent<CameraBob>();
         Flashlight flashlight = root.AddComponent<Flashlight>();
+        MonsterAura monsterAura = root.AddComponent<MonsterAura>();
 
         AudioSource footstepSource = root.AddComponent<AudioSource>();
         footstepSource.playOnAwake = false;
@@ -192,6 +215,7 @@ public static class NetworkSetup
         Wire(bodyVisual, "body", body.transform);
         Wire(bob, "cameraTransform", cameraObject.transform);
         Wire(flashlight, "spotLight", spot);
+        Wire(monsterAura, "auraLight", aura);
 
         SerializedObject serializedFootsteps = new SerializedObject(footsteps);
         serializedFootsteps.FindProperty("source").objectReferenceValue = footstepSource;
@@ -240,6 +264,11 @@ public static class NetworkSetup
         serializedParticipant.FindProperty("runnerProfile").objectReferenceValue = runnerProfile;
         serializedParticipant.FindProperty("bodyRenderer").objectReferenceValue =
             body.GetComponent<Renderer>();
+
+        // Rol değişince ışığı ApplyRole sürüyor: canavarda hâle yanıyor, fener
+        // kapanıyor; kaçanda tersi.
+        serializedParticipant.FindProperty("monsterAura").objectReferenceValue = monsterAura;
+        serializedParticipant.FindProperty("flashlight").objectReferenceValue = flashlight;
 
         // Elenince hareket ve etkileşim kapansın. CameraBob de listede: elenince
         // kamerayı SpectatorController dünya koordinatıyla sürüyor, bob ise her

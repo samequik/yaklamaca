@@ -132,6 +132,13 @@ public class RoundParticipant : NetworkBehaviour
     [SerializeField] private AudioClip deathClip;
     [SerializeField] private float deathVolume = 0.9f;
 
+    [Header("Işık")]
+    [Tooltip("Canavarın kırmızı hâlesi. Rol değişince açılıp kapanıyor.")]
+    [SerializeField] private MonsterAura monsterAura;
+
+    [Tooltip("El feneri. Canavarda kapatılıyor: onun ışığı kırmızı hâle.")]
+    [SerializeField] private Flashlight flashlight;
+
     [Header("Yakalanma Animasyonu")]
     [Tooltip("Kaçanın animatörü. Yakalanınca ölüm klibi buradan tetikleniyor.")]
     [SerializeField] private RunnerAnimator runnerAnimator;
@@ -158,6 +165,21 @@ public class RoundParticipant : NetworkBehaviour
     private void Awake()
     {
         playerController = GetComponent<PlayerController>();
+
+        // Işık bileşenleri eksikse burada tamamlanıyor. `Ağ Kurulumu` ikisini
+        // de bağlıyor, ama o araç oyuncu prefabını sıfırdan kuruyor: var olan
+        // bir projede yalnızca hâleyi eklemek için canavar/kaçan modellerini,
+        // menüyü, sesleri ve yankıyı da yeniden kurmak gerekirdi (bölüm 7).
+        //
+        // Alanlar serileştirilmiş, yani bağlıysa hiçbir şey yapılmıyor.
+        if (flashlight == null)
+            flashlight = GetComponent<Flashlight>();
+
+        if (monsterAura == null)
+            monsterAura = GetComponent<MonsterAura>();
+
+        if (monsterAura == null)
+            monsterAura = gameObject.AddComponent<MonsterAura>();
     }
 
     public override void OnStartClient()
@@ -365,6 +387,18 @@ public class RoundParticipant : NetworkBehaviour
         if (bodyVisual != null)
             bodyVisual.SetRole(newRole);
 
+        // Işık da kontrolcüden önce, aynı gerekçeyle. Canavarda fener yok,
+        // yerine kırmızı hâle var: fener kaçanın "görürsün ama görünürsün"
+        // takası (bölüm 5) ve canavarda o takasın karşılığı yok.
+        //
+        // Burası rolün SyncVar hook'undan çağrıldığı için her istemcide
+        // çalışıyor — hâleyi ve fenerin kapanmasını herkes aynı anda görüyor,
+        // ayrıca bir mesaj göndermek gerekmiyor (bölüm 4).
+        if (flashlight != null)
+            flashlight.SetAvailable(newRole != RoundRole.Monster);
+
+        RefreshAura();
+
         if (playerController == null)
             return;
 
@@ -524,6 +558,24 @@ public class RoundParticipant : NetworkBehaviour
 
         SetControlActive(onField);
         SetVisualActive(onField || dying);
+        RefreshAura();
+    }
+
+    /// <summary>
+    /// Kırmızı hâle yalnızca SAHADAKİ canavarda yanıyor.
+    ///
+    /// İki şarta birden bağlı olması gerekiyor: rol tek başına yetmez (elenen
+    /// canavarın hâlesi boş koridorda yanmaya devam ederdi), sahada olmak da
+    /// tek başına yetmez (her kaçan kırmızı yanardı). O yüzden iki çağıran var
+    /// ve ikisi de buraya düşüyor.
+    /// </summary>
+    private void RefreshAura()
+    {
+        if (monsterAura == null)
+            return;
+
+        bool onField = alive && !escaped && !spectating;
+        monsterAura.SetMonster(role == RoundRole.Monster && onField);
     }
 
     /// <summary>Hareket ve etkileşim. Ölende anında kapanıyor.</summary>

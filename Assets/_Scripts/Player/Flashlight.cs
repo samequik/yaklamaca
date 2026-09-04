@@ -33,18 +33,42 @@ public class Flashlight : NetworkBehaviour
     [SyncVar(hook = nameof(OnStateChanged))]
     private bool isOn = true;
 
-    public bool IsOn => isOn;
+    /// <summary>
+    /// Rol fener taşımaya izin veriyor mu. Canavarda fener yok — onun yerine
+    /// kırmızı bir hâle var (`MonsterAura`).
+    ///
+    /// Bu ayrı bir bayrak, `isOn`'u sıfırlamak yerine: canavar olurken fener
+    /// kapanıyor ama oyuncunun kendi tercihi korunuyor, kaçana dönünce feneri
+    /// bıraktığı gibi buluyor.
+    ///
+    /// Ağda taşınmıyor, taşınması da gerekmiyor: `RoundParticipant.ApplyRole`
+    /// rolün SyncVar hook'undan çağrılıyor, yani her istemci aynı sonucu kendi
+    /// hesaplıyor (bölüm 4).
+    /// </summary>
+    private bool available = true;
+
+    public bool IsOn => isOn && available;
 
     public override void OnStartServer() => ServerSetOn(startOn);
 
     // Sonradan katılan istemci de fenerleri doğru durumda görmeli.
     public override void OnStartClient() => ApplyLight(isOn);
 
+    /// <summary>
+    /// Rol feneri kaldırıyorsa ışığı söndürür ve tuşu sağırlaştırır.
+    /// `RoundParticipant.ApplyRole` sürüyor.
+    /// </summary>
+    public void SetAvailable(bool value)
+    {
+        available = value;
+        ApplyLight(isOn);
+    }
+
     private void Update()
     {
         // Girdiyi YALNIZCA sahibi okuyor. Bu kontrol olmadan tuş, o istemcideki
         // her oyuncunun fenerini birden değiştiriyordu.
-        if (!isLocalPlayer)
+        if (!isLocalPlayer || !available)
             return;
 
         if (KeyBindings.Pressed(GameAction.Flashlight))
@@ -81,6 +105,6 @@ public class Flashlight : NetworkBehaviour
     private void ApplyLight(bool on)
     {
         if (spotLight != null)
-            spotLight.enabled = on;
+            spotLight.enabled = on && available;
     }
 }
