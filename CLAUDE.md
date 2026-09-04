@@ -580,7 +580,7 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Ağ Kurulumu (1. adım) | Oyuncu prefabı + NetworkManager + doğum noktaları |
 | Menü Kur | Menü, lobi, ayarlar ve tuş atama ekranları (bkz. bölüm 13) |
 | Terminal ve Çıkış Kur | 5 terminali duvarlara, 2 çıkışı en uzak iki gediğe kurar |
-| Sesleri Yerleştir | Sesleri adlandırır, mono yapar, kapılara bağlar |
+| Sesleri Yerleştir | Sesleri adlandırır, mono yapar, kapılara ve terminallere bağlar |
 | Mağara Yankısı Kur (reverb) | Yankı bölgesi + mesafeye bağlı yankı eğrisi (bkz. bölüm 12) |
 | Canavar Modelini Kur | Model + animasyonlar + animator + prefaba bağlama (bkz. bölüm 14) |
 | Kaçan Modelini Kur | Banana Man + animasyonlar + animator + prefaba bağlama (bkz. bölüm 17) |
@@ -973,6 +973,13 @@ Seçim tur başında da olsun istenirse `ObjectiveSetup.TerminalCount` 6 yapıl�
   Terminaller elle yerleştirildi ve `Terminal ve Çıkış Kur` var olanlara bilerek
   dokunmuyor (bölüm 0), yani editör aracına eklemek mevcut beş terminale hiç
   ulaşmazdı. Aynı desen `MonsterAura`'da da var.
+- **Ses** (2026-09-05): dolarken çalışma sesi, kilitliyken uyarı — ikisi de
+  döngü, uyarı kilit açılana kadar sürüyor. Ayrıntı bölüm 12'de.
+
+  Hoparlör de ışık gibi çalışma anında kuruluyor, ama **klipler varlık olduğu
+  için çalışma anında bulunamıyor**: onları `Sesleri Yerleştir` bağlıyor. O
+  araç hiçbir şey silmiyor ve kurulum sırasında terminallerden sonra çalışıyor,
+  yani hem mevcut beş terminale hem yeni kurulumlara ulaşıyor.
 - İlerleme **kalıcı**: yarıda bırakılan terminal sıfırlanmaz, başkası devam
   eder. Ölen kişinin emeği kaybolmaz.
 - Terminal başındayken kaçan:
@@ -1122,6 +1129,20 @@ bağlıyor. Aynı isimle üzerine yazarsan referanslar bozulmaz.
 | `Kapi` | Kapı açılma/kapanma |
 | `Olum` | Yakalanma |
 | `Bicak_Savurma`, `Bicak_Isabet` | Bıçak (hâlâ yer tutucu) |
+| `Terminal_Calisma` | Terminal dolarken dönen çalışma sesi |
+| `Terminal_Uyari` | Terminal kilitliyken dönen uyarı |
+
+**Terminal sesleri 3B ve döngü.** İkisini de `Terminal.UpdateAudio` sürüyor,
+klipleri `Sesleri Yerleştir` bağlıyor. Karar veren dört alan (`locked`,
+`activeUserNetId`, `prompt`, `fillReadyTime`) zaten SyncVar olduğu için
+**ağdan hiçbir şey gelmiyor** — her istemci aynı sonucu kendi hesaplıyor.
+
+3B olması bilinçli: terminalde çalışmak **ses çıkarmak** demek, canavar duyup
+gelebiliyor. Bölüm 5'teki hız/gizlilik takasının aynı mantığı — ilerleme
+kaydetmek kendini ele vermek.
+
+**Sınav ekrandayken çalışma sesi de duruyor**, çünkü ilerleme duruyor
+(bölüm 11.3). Sesin kesilmesi "ekrana bak" işareti oluyor.
 
 **Adım sesi klipleri tek adım olmalı, döngü değil.** Adımlar zamanla değil kat
 edilen mesafeyle tetikleniyor; koşarken kendiliğinden sıklaşıyor. Koşu adım

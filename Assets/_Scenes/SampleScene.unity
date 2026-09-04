@@ -4311,6 +4311,9 @@ MonoBehaviour:
   activeColor: {r: 0.2, g: 0.9, b: 1, a: 1}
   lockedColor: {r: 1, g: 0.25, b: 0.1, a: 1}
   doneColor: {r: 0.25, g: 1, b: 0.35, a: 1}
+  stateLight: {fileID: 0}
+  stateLightIntensity: 0.6
+  stateLightRange: 4
   promptInterval: {x: 3.5, y: 7}
   promptWindow: 1.6
   startDelay: 1
@@ -62429,6 +62432,9 @@ MonoBehaviour:
   activeColor: {r: 0.2, g: 0.9, b: 1, a: 1}
   lockedColor: {r: 1, g: 0.25, b: 0.1, a: 1}
   doneColor: {r: 0.25, g: 1, b: 0.35, a: 1}
+  stateLight: {fileID: 0}
+  stateLightIntensity: 0.6
+  stateLightRange: 4
   promptInterval: {x: 3.5, y: 7}
   promptWindow: 1.6
   startDelay: 1
@@ -83895,6 +83901,9 @@ MonoBehaviour:
   activeColor: {r: 0.2, g: 0.9, b: 1, a: 1}
   lockedColor: {r: 1, g: 0.25, b: 0.1, a: 1}
   doneColor: {r: 0.25, g: 1, b: 0.35, a: 1}
+  stateLight: {fileID: 0}
+  stateLightIntensity: 0.6
+  stateLightRange: 4
   promptInterval: {x: 3.5, y: 7}
   promptWindow: 1.6
   startDelay: 1
@@ -106236,6 +106245,8 @@ MonoBehaviour:
   audioSource: {fileID: 0}
   deathClip: {fileID: 0}
   deathVolume: 0.9
+  monsterAura: {fileID: 0}
+  flashlight: {fileID: 0}
   runnerAnimator: {fileID: 0}
   deathHoldDuration: 2.6
   deathForwardOffset: 0.85
@@ -106785,6 +106796,9 @@ MonoBehaviour:
   activeColor: {r: 0.2, g: 0.9, b: 1, a: 1}
   lockedColor: {r: 1, g: 0.25, b: 0.1, a: 1}
   doneColor: {r: 0.25, g: 1, b: 0.35, a: 1}
+  stateLight: {fileID: 0}
+  stateLightIntensity: 0.6
+  stateLightRange: 4
   promptInterval: {x: 3.5, y: 7}
   promptWindow: 1.6
   startDelay: 1
@@ -120415,6 +120429,9 @@ MonoBehaviour:
   activeColor: {r: 0.2, g: 0.9, b: 1, a: 1}
   lockedColor: {r: 1, g: 0.25, b: 0.1, a: 1}
   doneColor: {r: 0.25, g: 1, b: 0.35, a: 1}
+  stateLight: {fileID: 0}
+  stateLightIntensity: 0.6
+  stateLightRange: 4
   promptInterval: {x: 3.5, y: 7}
   promptWindow: 1.6
   startDelay: 1

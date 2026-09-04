@@ -665,6 +665,8 @@ MonoBehaviour:
   audioSource: {fileID: 794516134023322604}
   deathClip: {fileID: 8300000, guid: b8112f511370c98409d108784e0e442d, type: 3}
   deathVolume: 0.9
+  monsterAura: {fileID: 0}
+  flashlight: {fileID: 0}
   runnerAnimator: {fileID: 1715001027810810666}
   deathHoldDuration: 2.6000001
   deathForwardOffset: 0

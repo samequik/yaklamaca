@@ -81,6 +81,7 @@ public static class AudioImportSetup
 
         int configured = ConfigureAll();
         int doors = WireDoors();
+        int terminals = WireTerminals();
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -163,6 +164,50 @@ public static class AudioImportSetup
     /// giydirmeyi ve süsleri silerdi — o yüzden mevcut kapılar yerinde
     /// donatılıyor.
     /// </summary>
+    /// <summary>
+    /// Terminallere çalışma ve uyarı seslerini bağlar.
+    ///
+    /// **Neden burada, `Terminal ve Çıkış Kur`'da değil.** O araç var olan
+    /// terminallere bilerek dokunmuyor (bölüm 0) — elle yerleştirilmiş beş
+    /// terminale hiç ulaşamazdı. Bu araç ise zaten "sesleri bul ve bağla"
+    /// işini yapıyor ve kurulum sırasında terminallerden SONRA çalışıyor
+    /// (bölüm 7), yani yeni kurulumda da doğru sırada yakalıyor.
+    ///
+    /// Hiçbir şey silmiyor, taşımıyor: yalnızca iki klip alanına yazıyor.
+    ///
+    /// Hoparlörü `Terminal` kendi kuruyor (`GetOrCreateStateSource`), burada
+    /// yalnızca klipler bağlanıyor — biri sahne nesnesi, öbürü varlık.
+    /// </summary>
+    private static int WireTerminals()
+    {
+        AudioClip working = AssetDatabase.LoadAssetAtPath<AudioClip>(
+            $"{AudioFolder}/Terminal_Calisma.mp3");
+        AudioClip warning = AssetDatabase.LoadAssetAtPath<AudioClip>(
+            $"{AudioFolder}/Terminal_Uyari.mp3");
+
+        if (working == null && warning == null)
+            return 0;
+
+        int count = 0;
+
+        foreach (Terminal terminal in Object.FindObjectsOfType<Terminal>(true))
+        {
+            SerializedObject serialized = new SerializedObject(terminal);
+            serialized.FindProperty("workingClip").objectReferenceValue = working;
+            serialized.FindProperty("warningClip").objectReferenceValue = warning;
+            serialized.ApplyModifiedProperties();
+            count++;
+        }
+
+        if (count > 0)
+        {
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            EditorSceneManager.SaveOpenScenes();
+        }
+
+        return count;
+    }
+
     private static int WireDoors()
     {
         AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{AudioFolder}/Kapi.mp3");

@@ -51,6 +51,27 @@ public class Terminal : NetworkBehaviour, IInteractable
         "terminalin önünde kalıp yan koridora taşmamasını sağlıyor.")]
     [SerializeField] private float stateLightRange = 4f;
 
+    [Header("Ses")]
+    [Tooltip("Terminalin kendi hoparlörü. Boş bırakılırsa Awake kendi kuruyor. " +
+        "3B: terminalin çalıştığını ve alarmını çevredekiler de duymalı.")]
+    [SerializeField] private AudioSource stateSource;
+
+    [Tooltip("Dolum sürerken dönen çalışma sesi. `Sesleri Yerleştir` bağlıyor.")]
+    [SerializeField] private AudioClip workingClip;
+
+    [Tooltip("Kilitliyken dönen uyarı sesi. Kilit açılana kadar tekrar ediyor.")]
+    [SerializeField] private AudioClip warningClip;
+
+    [SerializeField] private float workingVolume = 0.45f;
+
+    [Tooltip("Uyarı bilerek çalışma sesinden yüksek: hata anlaşılmalı.")]
+    [SerializeField] private float warningVolume = 0.85f;
+
+    [Tooltip("Sesin duyulmaya başladığı ve tamamen kesildiği mesafe (metre). " +
+        "Koridor 3.2 m, sis görüşü ~25 m; 18 m sesin bir-iki koridor öteden " +
+        "duyulmasını sağlıyor — terminalde çalışmak ses çıkarmak demek.")]
+    [SerializeField] private float soundRange = 18f;
+
     /// <summary>0-1 arası doluluk. Yalnızca sunucu yazar.</summary>
     [SyncVar] private float progress;
 
@@ -139,6 +160,33 @@ public class Terminal : NetworkBehaviour, IInteractable
     {
         propertyBlock = new MaterialPropertyBlock();
         stateLight = GetOrCreateStateLight();
+        stateSource = GetOrCreateStateSource();
+    }
+
+    /// <summary>
+    /// Terminalin hoparlörünü bulur, yoksa kurar. Işıkla aynı gerekçe
+    /// (`GetOrCreateStateLight`): terminaller elle yerleştirildi ve onlara
+    /// dokunan bir editör aracı yok.
+    ///
+    /// **3B, bilerek.** Terminalde çalışmak ses çıkarmak demek — canavar bunu
+    /// duyup gelebilmeli. Bölüm 5'teki hız/gizlilik takasının aynı mantığı:
+    /// ilerleme kaydetmek kendini ele vermek.
+    /// </summary>
+    private AudioSource GetOrCreateStateSource()
+    {
+        AudioSource source = stateSource != null ? stateSource : GetComponent<AudioSource>();
+
+        if (source == null)
+            source = gameObject.AddComponent<AudioSource>();
+
+        source.playOnAwake = false;
+        source.loop = true;
+        source.spatialBlend = 1f;
+        source.rolloffMode = AudioRolloffMode.Linear;
+        source.minDistance = 2f;
+        source.maxDistance = soundRange;
+
+        return source;
     }
 
     /// <summary>
@@ -201,7 +249,79 @@ public class Terminal : NetworkBehaviour, IInteractable
         UpdateLocalFocus();
         ReadLocalInput();
         UpdateVisual();
+        UpdateAudio();
     }
+
+    /// <summary>
+    /// Terminalin sesi. İki hâl var ve ikisi de döngü:
+    ///
+    /// - **Kilitli** → uyarı. Kilit açılana kadar tekrar ediyor; oyuncunun
+    ///   hatayı fark etmesi ve düzeltmesi gereken tek yer burası.
+    /// - **Dolum ilerliyor** → çalışma sesi.
+    ///
+    /// **Ağdan hiçbir şey gelmiyor.** Karar veren dört alanın (`locked`,
+    /// `activeUserNetId`, `prompt`, `fillReadyTime`) hepsi zaten SyncVar, yani
+    /// her istemci aynı sonucu kendi hesaplıyor. Ayrı bir "sesi çal" mesajı
+    /// aynı bilgiyi ikinci kez göndermek olurdu (bölüm 4).
+    ///
+    /// **Sınav ekrandayken ses de duruyor**, çünkü ilerleme de duruyor
+    /// (bölüm 11.3). Kullanıcının istediği "ilerleme sırasında çalsın"
+    /// birebir bu: sesin kesilmesi ekrana bakma işareti oluyor.
+    /// </summary>
+    private void UpdateAudio()
+    {
+        if (stateSource == null)
+            return;
+
+        AudioClip wanted = null;
+        float volume = 0f;
+
+        if (locked)
+        {
+            wanted = warningClip;
+            volume = warningVolume;
+        }
+        else if (IsFilling)
+        {
+            wanted = workingClip;
+            volume = workingVolume;
+        }
+
+        stateSource.volume = volume;
+
+        if (wanted == null)
+        {
+            if (stateSource.isPlaying)
+                stateSource.Stop();
+
+            return;
+        }
+
+        // Klip değişmediyse dokunma: her karede Play çağırmak sesi baştan
+        // başlatır ve döngü hiç duyulmaz.
+        if (stateSource.clip != wanted)
+        {
+            stateSource.clip = wanted;
+            stateSource.Play();
+            return;
+        }
+
+        if (!stateSource.isPlaying)
+            stateSource.Play();
+    }
+
+    /// <summary>
+    /// Dolum şu an gerçekten ilerliyor mu. Sunucudaki `ServerTickFill`'in
+    /// çıkış koşullarının aynısı — biri değişirse öbürü de değişmeli, yoksa
+    /// ses ilerlemeyen bir terminalde çalmaya devam eder.
+    /// </summary>
+    private bool IsFilling =>
+        IsBusy
+        && !locked
+        && !IsCompleted
+        && monsterLockEndTime <= 0d          // başındaki canavarsa iş kilitlemek
+        && NetworkTime.time >= fillReadyTime // E'den sonraki bağlanma gecikmesi
+        && prompt == 0;                      // sınav ekrandayken ilerleme durur
 
     /// <summary>
     /// Yön tuşlarını okur. Sınav sırasında cevap, kilitliyken örüntü girişi
