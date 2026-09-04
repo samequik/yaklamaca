@@ -1,3 +1,4 @@
+using Edgegap;
 using Mirror;
 using UnityEngine;
 
@@ -33,6 +34,14 @@ public class LobbyNetwork : MonoBehaviour
         "adreste Mirror kendi zaman aşımını beklerken oyuncu ne olduğunu " +
         "anlamıyor; bu sayaç ona bir cevap veriyor.")]
     [SerializeField] private float connectTimeout = 10f;
+
+    [Tooltip("İnternet üzerinden oynatan relay transport'u (Edgegap). Boşsa " +
+        "yalnızca yerel oda kurulabiliyor. Ağ Kurulumu bağlıyor.")]
+    [SerializeField] private EdgegapLobbyKcpTransport relayTransport;
+
+    [Tooltip("Aynı ağ için doğrudan bağlantı transport'u. Tek başına test " +
+        "ederken kullanılıyor: internet gerektirmiyor ve anında açılıyor.")]
+    [SerializeField] private Transport localTransport;
 
     /// <summary>Ekranda gösterilecek son durum/hata metni.</summary>
     public string StatusMessage { get; private set; } = string.Empty;
@@ -89,14 +98,121 @@ public class LobbyNetwork : MonoBehaviour
 
     private void Update()
     {
+        TickRelayStatus();
         TickConnectTimeout();
         TickPhase();
     }
 
+    /// <summary>
+    /// Relay'in kurulum aşamasını ekrana yazar.
+    ///
+    /// Doğrudan bağlantıda "oda kur" anlıktı; relay'de değil. Sırayla lobi
+    /// oluşturuluyor, başlatılıyor, bir relay atanması bekleniyor, sonra
+    /// bağlanılıyor — hepsi birkaç saniye. Ekranda hiçbir şey yazmasa oyuncu
+    /// oyunun donduğunu sanardı.
+    ///
+    /// **Asıl sebep hata durumu.** Host'ta bağlanma zaman aşımı yok
+    /// (`connectTimer` yalnızca katılmada kuruluyor), yani lobi oluşturma
+    /// başarısız olursa oyuncu sonsuza kadar "Oda kuruluyor…" görürdü. Burası
+    /// hatayı yakalayıp ana menüye döndürüyor.
+    ///
+    /// Yalnızca relay etkinken çalışıyor: yerel odada transport farklı ve bu
+    /// aşamaların hiçbiri yok.
+    /// </summary>
+    private void TickRelayStatus()
+    {
+        if (relayTransport == null || leaving)
+            return;
+
+        if (Transport.active != (Transport)relayTransport)
+            return;
+
+        if (!NetworkServer.active && !NetworkClient.active)
+            return;
+
+        switch (relayTransport.Status)
+        {
+            case EdgegapLobbyKcpTransport.TransportStatus.CreatingLobby:
+                StatusMessage = "Oda oluşturuluyor…";
+                break;
+
+            case EdgegapLobbyKcpTransport.TransportStatus.StartingLobby:
+                StatusMessage = "Oda başlatılıyor…";
+                break;
+
+            case EdgegapLobbyKcpTransport.TransportStatus.WaitingRelay:
+                StatusMessage = "Sunucu atanıyor…";
+                break;
+
+            case EdgegapLobbyKcpTransport.TransportStatus.Error:
+                FailRelay();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Relay kurulamadı: oyuncuyu asılı bırakmadan ana menüye döndürüyor.
+    ///
+    /// En sık sebep `lobbyUrl`'ün boş olması — proje ilk kez açıldığında
+    /// Edgegap servisi henüz kurulmamış oluyor. Mesaj bunu açıkça söylüyor,
+    /// yoksa "bir şeyler ters gitti" deyip oyuncuyu arama yapmaya bırakırdı.
+    /// </summary>
+    private void FailRelay()
+    {
+        NetworkManager manager = NetworkManager.singleton;
+        leaving = true;
+        connectTimer = 0f;
+
+        StatusMessage = string.IsNullOrWhiteSpace(relayTransport.lobbyUrl)
+            ? "Relay kurulu değil: NetworkManager > EdgegapLobbyKcpTransport içindeki " +
+              "lobbyUrl boş. Şimdilik YEREL ODA kullanabilirsin."
+            : "Odaya bağlanılamadı. İnternet bağlantını kontrol et.";
+
+        Debug.LogError(StatusMessage);
+
+        if (manager != null)
+        {
+            if (NetworkServer.active)
+                manager.StopHost();
+            else if (NetworkClient.active)
+                manager.StopClient();
+        }
+
+        RoomCode = LobbyCode.Unknown;
+
+        if (menu != null)
+            menu.ShowMain();
+    }
+
     // ---------- Menü butonları ----------
 
-    /// <summary>Sunucuyu açıp kendi de oyuncu olarak katılır (Mirror'ın host modu).</summary>
-    public void HostLobby()
+    /// <summary>
+    /// Odayı relay üzerinden açar: internetteki herkes kodu yazıp girebilir.
+    ///
+    /// Akış şu: rastgele bir kod üretiliyor, oda o **adla** açılıyor, Edgegap
+    /// bir relay atıyor ve host oraya bağlanıyor. Katılan kişi kodu yazınca
+    /// lobi listesinde o ad aranıyor (bkz. JoinByCode).
+    ///
+    /// **Kararları yine bu bilgisayar veriyor.** Relay yalnızca paketleri
+    /// taşıyor; rol dağıtımı, isabet, terminal sayaçları hepsi burada
+    /// (bölüm 4). Değişen tek şey baytların hangi yoldan gittiği.
+    /// </summary>
+    public void HostLobby() => StartHosting(relay: true);
+
+    /// <summary>
+    /// Aynı ağ için doğrudan oda açar, internet gerektirmiyor.
+    ///
+    /// Tek başına test ederken lazım: relay ile oda kurmak Edgegap servisine
+    /// gidip gelmek demek, birkaç saniye sürüyor ve internet istiyor. Günde
+    /// onlarca kez Play'e basan biri için bu gerçek bir sürtünme; bu yol
+    /// bugünkü anındalığı koruyor.
+    ///
+    /// Kod yine üretiliyor ama işe yaramıyor: doğrudan bağlantıda karşı taraf
+    /// IP ile giriyor. Yine de bir şey göstermek, ekranın boş kalmasından iyi.
+    /// </summary>
+    public void HostLocalLobby() => StartHosting(relay: false);
+
+    private void StartHosting(bool relay)
     {
         NetworkManager manager = NetworkManager.singleton;
         if (manager == null)
@@ -112,9 +228,16 @@ public class LobbyNetwork : MonoBehaviour
             return;
         }
 
+        if (!TryUseTransport(manager, relay))
+            return;
+
         leaving = false;
-        RoomCode = LobbyCode.FromAddress(LobbyCode.LocalAddress());
-        StatusMessage = string.Empty;
+        RoomCode = LobbyCode.Generate();
+        StatusMessage = relay ? "Oda kuruluyor…" : string.Empty;
+
+        // Oda adı = kod. Katılan kişi listeden bu adı arıyor.
+        if (relay)
+            relayTransport.SetServerLobbyParams(RoomCode, manager.maxConnections);
 
         manager.StartHost();
 
@@ -122,7 +245,13 @@ public class LobbyNetwork : MonoBehaviour
             menu.ShowLobby();
     }
 
-    /// <summary>Kod ya da ham IP ile bağlanır.</summary>
+    /// <summary>
+    /// Kodla ya da ham IP ile bağlanır.
+    ///
+    /// Ham IP hâlâ kabul ediliyor: yerel test odasına girmenin tek yolu o, ve
+    /// sanal ağ (Radmin) kullanan biri de bundan faydalanıyor. Kod ise relay
+    /// üzerinden aranıyor.
+    /// </summary>
     public void JoinLobby(string codeOrAddress)
     {
         NetworkManager manager = NetworkManager.singleton;
@@ -139,14 +268,33 @@ public class LobbyNetwork : MonoBehaviour
             return;
         }
 
-        if (!LobbyCode.TryToAddress(codeOrAddress, out string address))
+        string trimmed = codeOrAddress != null ? codeOrAddress.Trim() : string.Empty;
+
+        // Nokta içeriyorsa IP kabul ediliyor: kod alfabesinde nokta yok, yani
+        // ikisi birbirine karışamıyor.
+        if (trimmed.Contains("."))
+        {
+            JoinDirect(manager, trimmed);
+            return;
+        }
+
+        if (!LobbyCode.TryNormalize(trimmed, out string code))
         {
             StatusMessage = $"Kod okunamadı. {LobbyCode.Length} harf ya da bir IP adresi bekleniyor.";
             return;
         }
 
+        JoinByCode(manager, code);
+    }
+
+    /// <summary>Yerel ya da sanal ağda doğrudan adrese bağlanır.</summary>
+    private void JoinDirect(NetworkManager manager, string address)
+    {
+        if (!TryUseTransport(manager, relay: false))
+            return;
+
         leaving = false;
-        RoomCode = LobbyCode.FromAddress(address);
+        RoomCode = LobbyCode.Unknown;
         StatusMessage = "Bağlanılıyor…";
         connectTimer = connectTimeout;
 
@@ -155,6 +303,100 @@ public class LobbyNetwork : MonoBehaviour
 
         if (menu != null)
             menu.ShowLobby();
+    }
+
+    /// <summary>
+    /// Kodu lobi listesinde arayıp bulduğu odaya bağlanır.
+    ///
+    /// **Liste çekmek asenkron**, o yüzden bağlanma iki adımda oluyor: önce
+    /// odayı bul, sonra bağlan. Arada oyuncu vazgeçip ayrılabilir; `leaving`
+    /// bayrağı o durumu yakalıyor, yoksa iptal edilmiş bir katılma birkaç
+    /// saniye sonra kendiliğinden bağlanırdı.
+    /// </summary>
+    private void JoinByCode(NetworkManager manager, string code)
+    {
+        if (relayTransport == null)
+        {
+            StatusMessage = "Relay kurulu değil. Kodla katılmak için Edgegap gerekiyor; " +
+                "aynı ağdaysanız ham IP yazabilirsiniz.";
+            return;
+        }
+
+        if (!TryUseTransport(manager, relay: true))
+            return;
+
+        leaving = false;
+        RoomCode = code;
+        StatusMessage = "Oda aranıyor…";
+        connectTimer = connectTimeout;
+
+        if (menu != null)
+            menu.ShowLobby();
+
+        relayTransport.Api.RefreshLobbies(
+            lobbies =>
+            {
+                if (leaving)
+                    return;
+
+                foreach (LobbyBrief lobby in lobbies)
+                {
+                    if (lobby.name != code)
+                        continue;
+
+                    if (!lobby.is_joinable)
+                    {
+                        StatusMessage = "Oda dolu ya da tur başlamış.";
+                        connectTimer = 0f;
+                        return;
+                    }
+
+                    StatusMessage = "Bağlanılıyor…";
+                    connectTimer = connectTimeout;
+
+                    manager.networkAddress = lobby.lobby_id;
+                    manager.StartClient();
+                    return;
+                }
+
+                StatusMessage = "Böyle bir oda yok. Kodu kontrol et.";
+                connectTimer = 0f;
+            },
+            error =>
+            {
+                if (leaving)
+                    return;
+
+                StatusMessage = $"Oda listesi alınamadı: {error}";
+                connectTimer = 0f;
+            });
+    }
+
+    /// <summary>
+    /// İstenen transport'u NetworkManager'a takar.
+    ///
+    /// Mirror'da aktif transport tek: `Transport.active`. İkisini birden tutup
+    /// başlamadan önce seçmek, yerel testi relay'e bağımlı olmaktan kurtarıyor.
+    /// Ağ açıkken değiştirmek bağlantıyı koparırdı, o yüzden yalnızca kapalıyken
+    /// çağrılıyor; çağıranların hepsi önce bunu kontrol ediyor.
+    /// </summary>
+    private bool TryUseTransport(NetworkManager manager, bool relay)
+    {
+        Transport wanted = relay ? (Transport)relayTransport : localTransport;
+
+        if (wanted == null)
+        {
+            StatusMessage = relay
+                ? "Relay transport'u bağlı değil. Yakalamaca > Ağ Kurulumu (1. adım)."
+                : "Yerel transport bağlı değil. Yakalamaca > Ağ Kurulumu (1. adım).";
+
+            Debug.LogError(StatusMessage);
+            return false;
+        }
+
+        manager.transport = wanted;
+        Transport.active = wanted;
+        return true;
     }
 
     /// <summary>Odadan ayrılır. Sunucuysak oda kapanıyor, herkes düşüyor.</summary>

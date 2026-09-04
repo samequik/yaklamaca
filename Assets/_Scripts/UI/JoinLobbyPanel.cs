@@ -5,7 +5,7 @@ using UnityEngine;
 /// Kodla odaya katılma ekranı. Tek işi girilen metni
 /// <see cref="LobbyNetwork"/>'e vermek; kodu çözmek ve bağlanmak onun işi.
 ///
-/// Alan ham IP de kabul ediyor (bkz. <see cref="LobbyCode"/>): sanal ağ
+/// Alan ham IP de kabul ediyor: yerel test odasına girmenin tek yolu o. Sanal ağ
 /// üzerinden ya da dışarıdan verilen bir adresle oynayan birini kod üretmeye
 /// zorlamak gereksiz bir engel olurdu.
 /// </summary>

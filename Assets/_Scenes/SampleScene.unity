@@ -10561,6 +10561,7 @@ GameObject:
   - component: {fileID: 207540000}
   - component: {fileID: 207539999}
   - component: {fileID: 207539998}
+  - component: {fileID: 207540004}
   m_Layer: 8
   m_Name: Cikis_Kapisi_1
   m_TagString: Untagged
@@ -10595,8 +10596,8 @@ MonoBehaviour:
   allowDirectUse: 0
   openPrompt: "Kap\u0131y\u0131 a\xE7"
   closePrompt: "Kap\u0131y\u0131 kapat"
-  audioSource: {fileID: 0}
-  moveClip: {fileID: 0}
+  audioSource: {fileID: 207540004}
+  moveClip: {fileID: 8300000, guid: 6af0da4e778d3d24fa57aec25db96879, type: 3}
   moveVolume: 0.8
 --- !u!114 &207539999
 MonoBehaviour:
@@ -10703,6 +10704,102 @@ Transform:
   - {fileID: 1134792989}
   m_Father: {fileID: 431095364}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!82 &207540004
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 207539997}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 3
+  MaxDistance: 30
+  Pan2D: 0
+  rolloffMode: 1
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!4 &208251257 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3691659005178554142, guid: aedebdaeae12a6743b39120d2f5156b0, type: 3}
@@ -50935,6 +51032,7 @@ GameObject:
   - component: {fileID: 948273422}
   - component: {fileID: 948273421}
   - component: {fileID: 948273426}
+  - component: {fileID: 948273427}
   m_Layer: 8
   m_Name: KapiPaneli
   m_TagString: Untagged
@@ -50969,8 +51067,8 @@ MonoBehaviour:
   allowDirectUse: 0
   openPrompt: "Kap\u0131y\u0131 a\xE7"
   closePrompt: "Kap\u0131y\u0131 kapat"
-  audioSource: {fileID: 0}
-  moveClip: {fileID: 0}
+  audioSource: {fileID: 948273427}
+  moveClip: {fileID: 8300000, guid: 6af0da4e778d3d24fa57aec25db96879, type: 3}
   moveVolume: 0.8
 --- !u!23 &948273422
 MeshRenderer:
@@ -51075,6 +51173,102 @@ MonoBehaviour:
   serverOnly: 0
   visibility: 0
   hasSpawned: 0
+--- !u!82 &948273427
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 948273420}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 3
+  MaxDistance: 30
+  Pan2D: 0
+  rolloffMode: 1
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1001 &949665628
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -58671,6 +58865,10 @@ MonoBehaviour:
   focusYawLimit: 35
   focusPitchLimit: 12
   statusLight: {fileID: 1140816259}
+  stateSource: {fileID: 0}
+  workingClip: {fileID: 8300000, guid: ffa4aa3af8fee5b4c9b35e8423c2b317, type: 3}
+  workingVolume: 0.45
+  soundRange: 18
 --- !u!114 &1094216965
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -77097,6 +77295,7 @@ GameObject:
   - component: {fileID: 1376184136}
   - component: {fileID: 1376184135}
   - component: {fileID: 1376184134}
+  - component: {fileID: 1376184140}
   m_Layer: 8
   m_Name: Cikis_Kapisi_2
   m_TagString: Untagged
@@ -77131,8 +77330,8 @@ MonoBehaviour:
   allowDirectUse: 0
   openPrompt: "Kap\u0131y\u0131 a\xE7"
   closePrompt: "Kap\u0131y\u0131 kapat"
-  audioSource: {fileID: 0}
-  moveClip: {fileID: 0}
+  audioSource: {fileID: 1376184140}
+  moveClip: {fileID: 8300000, guid: 6af0da4e778d3d24fa57aec25db96879, type: 3}
   moveVolume: 0.8
 --- !u!114 &1376184135
 MonoBehaviour:
@@ -77239,6 +77438,102 @@ Transform:
   - {fileID: 291110211}
   m_Father: {fileID: 431095364}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!82 &1376184140
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1376184133}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 3
+  MaxDistance: 30
+  Pan2D: 0
+  rolloffMode: 1
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &1378494985
 GameObject:
   m_ObjectHideFlags: 0
@@ -85774,6 +86069,10 @@ MonoBehaviour:
   focusYawLimit: 35
   focusPitchLimit: 12
   statusLight: {fileID: 719127834}
+  stateSource: {fileID: 0}
+  workingClip: {fileID: 8300000, guid: ffa4aa3af8fee5b4c9b35e8423c2b317, type: 3}
+  workingVolume: 0.45
+  soundRange: 18
 --- !u!114 &1521139560
 MonoBehaviour:
   m_ObjectHideFlags: 0

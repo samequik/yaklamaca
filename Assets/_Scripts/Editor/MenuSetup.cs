@@ -61,6 +61,7 @@ public static class MenuSetup
         // NetworkBehaviour DEĞİL: sahnedeki menü objesine NetworkIdentity
         // eklenemiyor (CLAUDE.md bölüm 4).
         LobbyNetwork network = canvasObject.AddComponent<LobbyNetwork>();
+        WireTransports(network);
 
         GameObject nameEntry = BuildNameEntryPanel(canvasObject.transform, controller);
         GameObject main = BuildMainPanel(canvasObject.transform, controller, network);
@@ -97,14 +98,14 @@ public static class MenuSetup
         Selection.activeGameObject = canvasObject;
         Debug.Log(
             "Menü kuruldu ve ağa bağlandı. Sahne kaydedildi.\n\n" +
-            "Test:\n" +
-            "1. Play'e bas, LOBİ KUR — ekranda 7 harflik kod çıkar.\n" +
-            "2. Build alıp ikinci bir kopya çalıştır, LOBİYE KATIL, kodu gir.\n" +
-            "   (Aynı makinede deniyorsan kod yerine 127.0.0.1 yazman yeterli.)\n" +
+            "İnternet üzerinden test:\n" +
+            "1. Play'e bas, LOBİ KUR — ekranda 6 harflik kod çıkar.\n" +
+            "2. Karşı taraf LOBİYE KATIL deyip kodu girsin.\n" +
             "3. İkisi de HAZIRIM'a bassın; oda sahibinde BAŞLAT aktifleşir.\n\n" +
-            "Kod, sunucunun IPv4 adresinin kendisi — eşleştirme sunucusu yok. " +
-            "Aynı ağda çalışır; internet üzerinden 7777/UDP yönlendirmesi ya da " +
-            "sanal ağ (Hamachi/Radmin) gerekir.");
+            "Bunun için NetworkManager'daki EdgegapLobbyKcpTransport'ta " +
+            "lobbyUrl dolu olmalı (bileşenin kurulum penceresinden).\n\n" +
+            "Tek başına test: YEREL ODA (test) — internet gerekmiyor, anında " +
+            "açılıyor. İkinci kopyadan katılmak için kod yerine 127.0.0.1 yaz.");
     }
 
     /// <summary>
@@ -166,12 +167,18 @@ public static class MenuSetup
         // oda kurmak ya da bir odaya katılmak.
         AddButton(column, "LOBİ KUR", network.HostLobby, AccentColor);
         AddButton(column, "LOBİYE KATIL", controller.ShowJoinLobby);
+
+        // Yerel oda: relay'e uğramadan, internet olmadan, anında açılıyor.
+        // Tek başına test etmenin yolu bu — relay ile oda kurmak Edgegap
+        // servisine gidip gelmek demek ve günde onlarca kez Play'e basan
+        // biri için gereksiz bir bekleme olurdu.
+        AddButton(column, "YEREL ODA (test)", network.HostLocalLobby);
         AddButton(column, "SEÇENEKLER", controller.ShowSettings);
         AddButton(column, "ÇIKIŞ", controller.QuitGame);
 
         CreateSpacer(column, 14f);
         TMP_Text hint = CreateLabel(column,
-            "Lobi kurunca 7 harflik bir kod çıkar. Arkadaşın o kodu girerek katılır.");
+            $"Lobi kurunca {LobbyCode.Length} harflik bir kod çıkar. Arkadaşın o kodu girerek katılır — aynı ağda olmanıza gerek yok.");
         hint.fontSize = 16f;
         hint.color = new Color(0.6f, 0.6f, 0.66f, 1f);
 
@@ -315,6 +322,30 @@ public static class MenuSetup
     /// canavar seçimi ve başlatma düğmelerinin yalnızca oda sahibinde aktif
     /// olması (gizlenmiyor, griye alınıyor — bkz. LobbyPanel).
     /// </summary>
+    /// <summary>
+    /// Sahnedeki iki transport'u lobiye bağlar.
+    ///
+    /// `Ağ Kurulumu` da aynı bağlantıyı kuruyor ama o menüden ÖNCE çalışıyor
+    /// (bölüm 7), yani o an lobi henüz yok. İki araç da bağlaması, hangisinin
+    /// sonra çalıştığından bağımsız olarak doğru sonucu veriyor.
+    /// </summary>
+    private static void WireTransports(LobbyNetwork network)
+    {
+        GameObject managerObject = GameObject.Find("NetworkManager");
+        if (managerObject == null)
+            return;
+
+        SerializedObject serialized = new SerializedObject(network);
+
+        serialized.FindProperty("relayTransport").objectReferenceValue =
+            managerObject.GetComponent<Edgegap.EdgegapLobbyKcpTransport>();
+
+        serialized.FindProperty("localTransport").objectReferenceValue =
+            managerObject.GetComponent<kcp2k.KcpTransport>();
+
+        serialized.ApplyModifiedProperties();
+    }
+
     private static GameObject BuildLobbyPanel(Transform parent, LobbyNetwork network)
     {
         GameObject panel = CreatePanel("Panel_Lobi", parent);
@@ -327,7 +358,7 @@ public static class MenuSetup
 
         // Kod satırı: kod ve kopyalama yan yana, dikey yer kazanmak için.
         // "YENİLE" düğmesi kalktı — kod artık rastgele değil, sunucunun
-        // adresinin kendisi (bkz. LobbyCode); yenilenecek bir şey yok.
+        // odanın adı (bkz. LobbyCode); yenilenecek bir şey yok.
         Transform codeRow = CreateRow(column, 54f);
         TMP_Text codeLabel = CreateRowText(codeRow, LobbyCode.Unknown, 38f, AccentColor, 0.6f);
         AddRowButton(codeRow, "KOPYALA", lobby.CopyCode, 0.25f);
@@ -420,7 +451,7 @@ public static class MenuSetup
         CreateSpacer(column, 12f);
 
         CreateLabel(column, "Arkadaşının verdiği kodu gir");
-        TMP_InputField codeField = CreateInputField(column, $"ÖRN: K7M2QXB  ({LobbyCode.Length} harf)");
+        TMP_InputField codeField = CreateInputField(column, $"ÖRN: K7M2QX  ({LobbyCode.Length} harf)");
         codeField.characterLimit = 15; // IP adresi de kabul ediliyor, kod uzunluğu yetmez
 
         JoinLobbyPanel join = panel.AddComponent<JoinLobbyPanel>();

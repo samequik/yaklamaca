@@ -1,3 +1,4 @@
+using Edgegap;
 using kcp2k; // KcpTransport Mirror namespace'inde değil, kendi namespace'inde
 using Mirror;
 using UnityEditor;
@@ -439,9 +440,26 @@ public static class NetworkSetup
         }
 
         // Taşıma katmanı önce eklenmeli; NetworkManager Awake'te onu arıyor.
+        //
+        // İKİ transport birden duruyor ve LobbyNetwork başlamadan önce hangisini
+        // kullanacağını seçiyor:
+        //
+        // - `KcpTransport` — doğrudan bağlantı. Aynı ağda çalışıyor, internet
+        //   istemiyor, anında açılıyor. Tek başına test etmenin yolu bu.
+        // - `EdgegapLobbyKcpTransport` — relay. İnternetten oynatan tek yol,
+        //   ama oda kurmak Edgegap servisine gidip gelmek demek (birkaç saniye)
+        //   ve internet gerektiriyor.
+        //
+        // Yalnızca relay bırakılsaydı günde onlarca kez Play'e basan biri her
+        // seferinde o gecikmeyi yerdi; yalnızca KCP bırakılsaydı arkadaşlarla
+        // hiç oynanamazdı (CGNAT). İkisi de duruyor, seçimi lobi yapıyor.
         KcpTransport transport = managerObject.GetComponent<KcpTransport>();
         if (transport == null)
             transport = managerObject.AddComponent<KcpTransport>();
+
+        EdgegapLobbyKcpTransport relay = managerObject.GetComponent<EdgegapLobbyKcpTransport>();
+        if (relay == null)
+            relay = managerObject.AddComponent<EdgegapLobbyKcpTransport>();
 
         NetworkManager manager = managerObject.GetComponent<NetworkManager>();
         if (manager == null)
@@ -454,8 +472,12 @@ public static class NetworkSetup
         if (hud != null)
             Undo.DestroyObjectImmediate(hud);
 
+        // Varsayılan yerel: Edgegap'in `lobbyUrl`'ü kurulmadan relay'i aktif
+        // bırakmak, projeyi ilk açan kişiyi hiç açılmayan bir odayla bırakırdı.
         manager.transport = transport;
         manager.playerPrefab = playerPrefab;
+
+        WireLobbyTransports(relay, transport);
         manager.autoCreatePlayer = true;
 
         // Kadro 5 kişi (1 canavar + 4 kaçan). Mirror'ın 100'lük varsayılanı
@@ -463,6 +485,26 @@ public static class NetworkSetup
         manager.maxConnections = LobbyRoster.MaxPlayers;
 
         return manager;
+    }
+
+    /// <summary>
+    /// Menüdeki `LobbyNetwork`'e iki transport'u da bağlar.
+    ///
+    /// Menü `Menü Kur` ile ayrı kuruluyor ve **ağ kurulumundan sonra**
+    /// çalıştırılıyor (bölüm 7), yani burada henüz olmayabilir. O yüzden
+    /// bulunamaması hata değil: `Menü Kur` çalıştığında `MenuSetup` aynı
+    /// bağlantıyı kendisi kuruyor.
+    /// </summary>
+    private static void WireLobbyTransports(EdgegapLobbyKcpTransport relay, Transport local)
+    {
+        LobbyNetwork lobby = Object.FindObjectOfType<LobbyNetwork>(true);
+        if (lobby == null)
+            return;
+
+        SerializedObject serialized = new SerializedObject(lobby);
+        serialized.FindProperty("relayTransport").objectReferenceValue = relay;
+        serialized.FindProperty("localTransport").objectReferenceValue = local;
+        serialized.ApplyModifiedProperties();
     }
 
     /// <summary>

@@ -1,148 +1,82 @@
-using System.Net;
-using System.Net.Sockets;
 using System.Text;
 
 /// <summary>
-/// Lobi kodu ile IP adresi arasında çeviri.
+/// Lobi kodu: odayı bulmaya yarayan kısa metin.
 ///
-/// **Kod, sunucunun IPv4 adresinin kendisi.** Rastgele üretilip bir eşleştirme
-/// sunucusunda saklanmıyor — öyle olsaydı ayakta tutulacak bir servis gerekirdi
-/// ve oyunun tek bağımlılığı Mirror kalmazdı (CLAUDE.md bölüm 0). 32 bitlik
-/// IPv4, 32 harflik alfabeyle 7 karaktere sığıyor.
+/// **Kod artık IP DEĞİL.** Eski sürümde kod, sunucunun IPv4 adresinin 32
+/// harflik alfabeyle yazılmış hâliydi; eşleştirme sunucusu gerektirmediği için
+/// öyle seçilmişti (bölüm 0). Ama o kurulum yalnızca aynı ağda çalışıyordu:
+/// Türkiye'de CGNAT yaygın olduğu için itch.io'dan indiren biri arkadaşıyla
+/// oynayamıyordu.
+///
+/// Relay'e geçilince (bölüm 10) kod bir **oda adı** oldu. Host rastgele bir kod
+/// üretip odayı o adla açıyor; katılan kişi kodu yazınca lobi listesinde o ad
+/// aranıyor. Oyuncu açısından hiçbir şey değişmiyor — kod ver, kod yaz, gir.
 ///
 /// Alfabede karışan harfler yok (I, O, 0, 1): kod telefonda okunacak, sesli
 /// sohbette söylenecek.
 ///
-/// **Sınır: bu doğrudan bağlantı.** Aynı ağdaki (LAN) oyuncular kodu girip
-/// bağlanabilir. İnternet üzerinden oynamak için sunucunun 7777 UDP portunu
-/// yönlendirmesi ya da Radmin/Hamachi gibi bir sanal ağ kullanılması gerekiyor.
-/// Relay servisi yok ve bilerek yok.
-///
-/// Katılma ekranı ham IP de kabul ediyor: "192.168.1.42" yazan biri koda
-/// çevirmek zorunda kalmasın (sanal ağ adresleri, dışarıdan verilen adresler).
+/// **Neden rastgele kod, ham lobi kimliği değil?** Edgegap'in verdiği
+/// `lobby_id` uzun ve okunamaz bir metin; sesli sohbette söylenemez. Kısa kodu
+/// oda adı yapıp listeden aramak, kimliği kullanıcıdan tamamen gizliyor.
 /// </summary>
 public static class LobbyCode
 {
-    /// <summary>32 karakter = 5 bit. I, O, 0, 1 yok — okunurken karışıyorlar.</summary>
+    /// <summary>32 karakter. I, O, 0, 1 yok — okunurken karışıyorlar.</summary>
     private const string Alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-    /// <summary>7 karakter × 5 bit = 35 bit; IPv4'ün 32 biti rahat sığıyor.</summary>
-    public const int Length = 7;
+    /// <summary>
+    /// Kod uzunluğu. 6 karakter × 5 bit ≈ 1 milyar ihtimal; aynı anda açık
+    /// birkaç odada çakışma pratikte imkânsız.
+    /// </summary>
+    public const int Length = 6;
 
-    /// <summary>Adres çözülemezse gösterilecek metin.</summary>
-    public const string Unknown = "-------";
+    /// <summary>Kod bilinmiyorken gösterilecek metin.</summary>
+    public const string Unknown = "------";
 
-    // ---------- Kodlama ----------
-
-    /// <summary>IPv4 adresini koda çevirir. Adres geçersizse <see cref="Unknown"/>.</summary>
-    public static string FromAddress(string address)
+    /// <summary>Yeni bir oda kodu üretir.</summary>
+    public static string Generate()
     {
-        if (!IPAddress.TryParse(address, out IPAddress parsed))
-            return Unknown;
-
-        byte[] bytes = parsed.GetAddressBytes();
-        if (bytes.Length != 4)
-            return Unknown;
-
-        uint value = ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16)
-            | ((uint)bytes[2] << 8) | bytes[3];
-
         StringBuilder builder = new StringBuilder(Length);
 
-        // En anlamlı beşliden başlıyoruz ki kod hep aynı uzunlukta olsun.
-        for (int i = Length - 1; i >= 0; i--)
-        {
-            int index = (int)((value >> (i * 5)) & 0x1F);
-            builder.Append(Alphabet[index]);
-        }
+        for (int i = 0; i < Length; i++)
+            builder.Append(Alphabet[UnityEngine.Random.Range(0, Alphabet.Length)]);
 
         return builder.ToString();
     }
 
     /// <summary>
-    /// Kullanıcının yazdığını bağlanılacak adrese çevirir.
+    /// Kullanıcının yazdığını aranabilir koda çevirir.
     ///
-    /// Önce ham IP olarak deneniyor: sanal ağ (Hamachi) ya da dışarıdan verilen
-    /// bir adresi koda çevirmeye zorlamak gereksiz bir engel olurdu.
+    /// Boşluk ve küçük harf affediliyor: kod sesli sohbette söylenip elle
+    /// yazılıyor, "abc def" yazan biri geri çevrilmemeli. Alfabede olmayan bir
+    /// karakter varsa kod geçersiz — kullanıcıya söylemek, sessizce bağlanmayı
+    /// denemekten iyi.
     /// </summary>
-    public static bool TryToAddress(string input, out string address)
+    public static bool TryNormalize(string input, out string code)
     {
-        address = null;
+        code = null;
 
         if (string.IsNullOrWhiteSpace(input))
             return false;
 
-        string trimmed = input.Trim();
+        StringBuilder builder = new StringBuilder(Length);
 
-        if (IPAddress.TryParse(trimmed, out IPAddress direct)
-            && direct.AddressFamily == AddressFamily.InterNetwork)
+        foreach (char character in input.Trim().ToUpperInvariant())
         {
-            address = direct.ToString();
-            return true;
-        }
+            if (character == ' ' || character == '-')
+                continue;
 
-        string normalized = trimmed.ToUpperInvariant();
-        if (normalized.Length != Length)
-            return false;
-
-        uint value = 0;
-
-        foreach (char character in normalized)
-        {
-            int index = Alphabet.IndexOf(character);
-            if (index < 0)
+            if (Alphabet.IndexOf(character) < 0)
                 return false;
 
-            value = (value << 5) | (uint)index;
+            builder.Append(character);
         }
 
-        address = $"{(value >> 24) & 0xFF}.{(value >> 16) & 0xFF}." +
-            $"{(value >> 8) & 0xFF}.{value & 0xFF}";
+        if (builder.Length != Length)
+            return false;
 
+        code = builder.ToString();
         return true;
-    }
-
-    // ---------- Yerel adres ----------
-
-    /// <summary>
-    /// Bu makinenin ağdaki IPv4 adresi — sunucu olurken kodu bundan üretiyoruz.
-    ///
-    /// Yöntem: dışarı bir UDP soketi "bağlanıyor". Veri gönderilmiyor; UDP'de
-    /// Connect yalnızca yerel bir işlem ve işletim sistemine "bu hedefe hangi
-    /// arayüzden çıkardın" diye sormanın en güvenilir yolu. Makinede birden
-    /// fazla arayüz olduğunda (VPN, sanal makine adaptörü, Wi-Fi + Ethernet)
-    /// ana makine adından adres çözmek yanlış olanı seçebiliyor.
-    /// </summary>
-    public static string LocalAddress()
-    {
-        try
-        {
-            using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, 0))
-            {
-                socket.Connect("8.8.8.8", 65530);
-
-                if (socket.LocalEndPoint is IPEndPoint endPoint)
-                    return endPoint.Address.ToString();
-            }
-        }
-        catch (SocketException)
-        {
-            // Ağ yoksa aşağıdaki yönteme düşüyoruz.
-        }
-
-        try
-        {
-            foreach (IPAddress candidate in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
-            {
-                if (candidate.AddressFamily == AddressFamily.InterNetwork)
-                    return candidate.ToString();
-            }
-        }
-        catch (SocketException)
-        {
-        }
-
-        // Tek başına test: kendi makinene bağlanmak yine de çalışıyor.
-        return "127.0.0.1";
     }
 }

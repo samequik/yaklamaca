@@ -1325,19 +1325,65 @@ Oyuncu objesinin kimliği zaten var.
 `LobbyNetwork` bu köprü: sunucu açma, kodla bağlanma, ayrılma, bağlantı
 hatalarını metne çevirme ve tur başlayınca menüyü kapatma.
 
-### Kod = sunucunun IP adresi
+### Kod = odanın adı (2026-09-05'te değişti)
 
-Lobi kodu rastgele değil, **sunucunun IPv4 adresinin 32 harflik alfabeyle
-yazılmış hâli** (`LobbyCode`). 32 bit, 7 karaktere sığıyor. Alfabede karışan
-harfler yok (I, O, 0, 1) — kod sesli sohbette söylenecek.
+Lobi kodu 6 harflik rastgele bir metin ve **odanın adı** olarak kullanılıyor
+(`LobbyCode`). Host odayı o adla açıyor, katılan kişi kodu yazınca lobi
+listesinde o ad aranıyor. Alfabede karışan harfler yok (I, O, 0, 1) — kod sesli
+sohbette söylenecek.
 
-Neden böyle: rastgele kod bir eşleştirme sunucusunda saklanmayı gerektirir, o
-da ayakta tutulacak bir servis demek. Bölüm 0'ın "bağımlılık eklemeden önce
-iki kez düşün" kuralı burada da geçerli.
+> **Eskiden kod, sunucunun IPv4 adresinin 32 harflik alfabeyle yazılmış
+> hâliydi.** Eşleştirme sunucusu gerektirmediği için öyle seçilmişti (bölüm 0),
+> ama yalnızca aynı ağda çalışıyordu: Türkiye'de CGNAT yaygın olduğu için
+> itch.io'dan indiren biri arkadaşıyla oynayamıyordu. Relay'e geçilince
+> (aşağıda) kod artık bir adres taşımıyor.
+>
+> Edgegap'in verdiği `lobby_id` uzun ve okunamaz; sesli sohbette söylenemez. O
+> yüzden kısa kod oda **adı** yapıldı ve kimlik kullanıcıdan tamamen gizlendi.
 
-**Sınırı açıkça bilerek kabul ettik:** bu doğrudan bağlantı. Aynı ağda çalışır;
-internet üzerinden 7777/UDP yönlendirmesi ya da sanal ağ (Hamachi, Radmin)
-gerekir. Katılma alanı ham IP de kabul ediyor, tam da bu yüzden.
+### İki transport: relay ve yerel
+
+`NetworkManager`'da **iki** transport birden duruyor, `LobbyNetwork` başlamadan
+önce hangisini kullanacağını seçiyor (`TryUseTransport`):
+
+| Transport | Ne zaman | Özelliği |
+|---|---|---|
+| `EdgegapLobbyKcpTransport` | LOBİ KUR / kodla katılma | İnternetten oynatan tek yol |
+| `KcpTransport` | YEREL ODA (test) / ham IP | Anında açılıyor, internet istemiyor |
+
+**Neden ikisi birden.** Yalnızca relay bırakılsaydı her Play'e basışta Edgegap
+servisine gidip gelmek gerekirdi — günde onlarca kez test eden biri için gerçek
+bir sürtünme. Yalnızca KCP bırakılsaydı arkadaşlarla hiç oynanamazdı. Mirror'da
+aktif transport tek (`Transport.active`), ama ikisini sahnede tutup başlamadan
+önce seçmek serbest.
+
+**Ham IP hâlâ kabul ediliyor.** Yerel test odasına girmenin tek yolu o; sanal ağ
+(Radmin) kullanan biri de faydalanıyor. Ayrım noktalı yazımdan yapılıyor: kod
+alfabesinde nokta yok, yani ikisi karışamıyor.
+
+### Relay: kararları yine host veriyor
+
+Relay bir **aracı sunucu**: iki taraf da ona dışarı doğru bağlanıyor ve o
+paketleri aktarıyor. Dışarı çıkan bağlantı CGNAT arkasında da çalıştığı için
+port yönlendirmesi gerekmiyor.
+
+**Oyunu yine host'un bilgisayarı yönetiyor** — rol dağıtımı, isabet, terminal
+sayaçları hepsi orada (bölüm 4). Relay yalnızca kuryelik yapıyor, karar
+vermiyor. Edgegap'in kendi deyişiyle: *"relay'ler otoriter oyun sunucusu
+değildir, işlem gücü içermez."*
+
+**Kurulum sende, kodda değil.** `NetworkManager > EdgegapLobbyKcpTransport`
+bileşenindeki `lobbyUrl` boşsa relay çalışmıyor. Doldurmak için o bileşenin
+kurulum penceresi kullanılıyor: Edgegap API anahtarı + bir servis adı → Create.
+Anahtar [app.edgegap.com](https://app.edgegap.com) → User Settings → Tokens.
+
+`lobbyUrl` boşken LOBİ KUR denenirse `LobbyNetwork.FailRelay` oyuncuyu ana
+menüye döndürüp sebebi yazıyor — aksi hâlde "Oda kuruluyor…" ekranında sonsuza
+kadar asılı kalırdı, çünkü **host tarafında bağlanma zaman aşımı yok**
+(`connectTimer` yalnızca katılmada kuruluyor).
+
+**Ücretsiz katman:** 50 eşzamanlı bağlantı, aylık 160 GB. Lobi başına 5 kişi
+demek 10 eşzamanlı oda demek — test ve küçük bir çıkış için fazlasıyla yeter.
 
 ### Yetki: arayüz tahmin eder, sunucu karar verir
 
