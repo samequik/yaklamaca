@@ -26,6 +26,16 @@ public static class MenuSetup
 {
     private const string CanvasName = "Menu";
 
+    /// <summary>
+    /// Katılma ekranındaki oda satırı sayısı.
+    ///
+    /// `RelayLobby` bundan fazlasını döndürebiliyor; fazlası gösterilmiyor ve
+    /// oyuncuya kaç oda bulunduğu yazılıyor (bkz. `JoinLobbyPanel`). Satırlar
+    /// sabit sayıda kuruluyor çünkü menü kodla üretiliyor ve çalışma anında
+    /// obje yaratmak bölüm 2'nin havuzlama kuralına takılırdı.
+    /// </summary>
+    private const int RoomListRows = 6;
+
     private static readonly Color PanelColor = new Color(0.05f, 0.05f, 0.07f, 0.93f);
     private static readonly Color ButtonColor = new Color(0.16f, 0.16f, 0.2f, 1f);
     private static readonly Color AccentColor = new Color(0.75f, 0.2f, 0.16f, 1f);
@@ -342,6 +352,12 @@ public static class MenuSetup
         serialized.FindProperty("localTransport").objectReferenceValue =
             managerObject.GetComponent<kcp2k.KcpTransport>();
 
+        // Kısa oda kodunu üreten lobi servisi. Bulunamazsa boş kalıyor ve oda
+        // yine kuruluyor — yalnızca kod host'un 32 karakterlik ürün kimliği
+        // oluyor (bkz. LobbyNetwork.StartHosting).
+        serialized.FindProperty("relayLobby").objectReferenceValue =
+            managerObject.GetComponent<RelayLobby>();
+
         serialized.ApplyModifiedProperties();
     }
 
@@ -467,10 +483,11 @@ public static class MenuSetup
         CreateLabel(column, "Arkadaşının verdiği kodu gir");
         TMP_InputField codeField = CreateInputField(column, "KOD YA DA IP ADRESİ");
 
-        // Alan üç biçimi birden almak zorunda ve en uzunu sınırı belirliyor:
-        //   7 karakter  → yerel kod
+        // Alan dört biçimi birden almak zorunda ve en uzunu sınırı belirliyor:
+        //   6 karakter  → EOS oda kodu (bugünkü olağan yol)
+        //   7 karakter  → IP'den üretilmiş yerel kod
         //   15 karakter → IP (255.255.255.255)
-        //   32 karakter → EOS ürün kimliği
+        //   32 karakter → EOS ürün kimliği (kısa kod alınamadıysa yedek)
         // Sınır 15'ti; EOS kodu yapıştırılınca sessizce kırpılıyor ve oyuncu
         // neden bağlanamadığını anlamıyordu.
         codeField.characterLimit = 64;
@@ -492,6 +509,21 @@ public static class MenuSetup
         statusLabel.fontSize = 17f;
         statusLabel.color = new Color(0.66f, 0.66f, 0.72f, 1f);
 
+        // Açık odalar. Satırlar ve başlık EOS hazır değilken gizleniyor
+        // (`JoinLobbyPanel.ApplyRows`), yani yerel odayla oynayan biri hiç
+        // görmüyor — çalışmayan bir bölümü göstermek "bozuk" izlenimi verirdi.
+        CreateSpacer(column, 14f);
+        TMP_Text listHeader = CreateLabel(column, "AÇIK ODALAR");
+        listHeader.fontSize = 20f;
+        listHeader.color = AccentColor;
+
+        Button refreshButton = AddButton(column, "ODALARI YENİLE", join.RefreshRooms);
+        TMP_Text refreshLabel = refreshButton.GetComponentInChildren<TextMeshProUGUI>();
+
+        JoinLobbyPanel.RoomRow[] roomRows = new JoinLobbyPanel.RoomRow[RoomListRows];
+        for (int i = 0; i < roomRows.Length; i++)
+            roomRows[i] = CreateRoomRow(column, join, i);
+
         CreateSpacer(column, 10f);
         AddButton(column, "GERİ", controller.ShowMain);
 
@@ -499,9 +531,67 @@ public static class MenuSetup
         serialized.FindProperty("network").objectReferenceValue = network;
         serialized.FindProperty("codeField").objectReferenceValue = codeField;
         serialized.FindProperty("statusLabel").objectReferenceValue = statusLabel;
+        serialized.FindProperty("listHeaderLabel").objectReferenceValue = listHeader;
+        serialized.FindProperty("refreshButton").objectReferenceValue = refreshButton;
+        serialized.FindProperty("refreshLabel").objectReferenceValue = refreshLabel;
+
+        // Lobi servisi NetworkManager'da duruyor. Bulunamazsa alan boş kalıyor
+        // ve ekran yalnızca kodla çalışıyor — EOS Kurulumu çalıştırılmamış bir
+        // projede menünün yine de kurulabilmesi gerekiyor.
+        GameObject managerObject = GameObject.Find("NetworkManager");
+        serialized.FindProperty("relayLobby").objectReferenceValue =
+            managerObject != null ? managerObject.GetComponent<RelayLobby>() : null;
+
+        SerializedProperty rowArray = serialized.FindProperty("rows");
+        rowArray.arraySize = roomRows.Length;
+        for (int i = 0; i < roomRows.Length; i++)
+        {
+            SerializedProperty element = rowArray.GetArrayElementAtIndex(i);
+            element.FindPropertyRelative("button").objectReferenceValue = roomRows[i].button;
+            element.FindPropertyRelative("nameLabel").objectReferenceValue = roomRows[i].nameLabel;
+            element.FindPropertyRelative("codeLabel").objectReferenceValue = roomRows[i].codeLabel;
+        }
+
         serialized.ApplyModifiedProperties();
 
         return panel;
+    }
+
+    /// <summary>
+    /// Oda listesi satırı: solda oda adı, sağda kod ve doluluk. Satırın tamamı
+    /// düğme — küçük bir hedefe nişan almak yerine tüm satıra tıklanıyor (tuş
+    /// atama satırlarıyla aynı kalıp, bkz. <see cref="CreateBindingRow"/>).
+    ///
+    /// Hangi satır olduğunu **indeksi taşıyan kalıcı dinleyici** söylüyor, yani
+    /// bağlantı sahne dosyasında duruyor ve çalışma anında kurulacak bir şey
+    /// kalmıyor.
+    /// </summary>
+    private static JoinLobbyPanel.RoomRow CreateRoomRow(Transform parent, JoinLobbyPanel target,
+        int index)
+    {
+        Button button = AddButton(parent, string.Empty, null);
+        button.GetComponentInChildren<TextMeshProUGUI>().text = string.Empty;
+
+        UnityEventTools.AddIntPersistentListener(button.onClick, target.JoinRoomAt, index);
+
+        TMP_Text nameLabel = CreateAnchoredText(button.transform, "Ad", string.Empty, 20f,
+            TextAlignmentOptions.Left, new Vector2(0f, 0f), new Vector2(0.62f, 1f), 18f);
+
+        TMP_Text codeLabel = CreateAnchoredText(button.transform, "Kod", string.Empty, 20f,
+            TextAlignmentOptions.Right, new Vector2(0.62f, 0f), new Vector2(1f, 1f), 18f);
+
+        codeLabel.color = AccentColor;
+
+        // AddButton 54 yazıyor; liste satırı düğmeden alçak olmalı ki altı
+        // satır ekrana sığsın.
+        SetPreferredHeight(button.gameObject, 42f);
+
+        return new JoinLobbyPanel.RoomRow
+        {
+            button = button,
+            nameLabel = nameLabel,
+            codeLabel = codeLabel
+        };
     }
 
     private static GameObject BuildPausePanel(Transform parent, MenuController controller,

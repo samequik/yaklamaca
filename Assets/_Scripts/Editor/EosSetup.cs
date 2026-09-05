@@ -75,9 +75,25 @@ public static class EosSetup
         EosTransport relay = managerObject.GetComponent<EosTransport>()
             ?? Undo.AddComponent<EosTransport>(managerObject);
 
+        // Kısa oda kodunu üreten lobi servisi. Transport'la aynı objede
+        // duruyor: ikisi de aynı `EOSSDKComponent`'e bakıyor ve ayrı bir obje
+        // yalnızca sahnede gezinecek bir isim daha olurdu.
+        RelayLobby lobbyService = managerObject.GetComponent<RelayLobby>()
+            ?? Undo.AddComponent<RelayLobby>(managerObject);
+
+        // Paketin kendi öznitelik listesi. Anahtarları koda yazıyoruz, yani bu
+        // alan çalışmayı etkilemiyor — ama varsayılanı "lobby_name" ve
+        // Inspector'da onu görmek bileşeni okuyanı yanıltırdı.
+        SerializedObject serializedLobby = new SerializedObject(lobbyService);
+        SerializedProperty keys = serializedLobby.FindProperty("AttributeKeys");
+        keys.arraySize = 2;
+        keys.GetArrayElementAtIndex(0).stringValue = RelayLobby.CodeKey;
+        keys.GetArrayElementAtIndex(1).stringValue = RelayLobby.NameKey;
+        serializedLobby.ApplyModifiedProperties();
+
         Transport local = managerObject.GetComponent<kcp2k.KcpTransport>();
 
-        WireLobby(relay, local);
+        WireLobby(relay, local, lobbyService);
 
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         EditorSceneManager.SaveOpenScenes();
@@ -88,9 +104,12 @@ public static class EosSetup
             "EOS kuruldu ve lobiye bağlandı. Sahne kaydedildi.\n\n" +
             "Denemek için Play'e bas ve Console'a bak:\n" +
             "· 'EOS SDK' ile ilgili bir hata YOKSA kimlik bilgileri doğru.\n" +
-            "· LOBİ KUR deyince kod 32 karakterlik uzun bir metin olmalı — o, " +
-            "EOS ürün kimliğin. Kısa kod çıktıysa EOS açılmamış demektir ve " +
-            "oyun yerel odaya düşmüştür.\n\n" +
+            "· LOBİ KUR deyince ekrandaki kodun UZUNLUĞU nerede olduğunu " +
+            "söylüyor:\n" +
+            "    6 harf  → her şey çalışıyor (relay + lobi servisi).\n" +
+            "    32 harf → relay çalışıyor ama lobi servisi cevap vermedi; " +
+            "oda yine oynanabilir, kod uzun.\n" +
+            "    7 harf  → EOS hiç açılmadı, oyun yerel odaya düştü.\n\n" +
             "EOS açılmazsa ilk bakılacak yer Epic portalındaki istemci " +
             "politikası: P2P izni yoksa SDK başlamıyor.");
     }
@@ -127,7 +146,7 @@ public static class EosSetup
     /// Menü `Menü Kur` ile ayrı kuruluyor; bu araç ondan önce çalıştırılırsa
     /// lobi henüz yok. Bulunamaması hata değil — sonra tekrar çalıştırılır.
     /// </summary>
-    private static void WireLobby(EosTransport relay, Transport local)
+    private static void WireLobby(EosTransport relay, Transport local, RelayLobby lobbyService)
     {
         LobbyNetwork lobby = Object.FindObjectOfType<LobbyNetwork>(true);
 
@@ -143,6 +162,7 @@ public static class EosSetup
         SerializedObject serialized = new SerializedObject(lobby);
         serialized.FindProperty("relayTransport").objectReferenceValue = relay;
         serialized.FindProperty("localTransport").objectReferenceValue = local;
+        serialized.FindProperty("relayLobby").objectReferenceValue = lobbyService;
         serialized.ApplyModifiedProperties();
     }
 }

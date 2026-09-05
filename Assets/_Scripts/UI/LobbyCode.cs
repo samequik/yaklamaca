@@ -4,20 +4,30 @@ using System.Net.Sockets;
 using System.Text;
 
 /// <summary>
-/// Lobi kodu ile IP adresi arasında çeviri.
+/// Lobi kodları. **İki ayrı kod biçimi var ve ikisi de burada.**
 ///
-/// **Kod, sunucunun IPv4 adresinin kendisi.** Rastgele üretilip bir eşleştirme
-/// sunucusunda saklanmıyor — öyle olsaydı ayakta tutulacak bir servis gerekirdi
-/// ve oyunun tek bağımlılığı Mirror kalmazdı (CLAUDE.md bölüm 0). 32 bitlik
-/// IPv4, 32 harflik alfabeyle 7 karaktere sığıyor.
+/// ### 7 harf — yerel kod, IP'nin kendisi
 ///
-/// Alfabede karışan harfler yok (I, O, 0, 1): kod telefonda okunacak, sesli
-/// sohbette söylenecek.
+/// Rastgele üretilip bir eşleştirme sunucusunda saklanmıyor: kod, sunucunun
+/// IPv4 adresinin yazılışı. Öyle olmasaydı ayakta tutulacak bir servis gerekirdi
+/// (CLAUDE.md bölüm 0). 32 bitlik IPv4, 32 harflik alfabeyle 7 karaktere
+/// sığıyor.
 ///
-/// **Sınır: bu doğrudan bağlantı.** Aynı ağdaki (LAN) oyuncular kodu girip
-/// bağlanabilir. İnternet üzerinden oynamak için sunucunun 7777 UDP portunu
-/// yönlendirmesi ya da Radmin/Hamachi gibi bir sanal ağ kullanılması gerekiyor.
-/// Relay servisi yok ve bilerek yok.
+/// **Sınırı bu doğrudan bağlantı olması.** Aynı ağdaki (LAN) oyuncular kodu
+/// girip bağlanabilir; internet üzerinden 7777/UDP yönlendirmesi ya da sanal ağ
+/// (Radmin, Hamachi) gerekiyor. EOS açılmadığında düşülen yol bu.
+///
+/// ### 6 harf — EOS oda kodu, rastgele
+///
+/// EOS relay'i çalıştığında kullanılan kod. Adresle hiç ilgisi yok: rastgele
+/// üretilip odanın kendisine öznitelik olarak yazılıyor ve arayan kişi EOS'un
+/// lobi servisinden buluyor (bkz. `RelayLobby`). Saklayan sunucu yine yok —
+/// kaydı Epic tutuyor ve o zaten relay için kullanılıyor.
+///
+/// ### Ortak alfabe
+///
+/// Karışan harfler yok (I, O, 0, 1): kod telefonda okunacak, sesli sohbette
+/// söylenecek. İki biçimi **uzunluk** ayırıyor, içerik değil.
 ///
 /// Katılma ekranı ham IP de kabul ediyor: "192.168.1.42" yazan biri koda
 /// çevirmek zorunda kalmasın (sanal ağ adresleri, dışarıdan verilen adresler).
@@ -32,6 +42,71 @@ public static class LobbyCode
 
     /// <summary>Adres çözülemezse gösterilecek metin.</summary>
     public const string Unknown = "-------";
+
+    // ---------- EOS oda kodu ----------
+
+    /// <summary>
+    /// EOS odasının kısa kodu — 6 karakter, IP kodundan bir eksik.
+    ///
+    /// **Uzunluk farkı bilerek.** Katılma alanı dört biçimi birden almak
+    /// zorunda ve hepsi tek bakışta ayrılabilmeli:
+    ///
+    ///   6 karakter   → EOS oda kodu (bu)
+    ///   7 karakter   → IP'den üretilmiş yerel kod (<see cref="Length"/>)
+    ///   noktalı      → ham IP
+    ///   32 karakter  → EOS ürün kimliği (yedek yol)
+    ///
+    /// İkisi aynı uzunlukta olsaydı girilen kodun hangisi olduğu anlaşılamazdı:
+    /// alfabe ortak olduğu için içeriğe bakmak da ayırt etmiyor.
+    ///
+    /// 32^6 ≈ 1.07 milyar bileşim. Benzersizlik sunucuda **doğrulanmıyor** —
+    /// kod rastgele üretiliyor, kimse çakışma kontrolü yapmıyor. Alternatifi
+    /// ayakta tutulacak bir eşleştirme servisi olurdu (bölüm 0). Aynı anda açık
+    /// birkaç odada çakışma ihtimali ölçülemez; olursa katılan yanlış odaya
+    /// düşer ve kod tekrar istenir.
+    /// </summary>
+    public const int RoomCodeLength = 6;
+
+    /// <summary>Yeni bir rastgele oda kodu üretir.</summary>
+    public static string NewRoomCode()
+    {
+        StringBuilder builder = new StringBuilder(RoomCodeLength);
+
+        for (int i = 0; i < RoomCodeLength; i++)
+            builder.Append(Alphabet[UnityEngine.Random.Range(0, Alphabet.Length)]);
+
+        return builder.ToString();
+    }
+
+    /// <summary>Girilen metin bir EOS oda kodu olabilir mi.</summary>
+    public static bool IsRoomCode(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return false;
+
+        string normalized = input.Trim().ToUpperInvariant();
+        if (normalized.Length != RoomCodeLength)
+            return false;
+
+        foreach (char character in normalized)
+        {
+            if (Alphabet.IndexOf(character) < 0)
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Kodu EOS'a yazılacak/aranacak biçime çevirir: küçük harf.
+    ///
+    /// EOS'un lobi araması metin özniteliklerinde büyük/küçük harfi her sürümde
+    /// aynı ele almıyor. Kodu hem yazarken hem ararken küçük harfe çevirmek
+    /// sorunun tamamını ortadan kaldırıyor. Ekranda gösterilen hâli yine büyük
+    /// harf — söylenmesi ve okunması kolay olan o.
+    /// </summary>
+    public static string ToSearchForm(string code) =>
+        code != null ? code.Trim().ToLowerInvariant() : string.Empty;
 
     // ---------- Kodlama ----------
 

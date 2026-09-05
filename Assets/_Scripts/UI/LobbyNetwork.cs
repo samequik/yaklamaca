@@ -40,6 +40,11 @@ public class LobbyNetwork : MonoBehaviour
         "ağda (ya da sanal ağda) oynanabiliyor. EOS Kurulumu bağlıyor.")]
     [SerializeField] private EosTransport relayTransport;
 
+    [Tooltip("EOS'un lobi servisi — 6 harflik kısa oda kodunu o üretiyor. " +
+        "Boşsa oda yine kuruluyor ama kod host'un 32 karakterlik ürün kimliği " +
+        "oluyor. EOS Kurulumu bağlıyor.")]
+    [SerializeField] private RelayLobby relayLobby;
+
     [Tooltip("Aynı ağ için doğrudan bağlantı. EOS hazır değilken ve IP ile " +
         "katılırken kullanılıyor: internet gerektirmiyor, anında açılıyor.")]
     [SerializeField] private Transport localTransport;
@@ -180,18 +185,7 @@ public class LobbyNetwork : MonoBehaviour
 
     private void StartHosting(NetworkManager manager)
     {
-        if (UseRelay)
-        {
-            UseTransport(manager, relayTransport);
-
-            // EOS'ta adres, host'un ürün kimliği (ProductUserId). 32 karakterlik
-            // bir metin: sesli sohbette söylenemez ama kopyalanabilir.
-            // Kısa koda geçmek EOS'un lobi servisini kullanmayı gerektiriyor,
-            // o ayrı bir adım (bölüm 13).
-            RoomCode = EOSSDKComponent.LocalUserProductIdString;
-            StatusMessage = "İnternet odası. Kodu kopyalayıp arkadaşına ver.";
-        }
-        else
+        if (!UseRelay)
         {
             UseTransport(manager, localTransport);
 
@@ -202,9 +196,68 @@ public class LobbyNetwork : MonoBehaviour
             RoomCode = LobbyCode.FromAddress(LobbyCode.LocalAddress());
             StatusMessage = "EOS hazır değil, yerel oda kuruldu. Katılacak kişi " +
                 $"şu adreslerden birini yazmalı:\n{LobbyCode.LocalAddresses()}";
+
+            manager.StartHost();
+            return;
         }
 
-        manager.StartHost();
+        UseTransport(manager, relayTransport);
+
+        // Lobi servisi bağlı değilse eski davranış: adres host'un ürün kimliği
+        // (ProductUserId), 32 karakterlik bir metin. Kopyalanabiliyor ama
+        // söylenemiyor — yine de oda açılıyor, ki EOS Kurulumu'nun yarım
+        // kaldığı bir projede oyun oynanabilir kalsın.
+        if (relayLobby == null)
+        {
+            RoomCode = EOSSDKComponent.LocalUserProductIdString;
+            StatusMessage = "İnternet odası. Kodu kopyalayıp arkadaşına ver.";
+
+            manager.StartHost();
+            return;
+        }
+
+        // Sunucu, kısa kod hazır olduktan SONRA açılıyor. Önce açıp kodu
+        // sonradan değiştirmek daha hızlı olurdu ama ekrandaki kod bir anda
+        // 32 karakterden 6 karaktere dönerdi; oyuncu arkadaşına hangisini
+        // vereceğini bilemez ve muhtemelen ilk gördüğünü verirdi.
+        RoomCode = LobbyCode.Unknown;
+        StatusMessage = "Oda kuruluyor…";
+
+        relayLobby.HostRoom(
+            PlayerProfile.Name,
+            code =>
+            {
+                // Oda kurulurken AYRIL'a basılmış olabilir. EOS'taki kayıt yine
+                // de oluştu: kapatmazsak kimsenin giremeyeceği bir oda listede
+                // ve aramada asılı kalır.
+                if (leaving)
+                {
+                    CloseRelayRoom();
+                    return;
+                }
+
+                RoomCode = code;
+                StatusMessage = "İnternet odası. Kodu arkadaşına söyle.";
+
+                manager.StartHost();
+            },
+            error =>
+            {
+                if (leaving)
+                    return;
+
+                // Lobi servisi takıldı ama RELAY çalışıyor: oda yine kurulabilir,
+                // yalnızca kod uzun olur. Kısa kodu alamadık diye oyuncuyu
+                // odasız bırakmak, çalışan bir yolu çalışmayan bir yol yüzünden
+                // kapatmak olurdu.
+                Debug.LogWarning($"EOS lobi servisi: {error}");
+
+                RoomCode = EOSSDKComponent.LocalUserProductIdString;
+                StatusMessage = "Kısa kod alınamadı. Uzun kodla devam: " +
+                    "kodu kopyalayıp arkadaşına ver.";
+
+                manager.StartHost();
+            });
     }
 
     /// <summary>Kod ya da ham IP ile bağlanır.</summary>
@@ -227,26 +280,26 @@ public class LobbyNetwork : MonoBehaviour
         string trimmed = codeOrAddress != null ? codeOrAddress.Trim() : string.Empty;
         string address;
 
-        // Üç giriş biçimi var ve ayırt etmek kolay:
+        // Dört giriş biçimi var ve ayırt etmek kolay:
         //   "192.168.1.42"  → nokta içeriyor, IP
-        //   "K7M2QXB"       → 7 harf, yerel kod
-        //   32 karakter hex → EOS ürün kimliği
-        // Kod alfabesinde nokta yok, EOS kimliği de 7 karakterden uzun.
+        //   "K7M2QXB"       → 7 harf, IP'den üretilmiş yerel kod
+        //   "K7M2QX"        → 6 harf, EOS oda kodu
+        //   32 karakter hex → EOS ürün kimliği (kısa kod alınamadıysa yedek)
+        // Kod alfabesinde nokta yok; iki kod biçimini de uzunluk ayırıyor
+        // (bkz. LobbyCode.RoomCodeLength).
         if (LobbyCode.TryToAddress(trimmed, out address))
         {
             UseTransport(manager, localTransport);
             RoomCode = LobbyCode.FromAddress(address);
         }
+        else if (UseRelay && relayLobby != null && LobbyCode.IsRoomCode(trimmed))
+        {
+            JoinByRoomCode(manager, trimmed);
+            return;
+        }
         else if (UseRelay && trimmed == EOSSDKComponent.LocalUserProductIdString)
         {
-            // EOS kimliği CİHAZ başına üretiliyor (Device ID), oyuncu başına
-            // değil: aynı bilgisayardaki iki kopya aynı ProductUserId'yi alıyor
-            // ve biri öbürüne bağlanmaya çalıştığında kendine bağlanmış oluyor.
-            // EOS bunu reddediyor ve geriye yalnızca zaman aşımı kalıyordu —
-            // sebebi hiçbir yerde görünmüyordu.
-            StatusMessage = "Bu senin kendi kodun. Aynı bilgisayardaki iki kopya " +
-                "aynı EOS kimliğini paylaşıyor, yani kendine bağlanamazsın — " +
-                "test için ikinci bir makine gerekiyor.";
+            StatusMessage = SelfConnectMessage;
             return;
         }
         else if (UseRelay && trimmed.Length > LobbyCode.Length)
@@ -258,10 +311,10 @@ public class LobbyNetwork : MonoBehaviour
         else
         {
             StatusMessage = UseRelay
-                ? $"Kod okunamadı. {LobbyCode.Length} harflik kod, IP adresi ya da " +
-                  "arkadaşının verdiği uzun kod bekleniyor."
+                ? $"Kod okunamadı. {LobbyCode.RoomCodeLength} harflik oda kodu, " +
+                  $"{LobbyCode.Length} harflik yerel kod ya da IP adresi bekleniyor."
                 : $"Kod okunamadı. {LobbyCode.Length} harf ya da bir IP adresi bekleniyor. " +
-                  "(EOS hazır değil, uzun kodla katılamazsın.)";
+                  "(EOS hazır değil, oda koduyla katılamazsın.)";
             return;
         }
 
@@ -274,6 +327,80 @@ public class LobbyNetwork : MonoBehaviour
 
         if (menu != null)
             menu.ShowLobby();
+    }
+
+    /// <summary>
+    /// EOS kimliği CİHAZ başına üretiliyor (Device ID), oyuncu başına değil:
+    /// aynı bilgisayardaki iki kopya aynı ProductUserId'yi alıyor ve biri
+    /// öbürüne bağlanmaya çalıştığında kendine bağlanmış oluyor. EOS bunu
+    /// reddediyor ve geriye yalnızca zaman aşımı kalıyordu — sebebi hiçbir
+    /// yerde görünmüyordu.
+    /// </summary>
+    private const string SelfConnectMessage =
+        "Bu senin kendi odan. Aynı bilgisayardaki iki kopya aynı EOS kimliğini " +
+        "paylaşıyor, yani kendine bağlanamazsın — test için ikinci bir makine " +
+        "gerekiyor.";
+
+    /// <summary>
+    /// Kısa kodla katılır: önce EOS'a odayı sorup host'un adresini alıyor,
+    /// sonra Mirror'ı bağlıyor.
+    ///
+    /// **Katılma ekranından çıkılmıyor.** Arama birkaç yüz milisaniye sürüyor
+    /// ve sonucu belirsiz; lobiye geçip hata çıkınca geri dönmek ekranı iki kez
+    /// zıplatırdı. Ekran ancak Mirror bağlanmaya başlayınca değişiyor.
+    ///
+    /// **Bağlanma sayacı da orada başlıyor**, aramanın başında değil: arama
+    /// süresi bağlanma süresinden düşülseydi yavaş bir aramadan sonra bağlantı
+    /// daha doğmadan zaman aşımına uğrardı.
+    /// </summary>
+    private void JoinByRoomCode(NetworkManager manager, string code)
+    {
+        leaving = false;
+        RoomCode = code.ToUpperInvariant();
+        StatusMessage = "Oda aranıyor…";
+
+        relayLobby.JoinRoom(
+            code,
+            address =>
+            {
+                // Arama sürerken vazgeçilmiş olabilir; o ana kadar EOS odasına
+                // çoktan girmiş oluyoruz, çıkmazsak kadroda hayalet bir üye
+                // kalır.
+                if (leaving)
+                {
+                    CloseRelayRoom();
+                    return;
+                }
+
+                // Kendi odamızı bulduk. Kod doğru olduğu için buraya kadar
+                // geliyor; sebebi söylemezsek geriye yalnızca zaman aşımı
+                // kalırdı (bkz. SelfConnectMessage).
+                if (address == EOSSDKComponent.LocalUserProductIdString)
+                {
+                    CloseRelayRoom();
+                    RoomCode = LobbyCode.Unknown;
+                    StatusMessage = SelfConnectMessage;
+                    return;
+                }
+
+                StatusMessage = "Bağlanılıyor…";
+                connectTimer = connectTimeout;
+
+                UseTransport(manager, relayTransport);
+                manager.networkAddress = address;
+                manager.StartClient();
+
+                if (menu != null)
+                    menu.ShowLobby();
+            },
+            error =>
+            {
+                if (leaving)
+                    return;
+
+                RoomCode = LobbyCode.Unknown;
+                StatusMessage = error;
+            });
     }
 
     /// <summary>
@@ -327,12 +454,28 @@ public class LobbyNetwork : MonoBehaviour
                 manager.StopClient();
         }
 
+        CloseRelayRoom();
+
         RoomCode = LobbyCode.Unknown;
         StatusMessage = string.Empty;
         hadLocalPlayer = false;
 
         if (menu != null)
             menu.ShowMain();
+    }
+
+    /// <summary>
+    /// EOS'taki oda kaydını kapatır.
+    ///
+    /// Oda, Mirror bağlantısından **ayrı** duruyor: bağlantı kapansa bile lobi
+    /// kaydı serviste kalır, kod hâlâ bulunur ve arkadaşın artık var olmayan
+    /// bir odaya bağlanmaya çalışırdı. Host'ta oda yok ediliyor, katılanda
+    /// yalnızca çıkılıyor — ayrımı `RelayLobby` yapıyor.
+    /// </summary>
+    private void CloseRelayRoom()
+    {
+        if (relayLobby != null)
+            relayLobby.CloseRoom();
     }
 
     /// <summary>Kodu panoya kopyalar — lobi ekranındaki düğme.</summary>
@@ -391,13 +534,17 @@ public class LobbyNetwork : MonoBehaviour
         if (NetworkClient.isConnected)
             return;
 
-        StatusMessage = "Bağlanılamadı (zaman aşımı). Kodu kontrol et; sunucu aynı ağda mı?";
+        StatusMessage = "Bağlanılamadı (zaman aşımı). Kodu kontrol et; oda hâlâ açık mı?";
 
         NetworkManager manager = NetworkManager.singleton;
         leaving = true;
 
         if (manager != null && NetworkClient.active)
             manager.StopClient();
+
+        // Kısa kodla girildiyse EOS odasına çoktan katılmış olabiliriz; Mirror
+        // bağlantısı kurulamadığına göre orada da işimiz kalmadı.
+        CloseRelayRoom();
 
         if (menu != null)
             menu.ShowMain();

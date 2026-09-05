@@ -27,7 +27,8 @@ terminal + kaçış sistemi (bölüm 11) · harita giydirme ve prop dağıtımı
 mağara yankısı (bölüm 12) · menü, lobi, ayarlar ve tuş atamaları (bölüm 13) ·
 canavar modeli, animasyonları ve ışıkları (bölüm 14) · katman düzeni
 (bölüm 16) · kaçan modeli ve yakalanma animasyonu (bölüm 17) · çıkış görünümü
-ve kilit paneli (bölüm 18) · lightmap + occlusion · **EOS relay'i** · git.
+ve kilit paneli (bölüm 18) · lightmap + occlusion · **EOS relay'i** ·
+**kısa lobi kodu ve oda listesi** (bölüm 13) · git.
 
 ---
 
@@ -99,22 +100,46 @@ eğik çizgiyi kabul etmemesi ve ANSI dönüşümü · girişin asenkron olması
 Lobi **iki transport** arasında seçim yapıyor (bölüm 13): EOS hazırsa internet
 odası, değilse yerel oda. Katılma alanı hem kodu hem ham IP'yi alıyor.
 
+**EOS iki makinede denendi ve bağlantı kuruldu** (2026-09-05). Relay tarafında
+belirsizlik kalmadı.
+
+#### 5. Kısa lobi kodu ve oda listesi
+
+Relay çalışıyordu ama adres host'un 32 karakterlik `ProductUserId`'siydi:
+kopyalanabiliyor, **söylenemiyor**. Oyun sesli sohbette oynandığı için "odama
+gel" demenin yolu kodu okumak.
+
+EOS'un **lobi servisi** devreye alındı (`RelayLobby`, bölüm 13). Host 6 harflik
+rastgele bir kod üretip odaya öznitelik olarak yazıyor, katılan o kodla arayıp
+uzun adresi EOS'tan alıyor. Uzun kod kaybolmadı, yalnızca artık görünmüyor.
+
+Aynı servisten **oda listesi** de geliyor — teknik borç 5 kapandı. Katılma
+ekranı altı odayı adı, kodu ve doluluğuyla gösteriyor; satıra basmak kodu alana
+yazıp normal katılma yolunu işletiyor (ayrı bir "listeden katıl" yolu ikinci bir
+hata kaynağı olurdu).
+
+Pakete **beşinci bir yerel yama eklenmedi**: `RelayLobby`, paketin
+`EOSLobby`'sinden türüyor. Bölüm 9'daki dört yama hâlâ dört.
+
 ---
 
 ### Sıradaki adımlar
 
-**1. Bekleyen araç çalıştırması:** `Yakalamaca > Menü Kur`. Katılma alanının
-karakter sınırı (15 → 64) ve doğrulaması ile lobi kodu satırının taşması bu
-araçla yazılıyor; kodu değiştirmek tek başına yetmiyor. Araç artık EOS
-bağlantısını bozmuyor.
+**1. İki araç çalıştırılacak, bu sırayla:**
 
-**2. EOS'u iki makineyle dene.** Tek belirsizlik bu.
-**Aynı bilgisayarda test edilemez** — kimlik cihaz başına üretiliyor, iki kopya
-aynı `ProductUserId`'yi alıyor ve kendine bağlanmış oluyor (bölüm 13). Host
-katılım gelene kadar lobide açık kalmalı.
+```
+Yakalamaca > EOS Kurulumu (relay)   → RelayLobby bileşenini ekler
+Yakalamaca > Menü Kur               → oda listesi ekranını kurar ve bağlar
+```
 
-**3. Denge ölçümü.** Bütün sayılar hâlâ tahmin; EOS çalışınca arkadaşlarla
-ölçülecek (bölüm 10, madde 7).
+Sıra önemli: `Menü Kur` lobi servisini `NetworkManager`'da **arayarak**
+bağlıyor, yani bileşen önce var olmalı. İkisi de hiçbir şey silmiyor.
+
+Çalıştırılmazsa oyun bozulmuyor, yalnızca eski davranışta kalıyor: kod 32
+karakterlik ürün kimliği olur ve oda listesi hiç görünmez.
+
+**2. Denge ölçümü.** Bütün sayılar hâlâ tahmin; arkadaşlarla ölçülecek
+(bölüm 10, madde 7).
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
@@ -651,7 +676,7 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Haritayı Giydir (SciFi Kit) | Küplerin üstünü kit modelleriyle kaplar |
 | Harita Süsle (prop dağıt) | Duvar diplerine varil/kasa dağıtır |
 | Ağ Kurulumu (1. adım) | Oyuncu prefabı + NetworkManager + doğum noktaları |
-| EOS Kurulumu (relay) | EOS bileşenlerini kurar ve lobiye bağlar; hiçbir şey silmiyor |
+| EOS Kurulumu (relay) | EOS transport'unu ve lobi servisini kurar, lobiye bağlar; hiçbir şey silmiyor |
 | Menü Kur | Menü, lobi, ayarlar ve tuş atama ekranları (bkz. bölüm 13) |
 | Terminal ve Çıkış Kur | 5 terminali duvarlara, 2 çıkışı en uzak iki gediğe kurar |
 | Sesleri Yerleştir | Sesleri adlandırır, mono yapar, kapılara ve terminallere bağlar |
@@ -702,7 +727,8 @@ Yeni bir sahnede ya da her şey bozulduğunda bu sırayla:
 3. Haritayı Giydir (SciFi Kit)
 4. Harita Süsle (prop dağıt)      → "SciFi Kit prop'larını yükle" → Dağıt
 5. Ağ Kurulumu (1. adım)
-5b. Menü Kur                      → ağ kurulumundan SONRA (bkz. bölüm 13)
+5a. EOS Kurulumu (relay)          → ağ kurulumundan SONRA (NetworkManager'a ekliyor)
+5b. Menü Kur                      → EOS kurulumundan SONRA (bkz. bölüm 13)
 6. Terminal ve Çıkış Kur
 7. Sesleri Yerleştir
 7b. Canavar Modelini Kur          → ağ kurulumundan SONRA (prefabı değiştiriyor)
@@ -760,10 +786,11 @@ bir tercih olması.
    bağlandı (bölüm 17). Kapsül yer tutucu olarak duruyor: model takılı değilse
    ona düşülüyor. Madde numarası, koddaki atıflar bozulmasın diye yerinde
    bırakıldı.
-5. **Oda listesi yok.** Lobideki "herkese açık oda" fikri arayüzden kalktı:
-   oda listesi tutmak bir eşleştirme sunucusu gerektiriyor (bölüm 13).
-   Katılmanın tek yolu kod. Relay'e geçilince (EOS, bölüm 10) oda listesi de
-   gündeme gelebilir.
+5. ~~**Oda listesi yok.**~~ **ÇÖZÜLDÜ** (2026-09-05) — EOS'un lobi servisi
+   geldiğinde liste de bedava geldi: kaydı Epic tutuyor, bizim ayakta
+   tutacağımız bir eşleştirme sunucusu yok. Katılma ekranı açık odaları
+   listeliyor (bölüm 13). Madde numarası, koddaki atıflar bozulmasın diye
+   yerinde bırakıldı.
 6. ~~**Kaçış kapısı tek.**~~ **ÇÖZÜLDÜ** (2026-08-30) — iki çıkış var, birbirinden
    en uzak iki dış duvar gediğinde (bölüm 11.5). Madde numarası, koddaki atıflar
    bozulmasın diye yerinde bırakıldı.
@@ -1080,10 +1107,19 @@ kuralına takılıyor, ama karşılığında sunucu bakımı gerektirmeyen kalı
 çözüm geliyor. Mirror transport'u topluluk tarafından yazılmış
 (`FakeByte/EpicOnlineTransport`), resmi değil.
 
-**Durum (2026-09-05): ÇALIŞIYOR.** Lobi kurulduğunda kod 32 karakterlik EOS
-ürün kimliği olarak geliyor ve ekran "İnternet odası" diyor — yani SDK açıldı,
-kimlik alındı ve oda relay üzerinden kuruldu. Port yönlendirmesi ya da sanal ağ
-gerekmiyor.
+**Durum (2026-09-05): ÇALIŞIYOR, iki makinede doğrulandı.** Lobi kurulduğunda
+ekran "İnternet odası" diyor ve kod **6 harflik** kısa kod olarak geliyor — yani
+SDK açıldı, kimlik alındı, oda relay üzerinden kuruldu ve lobi servisi kodu
+yazdı. Port yönlendirmesi ya da sanal ağ gerekmiyor.
+
+Kodun **uzunluğu nerede olduğunu söylüyor** ve hata ayıklarken ilk bakılacak
+yer o:
+
+| Kod | Ne demek |
+|---|---|
+| **6 harf** | Her şey çalışıyor: relay + lobi servisi |
+| **32 harf** | Relay çalışıyor, lobi servisi cevap vermedi — oda oynanabilir, kod uzun |
+| **7 harf** | EOS hiç açılmadı, yerel odaya düşüldü |
 
 Buraya gelene kadar dört ayrı engel vardı ve hepsi bölüm 9'da:
 Mirror'ın hata olayının imzası · SDK kütüphanesinin koda gömülü yolu ·
@@ -1096,22 +1132,20 @@ yerel yama, bölüm 9), Epic portalında ürün ve istemci açık, `EosApiKey`
 dolduruldu, `Yakalamaca > EOS Kurulumu (relay)` bileşenleri kurup lobiye
 bağlıyor. Lobi iki transport arasında seçim yapıyor (bölüm 13).
 
-**Kalan tek belirsizlik: iki makine arasında bağlantı denemesi.** Aynı
-bilgisayarda test edilemiyor — sebebi bölüm 13'te.
+**İkisi de bitti** (2026-09-05):
 
-**Kalan iki adım:**
+1. ~~**Oynanışta doğrulama.**~~ İki makineden bağlanıldı, tur oynandı. (EOS
+   açılmazsa ilk bakılacak yer Epic'teki istemci politikası: **P2P izni yoksa
+   SDK başlamıyor.**)
+2. ~~**Kısa kod.**~~ EOS'un lobi servisi devrede (`RelayLobby`); kod 6 harf ve
+   oda listesi de aynı yerden geliyor (bölüm 13).
 
-1. **Oynanışta doğrulama.** EOS gerçekten açılıyor mu, iki makine birbirine
-   bağlanıyor mu. Açılmazsa ilk bakılacak yer Epic'teki istemci politikası:
-   **P2P izni yoksa SDK başlamıyor.**
-2. **Kısa kod.** Bugün adres host'un 32 karakterlik ürün kimliği. EOS'un lobi
-   servisi (`EOSLobby.cs`, pakette hazır) kısa kod ve oda listesi getiriyor.
-
-**O zamana kadar bağlantı doğrudan.** Aynı ağda çalışıyor; arkadaşlarla test
-için sanal ağ (Radmin, Hamachi) kullanılıyor. Lobi ekranı host olurken
-makinenin **bütün IPv4 adreslerini** yazıyor (`LobbyCode.LocalAddresses`),
-çünkü kod internete çıkan adaptörden üretiliyor ve sanal ağ adresi orada
-görünmüyor — oyuncu doğrusunu listeden tanıyıp veriyor.
+**Yerel yol duruyor ve hiçbir şeyi EOS'a borçlu değil.** EOS açılmazsa oyun
+yerel odaya düşüyor; aynı ağda çalışıyor, internette sanal ağ (Radmin, Hamachi)
+gerekiyor. Lobi ekranı o hâlde host olurken makinenin **bütün IPv4 adreslerini**
+yazıyor (`LobbyCode.LocalAddresses`), çünkü kod internete çıkan adaptörden
+üretiliyor ve sanal ağ adresi orada görünmüyor — oyuncu doğrusunu listeden
+tanıyıp veriyor.
 
 **Bugünkü lobinin neredeyse tamamı korunuyor:** kadro senkronu, hazır işareti,
 canavar seçimi, tur akışı, yetki kontrolleri — hiçbiri baytların nasıl
@@ -1507,27 +1541,45 @@ Oyuncu objesinin kimliği zaten var.
 `LobbyNetwork` bu köprü: sunucu açma, kodla bağlanma, ayrılma, bağlantı
 hatalarını metne çevirme ve tur başlayınca menüyü kapatma.
 
-### Kod = sunucunun IP adresi
+### İki kod biçimi — hangisi olduğunu UZUNLUK söylüyor
 
-Lobi kodu rastgele değil, **sunucunun IPv4 adresinin 32 harflik alfabeyle
-yazılmış hâli** (`LobbyCode`). 32 bit, 7 karaktere sığıyor. Alfabede karışan
-harfler yok (I, O, 0, 1) — kod sesli sohbette söylenecek.
+İkisi de `LobbyCode`'da, ikisi de aynı 32 harflik alfabeyi kullanıyor. Alfabede
+karışan harfler yok (I, O, 0, 1) — kod sesli sohbette söylenecek.
 
-Neden böyle: rastgele kod bir eşleştirme sunucusunda saklanmayı gerektirir, o
-da ayakta tutulacak bir servis demek. Bölüm 0'ın "bağımlılık eklemeden önce
-iki kez düşün" kuralı burada da geçerli.
+| | Uzunluk | Nereden geliyor | Ne zaman |
+|---|---|---|---|
+| **EOS oda kodu** | 6 | Rastgele; odaya öznitelik olarak yazılıyor | Relay çalışırken (olağan hâl) |
+| **Yerel kod** | 7 | Sunucunun IPv4 adresinin yazılışı | EOS açılmadığında |
 
-**Sınırı açıkça bilerek kabul ettik:** bu doğrudan bağlantı. Aynı ağda çalışır;
-internet üzerinden 7777/UDP yönlendirmesi ya da sanal ağ (Hamachi, Radmin)
-gerekir. Katılma alanı ham IP de kabul ediyor, tam da bu yüzden.
+**Yerel kod neden adresin kendisi:** rastgele bir kod, onu saklayacak bir
+eşleştirme sunucusu gerektirir — ayakta tutulacak bir servis demek (bölüm 0).
+32 bitlik IPv4 ise 32 harflik alfabeyle tam 7 karaktere sığıyor ve hiçbir yerde
+saklanmıyor. Sınırı açık: bu doğrudan bağlantı, aynı ağda çalışır; internette
+7777/UDP yönlendirmesi ya da sanal ağ (Hamachi, Radmin) gerekir.
+
+**EOS kodu neden rastgele olabiliyor:** kaydı Epic tutuyor ve o servis zaten
+relay için ayakta. Yani "saklamayalım" kuralı burada bedelsiz kalkıyor —
+tuttuğumuz yeni bir şey yok.
+
+**İkisini uzunluk ayırıyor, içerik değil.** Alfabe ortak olduğu için "K7M2QX"
+ile "K7M2QXB" arasındaki tek fark bir karakter; aynı uzunlukta olsalardı
+girilen kodun hangisi olduğu anlaşılamazdı. Katılma alanı ham IP de kabul
+ediyor (nokta içeriyorsa IP), ayrıca kısa kod alınamadığında yedeğe düşen 32
+karakterlik ürün kimliğini de.
+
+> **6 harfin benzersizliği garanti DEĞİL.** 32^6 ≈ 1.07 milyar bileşim var ama
+> kod rastgele üretiliyor ve kimse çakışma kontrolü yapmıyor — kontrol için bir
+> sunucu gerekirdi ve kaçındığımız şey tam olarak o. Aynı anda açık birkaç
+> odada çakışma ihtimali ölçülemez; olursa katılan yanlış odaya düşer ve kod
+> tekrar istenir.
 
 > **Katılma alanının iki sessiz kısıtı vardı; ikisi de EOS'la ortaya çıktı.**
 >
 > - `characterLimit` **15**'ti — `255.255.255.255` tam sığsın diye seçilmiş.
 >   EOS kodu 32 karakter; yapıştırınca **sessizce kırpılıyor** ve oyuncu
->   neden bağlanamadığını anlamıyordu. **64** yapıldı: alan üç biçimi birden
->   almak zorunda (7 karakter yerel kod, 15 karakter IP, 32 karakter EOS
->   kimliği).
+>   neden bağlanamadığını anlamıyordu. **64** yapıldı: alan dört biçimi birden
+>   almak zorunda (6 karakter oda kodu, 7 karakter yerel kod, 15 karakter IP,
+>   32 karakter EOS kimliği).
 > - `characterValidation` **alfanümerikti** ve o kural **noktayı eliyordu**.
 >   Yani "ham IP de kabul ediliyor" sözü aslında hiç tutmuyordu: girilen
 >   adresten noktalar düşüyordu. **Kapatıldı** — içeriği zaten
@@ -1552,7 +1604,7 @@ Radmin penceresindeki adresi listeden tanıyor.
 
 | Transport | Ne zaman | Kod nasıl görünüyor |
 |---|---|---|
-| `EosTransport` | EOS hazırsa, LOBİ KUR | Host'un **ProductUserId**'si — 32 karakter |
+| `EosTransport` | EOS hazırsa, LOBİ KUR | **6 harflik oda kodu** (lobi servisi cevap vermezse 32 karakterlik ProductUserId) |
 | `KcpTransport` | EOS hazır değilse, ya da IP ile katılırken | 7 harflik kod / ham IP |
 
 **Aynı objede durabiliyorlar.** `EosTransport` doğrudan `Transport`'tan
@@ -1578,8 +1630,9 @@ Beklerken `IsConnecting`'e **bakılmıyor, bilerek**: giriş daha başlamadan
 beklemek oyuncuyu asılı bırakırdı; hiç düşmemek ise EOS kurulumu tamamlanmamış
 bir projede oyunu büsbütün oynanamaz yapardı.
 
-**Kod üç biçimi de kabul ediyor** ve ayırt etmek kolay: nokta içeriyorsa IP,
-7 harfse yerel kod, daha uzunsa EOS kimliği. Kod alfabesinde nokta yok.
+**Katılma alanı dört biçimi de kabul ediyor** ve ayırt etmek kolay: nokta
+içeriyorsa IP, 6 harfse EOS oda kodu, 7 harfse yerel kod, daha uzunsa EOS ürün
+kimliği. Kod alfabesinde nokta yok.
 
 **Oyuncularda Epic hesabı GEREKMİYOR.** Transport `Connect` arayüzünü
 `DeviceidAccessToken` ile kullanıyor: kimlik cihazda sessizce üretiliyor,
@@ -1615,11 +1668,79 @@ olsaydı herkesin Epic hesabıyla giriş yapması gerekirdi.
 >    İki kopyaya farklı ad vermek build başına ayrı yapılandırma demek, o
 >    yüzden zahmetli. Arkadaş varsa birinci yol her zaman daha hızlı.
 
-> **Kısa kod henüz yok.** EOS'ta adres host'un ürün kimliği ve 32 karakter;
-> kopyalanabiliyor ama sesli sohbette söylenemiyor. Kısa koda geçmek EOS'un
-> **lobi servisini** kullanmayı gerektiriyor ve paket onu getiriyor
-> (`EpicOnlineTransport/Lobby/EOSLobby.cs`). Oda listesi de aynı yerden geliyor,
-> yani teknik borç 5 onunla birlikte kapanabilir. Ayrı bir adım.
+### Kısa kod ve oda listesi: EOS lobi servisi (2026-09-05)
+
+`RelayLobby`, paketin `EOSLobby`'sinin üstüne kısa kodu ekliyor. Akış:
+
+```
+HOST                              KATILAN
+ kod üret (6 harf)
+ odayı kur, kodu öznitelik yaz
+ ── kod hazır ──► StartHost()
+                                  kodu gir
+                                  EOS'ta odayı ara
+                                  odaya katıl, host_address'i oku
+                                  ── adres ──► StartClient()
+```
+
+**Türetiliyor, yamalanmıyor.** Paket lobi işini zaten yapıyor; kopyalamak dört
+yüz satır SDK borusunu ikinci kez yazmak, doğrudan düzenlemek ise pakete
+**beşinci bir yerel yama** eklemek olurdu (bölüm 9 — her yama paket
+güncellenince kayboluyor). Türetmek ikisinden de kaçınıyor.
+
+**Base'in `Start`'ı çağrılmıyor.** `EOSLobby.Start()` ilk satırında
+`GetLobbyInterface()` çağırıyor ve o metot `Instance.EOS`'a null kontrolü
+yapmadan dokunuyor. EOS açılmamışsa sahne yüklenir yüklenmez
+`NullReferenceException` atardı — üstelik yerel odayla oynamak isteyen birinin
+EOS'la hiç işi yokken. Bildirim kaydı EOS hazır olunca, ilk istekte yapılıyor.
+
+**Her isteğin tam olarak bir cevabı var.** EOS geri çağrıları asenkron ve **hiç
+gelmeyebilir**; cevapsız kalan bir istek oyuncuyu "Oda kuruluyor…" ekranında
+sonsuza kadar asılı bırakırdı. Her istek bir sayaçla başlıyor ve sonucu iki
+uçtan hangisi önce gelirse o veriyor — ama yalnızca biri.
+
+**Sunucu, kod hazır olduktan SONRA açılıyor.** Önce açıp kodu sonradan
+yazdırmak daha hızlı olurdu ama ekrandaki kod bir anda 32 karakterden 6
+karaktere dönerdi; oyuncu arkadaşına hangisini vereceğini bilemez ve muhtemelen
+ilk gördüğünü verirdi.
+
+**Lobi servisinin çökmesi odayı çökertmiyor.** Kısa kod alınamazsa uzun kodla
+devam ediliyor ve oda yine kuruluyor: çalışan bir yolu (relay) çalışmayan bir
+yol (lobi servisi) yüzünden kapatmak yanlış olurdu. Konsola uyarı yazılıyor.
+
+**Kod hem yazılırken hem aranırken küçük harfe çevriliyor**
+(`LobbyCode.ToSearchForm`). EOS'un lobi araması metin özniteliklerinde
+büyük/küçük harfi her sürümde aynı ele almıyor; iki uçta da küçültmek sorunun
+tamamını ortadan kaldırıyor. Ekranda gösterilen hâli yine büyük harf.
+
+**Oda listesi yalnızca KOD üretiyor**, `LobbyDetails` saklamıyor: listeden
+seçmek de kodla katılmakla aynı yoldan geçiyor. Tutulan bir handle'ın oyuncu
+düğmeye basana kadar bayatlaması (oda kapanır, dolar) ikinci bir hata yolu
+açardı; arama zaten milisaniyeler sürüyor.
+
+**Liste EOS hazır değilken hiç görünmüyor.** Çalışmayan bir bölümü göstermek
+"oyun bozuk" izlenimi verir. Ama arama `OnEnable`'da **yapılamıyor**: EOS girişi
+asenkron, oyuncu Play'e basıp hemen katılma ekranına gelebiliyor ve o an gizlenen
+bölüm bir daha geri gelmezdi. `Update` hazır olduğu **ilk karede** bir kez
+arıyor.
+
+**Vazgeçilirse EOS'taki kayıt kapatılıyor.** Oda kurulurken ya da aranırken
+AYRIL'a basılabiliyor; EOS'taki kayıt o sırada çoktan oluşmuş oluyor ve
+kapatılmazsa kimsenin giremeyeceği bir oda listede asılı kalırdı. Aynı sebeple
+bağlanma zaman aşımında da kapatılıyor.
+
+**`OnApplicationQuit`'te oda kapatılmıyor, bilerek.** `EOSSDKComponent` çıkışta
+`EOS.Release()` çağırıyor ama `initialized` bayrağını **indirmiyor**; Unity'de
+bileşenler arası çıkış sırası da garanti değil. Bizimki sonra çalışsaydı
+"açılmış görünen ama serbest bırakılmış" bir platforma dokunup çıkışta ikinci
+bir hata üretirdi — bölüm 9'daki "asıl hatanın üstüne ikinci hata biniyor"
+tuzağının aynısı. Kalan oda kaydını EOS host'un bağlantısı düşünce kendisi
+temizliyor.
+
+**Kendi odana bağlanma kontrolü artık ÇÖZÜLEN adreste.** Eskiden girilen metin
+kendi `ProductUserId`'mizle karşılaştırılıyordu; kısa kodla o karşılaştırma hiç
+tutmaz (kod 6 harf, kimlik 32 karakter). Kontrol EOS'tan dönen host adresine
+taşındı, mesaj aynı kaldı.
 
 > **`EosApiKey.asset` içinde CLIENT SECRET var.** Depo şu an yerel; **herkese
 > açık bir GitHub deposuna gönderilmeden önce bu dosya çıkarılmalı**, yoksa
@@ -1757,6 +1878,11 @@ YAPMA" diyemiyorsun.
 Menü, `Yakalamaca > Menü Kur` ile kuruluyor ve **Ağ Kurulumu'ndan sonra**
 çalıştırılmalı: menü Mirror'ın test HUD'ını kaldırıyor ve ağ kurulumunun
 kapattığı menü objesini geri açıyor.
+
+**EOS Kurulumu'ndan da sonra olmalı.** Katılma ekranındaki oda listesi lobi
+servisini `NetworkManager`'da **arayarak** bağlıyor; bileşen henüz yoksa alan
+boş kalıyor ve liste hiç görünmüyor (oyun çalışmaya devam ediyor, yalnızca
+kodla). Doğru sıra: `Ağ Kurulumu` → `EOS Kurulumu` → `Menü Kur`.
 
 **Ağ Kurulumu'nu tekrar çalıştırırsan Menü Kur'u da tekrar çalıştır.**
 
