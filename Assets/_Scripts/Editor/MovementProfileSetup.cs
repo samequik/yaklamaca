@@ -75,13 +75,29 @@ public static class MovementProfileSetup
 
         profile.canJump = true;
 
-        // Kaçan hâlâ kapsül, kafa dönüşü yok — bakış serbest.
-        profile.maxLookDownAngle = 89f;
+        // Kamera hull'un göz hizasında ve eksende: kaçanın modeli (Banana Man)
+        // hull'la aynı ölçekte, yani pay gerekmiyor.
+        profile.eyeHeightOffset = 0f;
+        profile.eyeForwardOffset = 0f;
+
+        // Aşağı bakış 70'e daraltıldı (2026-09-05). Burada uzun süre 89 vardı
+        // ve gerekçesi "kaçan hâlâ kapsül, dönecek kafa yok"tu — o gerekçe
+        // 2026-08-30'da model bağlanınca düştü ama sayı kalmıştı. Tam dibe
+        // bakınca kendi gövdenin içi görünüyordu.
+        //
+        // Önce 75 denendi, oynanışta hâlâ fazla geldi. Canavarınki kadar dar
+        // DEĞİL (55): kaçanın kafası bakış yönüne dönmüyor, sorun yalnızca en
+        // alttaki birkaç derece.
+        profile.maxLookDownAngle = 70f;
 
         // Kaçanda çarpışma cezası yok: bhop ve airstrafe onun aracı, duvara
         // sürterek köşe dönmek de öyle. Ceza koymak Source hissini öldürürdü.
         profile.crashSpeed = 0f;
         profile.crashSpeedRetained = 0f;
+
+        // Direksiyon cezası da yok. Zaten etkisiz olurdu — ceza payı siliyor,
+        // kaçanın payı yok — ama sıfır yazmak niyeti Inspector'da da gösteriyor.
+        profile.steerScrubTime = 0f;
 
         EditorUtility.SetDirty(profile);
     }
@@ -116,6 +132,21 @@ public static class MovementProfileSetup
 
         profile.canJump = false;
 
+        // Kamera yukarı ve ileri alınıyor (2026-09-05). Canavarın modeli
+        // hull'un 1.18 katı (bölüm 17): hull'un göz hizasında duran kamera
+        // modelin göğüs hizasına denk geliyor ve oynayınca "kamera gövdenin
+        // içinde" gibi duruyordu.
+        //
+        // 6 unit (0.114 m) yukarı: kamera kapsül tepesinin 3.8 cm altında
+        // kalıyor. Sınırı TAVAN belirliyor, duvar değil — düşey bir duvar
+        // kapsüle en geniş yerinden değdiği için kameranın duvara uzaklığı
+        // yükseklikten bağımsız. Bu haritada tavan 3 m, yani pay bol.
+        //
+        // 0.10 m ileri: kamerayı göğsün içinden çıkarıyor. Duvara girmesi
+        // mümkün değil, UpdateCameraClearance payı yüzeye çarptırıyor.
+        profile.eyeHeightOffset = 6f;
+        profile.eyeForwardOffset = 0.10f;
+
         // Kafası bakış yönüne dönüyor (MonsterAnimator bakış IK'sı). Tam dibe
         // bakınca kafa gövdenin içine giriyordu; aşağısı daraltıldı.
         profile.maxLookDownAngle = 55f;
@@ -133,6 +164,22 @@ public static class MovementProfileSetup
         // sessizce çalışmazdı. 340, yürümenin (200) belirgin üstünde, yani
         // yürüyerek sinsice pay depolamak hâlâ mümkün değil.
         profile.boostMinSpeed = 340f;
+
+        // Direksiyon: köşe dönmek payı siliyor.
+        //
+        // Bölüm 1 "her köşe onu başa döndürüyor" diyordu ama kodda karşılığı
+        // YOKTU: pay `koşuyor && yerde && hız ≥ eşik` iken doluyor ve bu üç
+        // şart dönerken de sağlanıyordu. Canavar tam hızla 90° dönüp hiçbir şey
+        // kaybetmiyordu — oynayanların "canavar çok güçlü" demesinin sebebi bu.
+        //
+        // 25°'ye kadar bedava: koşarken rota düzeltmek ceza olmamalı. 80°'de
+        // ceza tam. Süre 0.35 sn ama ceza dönüş SÜRESİNCE birikiyor ve açı hız
+        // yeni yöne oturdukça kendiliğinden kapanıyor; pratikte 90°'lik bir
+        // köşe payın kabaca üçte birini götürüyor, geri dönüş çok daha fazlasını.
+        profile.steerFreeAngle = 25f;
+        profile.steerFullAngle = 80f;
+        profile.steerScrubTime = 0.35f;
+        profile.steerMinSpeed = 340f;
 
         // Duvara kafa kafaya 280 u/s'nin üstünde girerse tam duruş VE pay sıfır.
         profile.crashSpeed = 280f;

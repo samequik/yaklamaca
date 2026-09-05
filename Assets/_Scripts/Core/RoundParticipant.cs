@@ -162,9 +162,18 @@ public class RoundParticipant : NetworkBehaviour
     // ses üst üste binerdi.
     private bool wasAlive = true;
 
+    private TestRunnerBot bot;
+    private NetworkTransformBase netTransform;
+
     private void Awake()
     {
         playerController = GetComponent<PlayerController>();
+
+        // Doğum yerleştirmesi için: bot mu, ağ transformu var mı. İkisi de
+        // olmayabilir (bot oyuncu değil, oyuncu bot değil), o yüzden null
+        // kontrolü çağrı yerlerinde.
+        bot = GetComponent<TestRunnerBot>();
+        netTransform = GetComponent<NetworkTransformBase>();
 
         // Işık bileşenleri eksikse burada tamamlanıyor. `Ağ Kurulumu` ikisini
         // de bağlıyor, ama o araç oyuncu prefabını sıfırdan kuruyor: var olan
@@ -353,6 +362,61 @@ public class RoundParticipant : NetworkBehaviour
     {
         alive = value;
         ApplyAlive(value);
+    }
+
+    /// <summary>
+    /// Katılımcıyı bir noktaya yerleştirir — tur başındaki rol bazlı doğum
+    /// (`RoundManager.ServerPlaceParticipants`) buradan geçiyor.
+    ///
+    /// ### Neden sunucu tek başına taşıyamıyor
+    ///
+    /// Hareket **istemci otoriteli** (`NetworkTransform` → ClientToServer,
+    /// bölüm 4): sunucudaki konumu yazmak sahibinin bir sonraki
+    /// güncellemesinde eziliyor. Asıl taşımayı, sahibine giden `TargetRpc`
+    /// yapıyor.
+    ///
+    /// Sunucuda da uygulanıyor: isabet ve tur kararlarını sunucu kendi gördüğü
+    /// pozisyonlarla veriyor, bir ağ turu boyunca eski konumda görünmek yanlış
+    /// kararlara kapı bırakırdı.
+    ///
+    /// `NetworkTransform.ServerTeleport` ayrıca çağrılıyor ki **diğer**
+    /// istemciler sıçramayı ara değerlemesin — yoksa oyuncular haritanın bir
+    /// ucundan öbürüne duvarların içinden süzülerek gidiyor görünür.
+    /// </summary>
+    [Server]
+    public void ServerPlaceAt(Vector3 position, Quaternion rotation)
+    {
+        // Botun kendi ışınlama yolu var: CharacterController'ı kapatıp açıyor
+        // ve NetworkTransform'u kendisi haberdar ediyor. Bağlantısı olmadığı
+        // için TargetRpc de gönderilemez.
+        if (bot != null)
+        {
+            bot.ServerTeleportTo(position);
+            return;
+        }
+
+        ApplyPlacement(position, rotation);
+
+        if (netTransform != null)
+            netTransform.ServerTeleport(position, rotation);
+
+        if (connectionToClient != null)
+            TargetPlaceAt(connectionToClient, position, rotation);
+    }
+
+    [TargetRpc]
+    private void TargetPlaceAt(NetworkConnectionToClient target, Vector3 position,
+        Quaternion rotation)
+    {
+        ApplyPlacement(position, rotation);
+    }
+
+    private void ApplyPlacement(Vector3 position, Quaternion rotation)
+    {
+        if (playerController != null)
+            playerController.Teleport(position, rotation);
+        else
+            transform.SetPositionAndRotation(position, rotation);
     }
 
     // ---------- Yerel uygulama ----------

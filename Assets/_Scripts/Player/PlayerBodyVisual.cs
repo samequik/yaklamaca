@@ -79,6 +79,18 @@ public class PlayerBodyVisual : MonoBehaviour
     private Vector3 runnerHeadRestScale = Vector3.one;
     private bool runnerHeadCached;
 
+    // Boyun kemikleri. Prefabta alan olarak DURMUYORLAR, çalışma anında
+    // Animator'dan çözülüyorlar: alan eklemek prefabı yeniden kurmayı
+    // gerektirirdi ve o zincir canavar/kaçan modellerini de yeniden kurmak
+    // demek (bölüm 7'deki sıra). Aynı desen MonsterAura ve Terminal'de de var.
+    private Transform monsterNeckBone;
+    private Vector3 monsterNeckRestScale = Vector3.one;
+    private bool monsterNeckCached;
+
+    private Transform runnerNeckBone;
+    private Vector3 runnerNeckRestScale = Vector3.one;
+    private bool runnerNeckCached;
+
     private Transform posedBody;
     private Vector3 posedLocalPosition;
     private Quaternion posedLocalRotation;
@@ -210,6 +222,53 @@ public class PlayerBodyVisual : MonoBehaviour
 
         ApplyHead(runnerHeadBone, runnerHeadRenderers, runnerModel && onField,
             ref runnerHeadRestScale, ref runnerHeadCached);
+
+        // Boyun da gizleniyor — kafayı sıfırlamak tek başına yetmiyordu.
+        HideBone(ResolveNeck(monsterRoot, ref monsterNeckBone), monster && onField && firstPerson,
+            ref monsterNeckRestScale, ref monsterNeckCached);
+
+        HideBone(ResolveNeck(runnerRoot, ref runnerNeckBone), runnerModel && onField && firstPerson,
+            ref runnerNeckRestScale, ref runnerNeckCached);
+    }
+
+    /// <summary>
+    /// Modelin boyun kemiğini Animator'dan bulur ve saklar.
+    ///
+    /// Humanoid rig'te kemiğe **adıyla değil rolüyle** ulaşılıyor: model
+    /// değişirse kemik adı değişir ama `HumanBodyBones.Neck` değişmez.
+    /// </summary>
+    private static Transform ResolveNeck(GameObject modelRoot, ref Transform cache)
+    {
+        if (cache != null || modelRoot == null)
+            return cache;
+
+        Animator animator = modelRoot.GetComponentInChildren<Animator>(true);
+
+        if (animator != null && animator.isHuman)
+            cache = animator.GetBoneTransform(HumanBodyBones.Neck);
+
+        return cache;
+    }
+
+    /// <summary>
+    /// Kemiği sıfıra ölçekler, ilk seferde özgün ölçeğini saklayarak.
+    ///
+    /// Ölçek **animasyonun yazmadığı** tek kanal (humanoid klipler konum ve
+    /// dönüş yazıyor), o yüzden bir kez yazmak yetiyor ve her karede
+    /// tekrarlamaya gerek kalmıyor.
+    /// </summary>
+    private static void HideBone(Transform bone, bool hide, ref Vector3 restScale, ref bool cached)
+    {
+        if (bone == null)
+            return;
+
+        if (!cached)
+        {
+            restScale = bone.localScale;
+            cached = true;
+        }
+
+        bone.localScale = hide ? Vector3.zero : restScale;
     }
 
     /// <summary>
@@ -223,22 +282,26 @@ public class PlayerBodyVisual : MonoBehaviour
     /// Kafaya ait ayrı renderer'lar (gözler) kemik ölçeğini toplamıyor: kendi
     /// iskeletlerine bağlı ayrı mesh'ler. Ekranda havada duran iki küre olarak
     /// kalıyorlardı, o yüzden ayrıca kapatılıyorlar.
+    ///
+    /// > **Kafayı sıfırlamak tek başına YETMİYOR** (2026-09-05). Canavar
+    /// > koşarken kendi kafasının içini görüyordu. Sebep, sıfırlanan kemiğin
+    /// > kendisi değil **komşusu**: boyun ile kafa arasında ağırlığı paylaşan
+    /// > vertex'ler var ve kafa bir noktaya çökünce o vertex'ler boyundan o
+    /// > noktaya doğru uzun ince üçgenler hâline geliyor. Koşu animasyonu
+    /// > gövdeyi öne eğdiğinde bu huni kameranın önünden geçiyor ve arka
+    /// > yüzleri görünüyor — oyuncunun "kafamın içi" dediği şey o.
+    /// >
+    /// > Boyun da sıfırlanınca huninin ucu omuz hizasına, yani kameradan
+    /// > belirgin şekilde uzağa iniyor. Bedeli: birinci şahısta omuz/yaka
+    /// > hafif deforme oluyor — **yalnızca kendi ekranında**, kemik ölçeği
+    /// > senkronlanmıyor.
     /// </summary>
     private void ApplyHead(Transform bone, Renderer[] renderers, bool bodyVisible,
         ref Vector3 restScale, ref bool cached)
     {
         bool hide = bodyVisible && firstPerson;
 
-        if (bone != null)
-        {
-            if (!cached)
-            {
-                restScale = bone.localScale;
-                cached = true;
-            }
-
-            bone.localScale = hide ? Vector3.zero : restScale;
-        }
+        HideBone(bone, hide, ref restScale, ref cached);
 
         if (renderers == null)
             return;

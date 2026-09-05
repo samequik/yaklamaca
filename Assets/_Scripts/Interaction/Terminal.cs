@@ -106,7 +106,10 @@ public class Terminal : NetworkBehaviour, IInteractable
         "terminal susuyor ve ışık sabit kırmızıya dönüyor — kilitli olduğu " +
         "hâlâ belli ama artık dikkat çekmiyor. Amaç canavara uyarı vermek, " +
         "terminali kalıcı sirene çevirmek değil.")]
-    [SerializeField] private float alarmDuration = 10f;
+    // 20, çünkü sahnedeki beş terminalde elle 20 yazıyor ve oynanışta o değer
+    // tutturuldu. Kodda 10 kalmıştı: bileşen yeniden eklenen bir terminal
+    // ötekilerden yarı yarıya kısa öter ve sebebi hiçbir yerde görünmezdi.
+    [SerializeField] private float alarmDuration = 20f;
 
     [Tooltip("Alarm süresi bittikten sonraki sabit kırmızı. Kilitli olduğunu " +
         "söylüyor, yanıp sönmüyor.")]

@@ -65,10 +65,43 @@ public class NetworkPlayerSetup : NetworkBehaviour
         }
     }
 
+    /// <summary>
+    /// Birinci şahıs kameranın yakın kırpma düzlemi (metre).
+    ///
+    /// Unity'nin varsayılanı 0.3 ve **duvarın içini gösteriyordu**. Kırpma
+    /// düzlemi bir nokta değil **dikdörtgen**: 60° görüş açısı ve 16:9'da
+    /// köşesi kameradan `0.3 × 1.55 ≈ 0.46 m` uzakta kalıyor. Duvar ise en
+    /// fazla `yarıçap − skinWidth = 0.3048 − 0.0305 ≈ 0.274 m` yaklaşıyor, yani
+    /// köşe duvarı deliyordu.
+    ///
+    /// **İlk denemede 0.15 yapıldı ve YETMEDİ.** İki sebep vardı:
+    ///
+    /// - Hesap tam sınırdaydı: 0.15'te köşe 16:9'da 0.232 m, ama `CameraBob`
+    ///   kamerayı 0.032 m yana kaydırıyor (kalan pay 10 mm) ve 21:9'da köşe
+    ///   0.266 m'ye çıkıp payı tüketiyor.
+    /// - Asıl sebep ise kırpma değil **kameranın yeri**: eğilirken 0.25 m öne
+    ///   kayıyor (bölüm 1) ve duvara yaslanıp çömelen oyuncunun kamerası duvara
+    ///   0.024 m kalıyor. O mesafede hiçbir kırpma değeri iş görmez.
+    ///
+    /// İkincisi `PlayerController.UpdateCameraClearance` ile çözüldü: kamera
+    /// artık yüzeye çarpıp duruyor. Bu sabit yalnızca **eksende duran** kamerayı
+    /// karşılıyor ve 0.08'de köşe 21:9'da bile 0.142 m — sallanma payı
+    /// düşüldükten sonra kalan 0.242 m'ye karşı rahat bir pay.
+    ///
+    /// **Sıfıra yaklaştırmak bedava değil:** kendi gövdeni birinci şahısta
+    /// görüyorsun (bölüm 14) ve gizlenen kafa/boynun çevresinde kalan
+    /// gerdirilmiş üçgenler kameraya yakın duruyor; yakın düzlem onları da
+    /// kırpıyor.
+    /// </summary>
+    public const float FirstPersonNearClip = 0.08f;
+
     private void Configure(bool isLocal)
     {
         if (playerCamera != null)
+        {
             playerCamera.enabled = isLocal;
+            playerCamera.nearClipPlane = FirstPersonNearClip;
+        }
 
         if (audioListener != null)
             audioListener.enabled = isLocal;
@@ -77,8 +110,23 @@ public class NetworkPlayerSetup : NetworkBehaviour
         {
             for (int i = 0; i < localOnlyComponents.Length; i++)
             {
-                if (localOnlyComponents[i] != null)
-                    localOnlyComponents[i].enabled = isLocal;
+                if (localOnlyComponents[i] == null)
+                    continue;
+
+                // Ayak sesi HERKESTE çalmalı: kapalıysa kimse kimsenin adımını
+                // duymaz ve canavarın yaklaştığı anlaşılmaz (bölüm 5'teki
+                // hız/gizlilik takası). Ağ Kurulumu artık onu bu listeye
+                // koymuyor, ama **prefab eski olabilir** — liste orada
+                // serileştirilmiş duruyor ve kodu değiştirmek tek başına
+                // yetmiyor (bölüm 16'daki tuzağın aynısı). Burada açıkça
+                // dışarıda tutmak, aracı yeniden çalıştırmayı gerektirmiyor.
+                if (localOnlyComponents[i] is FootstepAudio)
+                {
+                    localOnlyComponents[i].enabled = true;
+                    continue;
+                }
+
+                localOnlyComponents[i].enabled = isLocal;
             }
         }
 

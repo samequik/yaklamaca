@@ -21,10 +21,16 @@ MonoBehaviour:
   friction: 5.5
   airAccelerate: 100
   canJump: 0
+  eyeHeightOffset: 6
+  eyeForwardOffset: 0.1
   maxLookDownAngle: 55
   boostSpeed: 180
   boostBuildTime: 3.5
   boostDecayTime: 1.2
   boostMinSpeed: 340
+  steerFreeAngle: 25
+  steerFullAngle: 80
+  steerScrubTime: 0.35
+  steerMinSpeed: 340
   crashSpeed: 280
   crashSpeedRetained: 0

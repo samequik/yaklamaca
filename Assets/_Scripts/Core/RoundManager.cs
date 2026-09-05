@@ -27,6 +27,26 @@ public class RoundManager : NetworkBehaviour
     [Tooltip("Turun başlaması için gereken en az oyuncu sayısı.")]
     [SerializeField] private int minimumPlayers = 2;
 
+    [Header("Doğum")]
+    [Tooltip("Kaçanların toplandığı nokta. BOŞ BIRAKILABİLİR: o zaman " +
+        "sahnedeki doğum noktalarından biri her turda rastgele seçiliyor. " +
+        "Beğenilen bir yer bulunursa buraya bir boş obje sürüklenip sabitlenir.")]
+    [SerializeField] private Transform runnerSpawn;
+
+    [Tooltip("Canavarın doğduğu nokta. Boşsa kaçanlarınkine EN UZAK doğum " +
+        "noktası seçiliyor. İkisinden biri boşsa ikisi de hesaplanıyor — " +
+        "yarısı elle, yarısı otomatik bir çift mesafeyi garanti etmez.")]
+    [SerializeField] private Transform monsterSpawn;
+
+    [Tooltip("Kaçanlar bu yarıçapta bir halkaya diziliyor (metre). Hepsini " +
+        "aynı noktaya koymak karakterleri birbirini itmeye zorluyor.")]
+    [SerializeField] private float runnerSpawnSpread = 1.6f;
+
+    [Tooltip("Canavar ile kaçanlar arasında beklenen en az mesafe (metre). " +
+        "Altına düşülürse konsola uyarı yazılıyor — sessiz kalırsa sorun " +
+        "yine 'canavar dibimde doğdu' olarak geri döner.")]
+    [SerializeField] private float minimumSpawnSeparation = 25f;
+
     [Header("Test (lobi arayüzü bağlanınca kaldırılacak)")]
     [Tooltip("Sunucuda tur başlatır.")]
     [SerializeField] private KeyCode startRoundKey = KeyCode.Alpha1;
@@ -490,6 +510,11 @@ public class RoundManager : NetworkBehaviour
 
         AssignRoles();
 
+        // Roller belli olduktan SONRA yerleştiriliyor: kim canavar, tur
+        // başlayana kadar bilinmiyor ve Mirror'ın doğum noktaları oyuncu
+        // objesi spawn olurken, yani rol dağıtılmadan önce seçiliyor.
+        ServerPlaceParticipants();
+
         // Gereken sayı kadro genişliğine göre belirleniyor: haritada hep
         // terminalGoal kadar terminal var ama iki kişilik bir turda tek kaçanın
         // dördünü de doldurması imkânsıza yakın. "Hayattaki kaçan + 1" hem
@@ -503,6 +528,142 @@ public class RoundManager : NetworkBehaviour
 
         Debug.Log($"Tur başladı. {aliveRunnerCount} kaçan, {requiredTerminals} terminal gerekiyor. " +
             "Süre sınırı yok: tur herkes ölene ya da kaçana kadar sürüyor.");
+    }
+
+    // ---------- Doğum yerleşimi ----------
+
+    /// <summary>
+    /// Tur başında herkesi role göre yerleştirir: **kaçanlar bir arada,
+    /// canavar onlardan en uzakta.**
+    ///
+    /// ### Neden gerekti
+    ///
+    /// Mirror doğum noktasını oyuncu objesi spawn olurken seçiyor — yani
+    /// **lobide, rol dağıtılmadan önce.** Herkes rastgele bir noktaya
+    /// düşüyordu ve canavarın bir kaçanın dibinde doğması işten değildi:
+    /// kovalamaca daha başlamadan bitiyordu.
+    ///
+    /// Rol ancak `AssignRoles`'den sonra belli olduğu için yerleştirme de
+    /// oraya taşındı. Mirror'ın kendi doğum noktaları duruyor ve hâlâ işe
+    /// yarıyor: lobide nerede duracağını onlar belirliyor, tur başında burası
+    /// üstüne yazıyor.
+    ///
+    /// ### Nokta seçimi her turda değişiyor, mesafe değişmiyor
+    ///
+    /// Kaçanların noktası rastgele seçiliyor, canavarınki **ona en uzak**
+    /// olan. Sabit bir çift, birkaç turda ezberlenir ve harita ölürdü; sabit
+    /// olan şey mesafenin kendisi, yeri değil.
+    /// </summary>
+    [Server]
+    private void ServerPlaceParticipants()
+    {
+        if (!ResolveSpawnAnchors(out Transform runnerAnchor, out Transform monsterAnchor))
+            return;
+
+        int runnerIndex = 0;
+
+        for (int i = 0; i < participants.Count; i++)
+        {
+            RoundParticipant participant = participants[i];
+            if (participant == null)
+                continue;
+
+            if (participant.Role == RoundRole.Monster)
+            {
+                participant.ServerPlaceAt(monsterAnchor.position, monsterAnchor.rotation);
+                continue;
+            }
+
+            participant.ServerPlaceAt(
+                RunnerSlot(runnerAnchor.position, runnerIndex), runnerAnchor.rotation);
+
+            runnerIndex++;
+        }
+    }
+
+    /// <summary>
+    /// Kaçanların dizileceği noktalar: ilki merkezde, kalanlar çevresinde bir
+    /// halkada.
+    ///
+    /// Hepsini aynı noktaya koymak `CharacterController`'ları birbirini itmeye
+    /// zorluyor ve oyuncular tur başlar başlamaz fırlıyordu.
+    /// </summary>
+    private Vector3 RunnerSlot(Vector3 anchor, int index)
+    {
+        if (index <= 0 || runnerSpawnSpread <= 0f)
+            return anchor;
+
+        float step = Mathf.PI * 2f / Mathf.Max(1, LobbyRoster.MaxPlayers - 1);
+        float angle = (index - 1) * step;
+
+        Vector3 candidate = anchor
+            + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * runnerSpawnSpread;
+
+        // Duvarın içine denk gelirse merkeze düşülüyor: iki kaçanın aynı
+        // noktada doğması, birinin duvara gömülmesinden iyi. Sınama
+        // `NetworkSetup.BuildSpawnPoints` ile aynı ölçülerde.
+        return Physics.CheckSphere(candidate + Vector3.up * 0.25f, 0.55f, ~0,
+            QueryTriggerInteraction.Ignore)
+            ? anchor
+            : candidate;
+    }
+
+    /// <summary>
+    /// İki doğum çapasını seçer. Elle konmuş noktalar varsa onlar geçerli,
+    /// yoksa sahnedeki doğum noktalarından en uzak çift bulunuyor.
+    /// </summary>
+    [Server]
+    private bool ResolveSpawnAnchors(out Transform runnerAnchor, out Transform monsterAnchor)
+    {
+        runnerAnchor = runnerSpawn;
+        monsterAnchor = monsterSpawn;
+
+        if (runnerAnchor != null && monsterAnchor != null)
+            return true;
+
+        NetworkStartPosition[] points = FindObjectsOfType<NetworkStartPosition>();
+
+        if (points.Length < 2)
+        {
+            Debug.LogWarning("En az iki doğum noktası gerekiyor; oyuncular oldukları " +
+                "yerde başlıyor. Yakalamaca > Ağ Kurulumu (1. adım) onları kuruyor.");
+            return false;
+        }
+
+        runnerAnchor = points[Random.Range(0, points.Length)].transform;
+
+        float best = -1f;
+
+        for (int i = 0; i < points.Length; i++)
+        {
+            Transform candidate = points[i].transform;
+            if (candidate == runnerAnchor)
+                continue;
+
+            float distance = (candidate.position - runnerAnchor.position).sqrMagnitude;
+            if (distance <= best)
+                continue;
+
+            best = distance;
+            monsterAnchor = candidate;
+        }
+
+        if (monsterAnchor == null)
+            return false;
+
+        // Sessiz kalmıyoruz: noktalar birbirine yakın kurulmuşsa mesafe
+        // garantisi diye bir şey kalmıyor ve sorun yine "canavar dibimde
+        // doğdu" olarak geri döner.
+        float separation = Mathf.Sqrt(best);
+
+        if (separation < minimumSpawnSeparation)
+        {
+            Debug.LogWarning($"Canavar kaçanlardan yalnızca {separation:F1} m uzakta " +
+                $"doğuyor (istenen en az {minimumSpawnSeparation} m). Doğum noktaları " +
+                "birbirine çok yakın — RoundManager'daki çapaları elle koymak çözer.");
+        }
+
+        return true;
     }
 
     /// <summary>

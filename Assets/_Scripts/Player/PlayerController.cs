@@ -67,6 +67,20 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Pay ancak bu hızın üstünde koşarken doluyor (u/s).")]
     [SerializeField] private float boostMinSpeed = 380f;
 
+    [Header("Direksiyon (canavar)")]
+    [Tooltip("Bu açıya kadar dönmek bedava (derece).")]
+    [SerializeField] private float steerFreeAngle = 25f;
+
+    [Tooltip("Bu açıda ceza tam (derece).")]
+    [SerializeField] private float steerFullAngle = 80f;
+
+    [Tooltip("Tam cezada dolu payın boşalma süresi (saniye). 0 = kapalı. " +
+        "Bkz. MovementProfile.steerScrubTime.")]
+    [SerializeField] private float steerScrubTime = 0.35f;
+
+    [Tooltip("Bu hızın altında dönmek bedava (u/s).")]
+    [SerializeField] private float steerMinSpeed = 340f;
+
     [Header("Çarpışma (araba modeli)")]
     [Tooltip("Duvara kafa kafaya girilen hız bu eşiği aşarsa hız kesilir (u/s). " +
         "0 = kapalı. Bkz. MovementProfile.crashSpeed.")]
@@ -111,11 +125,25 @@ public class PlayerController : MonoBehaviour
         "animasyonunda kafa öne çıkıyor; kamera sadece aşağı inince göz " +
         "gövdenin içinde kalıyor ve kafa ileride duruyordu.")]
     [SerializeField] private float duckedCameraForward = 0.25f;
+
+    [Tooltip("Kameranın yüzeylere koruyacağı en küçük mesafe (metre). Yakın " +
+        "kırpma düzleminin KÖŞESİNDEN büyük olmalı — köşe 0.08 kırpma, 60° " +
+        "görüş ve 21:9'da 0.142 m. Küçültürsen duvarın içi görünmeye başlar.")]
+    [SerializeField] private float cameraProbeRadius = 0.18f;
     [SerializeField] private float maxLookAngle = 89f;
 
-    [Tooltip("Aşağı bakış sınırı (derece). Canavarda daraltılıyor: modelin " +
-        "kafası bakış yönüne dönüyor ve tam dibe bakınca gövdenin içine giriyor.")]
+    [Tooltip("Aşağı bakış sınırı (derece). İki rolde de daraltılıyor: tam dibe " +
+        "bakınca kendi gövdenin içi görünüyor. Canavarda daha dar, çünkü " +
+        "modelin kafası bakış yönüne dönüyor.")]
     [SerializeField] private float maxLookDownAngle = 89f;
+
+    [Tooltip("Ayaktaki göz hizasına eklenen pay (unit). Bkz. " +
+        "MovementProfile.eyeHeightOffset — sınırı tavan belirliyor.")]
+    [SerializeField] private float eyeHeightOffset;
+
+    [Tooltip("Kamerayı ayaktayken ileri alan pay (metre). Bkz. " +
+        "MovementProfile.eyeForwardOffset.")]
+    [SerializeField] private float eyeForwardOffset;
 
     [Header("Zemin Kontrolü")]
     [SerializeField] private LayerMask groundMask = ~0;
@@ -156,6 +184,10 @@ public class PlayerController : MonoBehaviour
     private float nextSlideTime;
 
     private readonly Collider[] overlapBuffer = new Collider[8];
+    private readonly RaycastHit[] cameraHits = new RaycastHit[8];
+
+    // Kameranın engel yüzünden gidebileceği en uzak pay. Sonsuz = engel yok.
+    private float cameraForwardLimit = float.PositiveInfinity;
 
     /// <summary>Yatay hız — HUD, ses veya animasyon için (u/s).</summary>
     public float HorizontalSpeed => new Vector2(velocity.x, velocity.z).magnitude;
@@ -246,8 +278,23 @@ public class PlayerController : MonoBehaviour
     /// `CameraBob` z'yi MUTLAK yazdığı için değeri buradan okumak zorunda;
     /// eskiden sıfıra sabitliyordu ve payı her karede siliyordu.
     /// </summary>
-    public float CameraForwardOffset =>
-        cameraRestZ + duckedCameraForward * duckFraction - cameraPull;
+    public float CameraForwardOffset
+    {
+        get
+        {
+            float wanted = RawCameraForward;
+            return Mathf.Sign(wanted) * Mathf.Min(Mathf.Abs(wanted), cameraForwardLimit);
+        }
+    }
+
+    /// <summary>
+    /// Engel dikkate alınmadan istenen pay.
+    ///
+    /// Rol payı (`eyeForwardOffset`) eğilme payıyla **çarpılmıyor, toplanıyor**:
+    /// ikisi ayrı gerekçeden geliyor ve eğilirken de ikisi birden geçerli.
+    /// </summary>
+    private float RawCameraForward =>
+        cameraRestZ + eyeForwardOffset + duckedCameraForward * duckFraction - cameraPull;
 
     /// <summary>
     /// Kamerayı geçici olarak geriye çeker. `MonsterAttack` yakalamada
@@ -344,6 +391,19 @@ public class PlayerController : MonoBehaviour
 
         canJump = profile.canJump;
         maxLookDownAngle = profile.maxLookDownAngle;
+        eyeHeightOffset = profile.eyeHeightOffset;
+        eyeForwardOffset = profile.eyeForwardOffset;
+
+        // Göz hizası değişti: kamerayı hemen yerine oturt, yoksa rol
+        // değiştikten sonra bir kare eski hizada kalırdı. Null kontrolü şart —
+        // profil, rol SyncVar'ı üzerinden Awake'ten önce de gelebilir.
+        if (controller != null)
+            ApplyDuckGeometry(duckFraction);
+
+        steerFreeAngle = profile.steerFreeAngle;
+        steerFullAngle = profile.steerFullAngle;
+        steerScrubTime = profile.steerScrubTime;
+        steerMinSpeed = profile.steerMinSpeed;
 
         boostSpeed = profile.boostSpeed;
         boostBuildTime = profile.boostBuildTime;
@@ -397,6 +457,11 @@ public class PlayerController : MonoBehaviour
         }
 
         HandleLook(intent);
+
+        // Eğilmeden ÖNCE: HandleCrouch içindeki ApplyDuckGeometry kamerayı
+        // yerine koyuyor ve sınırı orada hazır bulmalı.
+        UpdateCameraClearance();
+
         UpdateSlide(intent);   // eğilmeden önce: kayma zorunlu eğilme getiriyor
         HandleCrouch(intent);
         ReadMovementInput(intent);
@@ -525,6 +590,64 @@ public class PlayerController : MonoBehaviour
     /// tarafın da uygulaması gerekiyor, yoksa eğilen oyuncu diğer ekranlarda
     /// dimdik durur. Karşı tarafta bu metodu PlayerPoseSync çağırıyor.
     /// </summary>
+    /// <summary>
+    /// Kameranın öne/geriye kayarken duvarın içine girmesini engeller.
+    ///
+    /// ### Neden gerekiyor
+    ///
+    /// Yakın kırpma düzlemi bir nokta değil **dikdörtgen**; köşesi kameradan
+    /// kırpma mesafesinden uzakta. Kamera gövde ekseninde durduğu sürece bu
+    /// yönetilebilir: duvar en fazla `yarıçap − skinWidth ≈ 0.274 m` yaklaşıyor
+    /// ve 0.08'lik kırpmanın köşesi 0.14 m'de kalıyor.
+    ///
+    /// Ama kamera **eksende durmuyor**: eğilirken 0.25 m öne kayıyor (bölüm 1).
+    /// Duvara yaslanıp çömelen oyuncunun kamerası duvara 0.024 m kalıyor ve
+    /// hiçbir kırpma değeri onu kurtaramıyor. `MonsterAttack`'in yakalamada
+    /// uyguladığı 0.7 m'lik geri çekme de arkadaki duvarı deliyor.
+    ///
+    /// ### Nasıl
+    ///
+    /// Kameranın **paysız** konumundan istenen yöne bir küre atılıyor; bir şeye
+    /// çarparsa pay oraya kadar kısalıyor. Kürenin yarıçapı kırpma düzleminin
+    /// köşesinden büyük seçildiği için kamera duvara hep o köşe kadar uzakta
+    /// kalıyor.
+    ///
+    /// Kendi çarpışma kutumuz eleniyor: küre eksenden başlıyor ve gövdenin
+    /// içinde. `groundMask` daraltılmadı (bölüm 16'daki bilinçli tercih), o
+    /// yüzden filtre maskeyle değil objeyle yapılıyor.
+    ///
+    /// Yalnızca yerel oyuncuda anlamlı — uzakta bu bileşen kapalı ve kamera
+    /// zaten çizmiyor.
+    /// </summary>
+    private void UpdateCameraClearance()
+    {
+        cameraForwardLimit = float.PositiveInfinity;
+
+        if (cameraTransform == null || cameraProbeRadius <= 0f)
+            return;
+
+        float wanted = Mathf.Abs(RawCameraForward);
+        if (wanted <= 0.001f)
+            return;
+
+        Vector3 local = cameraTransform.localPosition;
+        Vector3 origin = transform.TransformPoint(new Vector3(local.x, local.y, 0f));
+        Vector3 direction = RawCameraForward >= 0f ? transform.forward : -transform.forward;
+
+        int count = Physics.SphereCastNonAlloc(origin, cameraProbeRadius, direction,
+            cameraHits, wanted, groundMask, QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < count; i++)
+        {
+            Collider hit = cameraHits[i].collider;
+
+            if (hit == null || hit.transform.IsChildOf(transform))
+                continue;
+
+            cameraForwardLimit = Mathf.Min(cameraForwardLimit, cameraHits[i].distance);
+        }
+    }
+
     public void ApplyDuckGeometry(float fraction)
     {
         // Alanı da yazıyoruz. UZAK oyuncuda bu bileşen kapalı, yani Update hiç
@@ -552,7 +675,12 @@ public class PlayerController : MonoBehaviour
                 cameraRestCached = true;
             }
 
-            float eyeFromFeet = Mathf.Lerp(StandingEyeUnits, DuckedEyeUnits, fraction) * UnitsToMeters;
+            // Pay yalnızca AYAKTAKİ hizaya biniyor: eğilmiş göz hizası olduğu
+            // gibi kalıyor. Eğilme geçidi 1.1 m ve orada kamerayı yukarı almak
+            // tavanın içini gösterirdi.
+            float eyeFromFeet =
+                Mathf.Lerp(StandingEyeUnits + eyeHeightOffset, DuckedEyeUnits, fraction)
+                * UnitsToMeters;
             Vector3 localPosition = cameraTransform.localPosition;
             localPosition.y = eyeFromFeet - standingHeight / 2f;
 
@@ -560,6 +688,41 @@ public class PlayerController : MonoBehaviour
 
             cameraTransform.localPosition = localPosition;
         }
+    }
+
+    /// <summary>
+    /// Oyuncuyu bir noktaya taşır ve momentumunu sıfırlar.
+    ///
+    /// `CharacterController` açıkken transform'a doğrudan yazmak güvenilir
+    /// değil — kapatıp açıyoruz (`TestRunnerBot.ServerTeleportTo` ile aynı
+    /// gerekçe).
+    ///
+    /// **Hız ve pay sıfırlanıyor.** Lobide koşarken biriktirilen momentumla
+    /// tura başlamak yanlış olurdu; canavar için ayrıca hız payının dolu
+    /// başlaması, tasarımın "payı koşarak kazan" kuralını (bölüm 1) tur
+    /// başında delerdi.
+    ///
+    /// **Dikey bakış da sıfırlanıyor:** lobide yere bakan oyuncu tura yere
+    /// bakarak başlardı. Yatay dönüş verilen rotasyondan geliyor — kök yalnızca
+    /// yaw taşıyor, pitch kamerada.
+    /// </summary>
+    public void Teleport(Vector3 position, Quaternion rotation)
+    {
+        if (controller != null)
+            controller.enabled = false;
+
+        transform.SetPositionAndRotation(position,
+            Quaternion.Euler(0f, rotation.eulerAngles.y, 0f));
+
+        if (controller != null)
+            controller.enabled = true;
+
+        velocity = Vector3.zero;
+        boost = 0f;
+        verticalLookRotation = 0f;
+
+        if (cameraTransform != null)
+            cameraTransform.localRotation = Quaternion.identity;
     }
 
     /// <summary>
@@ -616,7 +779,10 @@ public class PlayerController : MonoBehaviour
 
         Vector3 wishVelocity = right * intent.moveRight + forward * intent.moveForward;
 
-        TickBoost(intent.sprint);
+        // Pay hesabı istenen yönü bilmek zorunda: köşe dönmenin cezası oradan
+        // çıkıyor. `wishDirection` aşağıda yazılıyor, o yüzden değer önden
+        // veriliyor — sırayı değiştirmek cezayı bir kare geciktirirdi.
+        TickBoost(intent.sprint, wishVelocity.normalized);
 
         // Eğilirken sprint devre dışı; hız duck oranına göre kademeli düşer.
         // Hız payı yalnızca koşarken ekleniyor: yürürken birikmesi de
@@ -642,21 +808,78 @@ public class PlayerController : MonoBehaviour
     /// canavar sinsice dolaşıp hız depolayabilirdi. Boşalması dolmasından
     /// hızlı: kazanması emek, kaybetmesi kolay.
     /// </summary>
-    private void TickBoost(bool sprinting)
+    private void TickBoost(bool sprinting, Vector3 wish)
     {
         if (boostSpeed <= 0f)
         {
+            // Payı olmayan rol (kaçan) buradan çıkıyor — direksiyon cezası da
+            // yalnızca payı olanı ilgilendirdiği için kaçana hiç dokunmuyor.
             boost = 0f;
             return;
         }
 
-        bool building = sprinting && isGrounded && HorizontalSpeed >= boostMinSpeed;
+        float steer = SteerPenalty(wish);
 
-        float rate = building
-            ? 1f / Mathf.Max(boostBuildTime, 0.01f)
-            : -1f / Mathf.Max(boostDecayTime, 0.01f);
+        // Dönerken pay DOLMUYOR: dolmaya devam etseydi ceza ile kazanç aynı
+        // karede birbirini yer, köşe bedava kalırdı.
+        bool building = sprinting && isGrounded
+            && HorizontalSpeed >= boostMinSpeed
+            && steer <= 0f;
+
+        float rate;
+
+        if (steer > 0f)
+            rate = -steer / Mathf.Max(steerScrubTime, 0.01f);
+        else if (building)
+            rate = 1f / Mathf.Max(boostBuildTime, 0.01f);
+        else
+            rate = -1f / Mathf.Max(boostDecayTime, 0.01f);
 
         boost = Mathf.Clamp01(boost + rate * Time.deltaTime);
+    }
+
+    /// <summary>
+    /// Direksiyon cezası: keskin dönmek payı siliyor. 0 = ceza yok, 1 = tam.
+    ///
+    /// ### Neden gerekti
+    ///
+    /// Canavar koridorda tam hızla koşarken 90°'lik dönüşü **hiçbir bedel
+    /// ödemeden** yapabiliyordu. Pay `sprint && grounded && hız ≥ eşik` iken
+    /// dolmaya devam ediyor ve bu üç şart dönerken de sağlanıyordu; yani köşe
+    /// bedavaydı ve canavar labirenti düz koridor gibi kullanıyordu.
+    ///
+    /// Bölüm 1 zaten "her köşe onu başa döndürüyor" ve "labirent canavarın
+    /// rakibi" diyordu — **niyet yazılıydı, karşılığı kodda yoktu.** Var olan
+    /// tek ceza duvara toslamaktı (`TryCrash`) ve iyi oynayan hiç toslamıyor.
+    ///
+    /// ### Ölçüt bakış değil, GİDİŞ ile İSTEK arasındaki açı
+    ///
+    /// Bakış hızını ölçmek yanlış olurdu: düz koşarken etrafa bakınmak
+    /// cezalandırılırdı ve canavar kör hâle gelirdi. Burada ölçülen şey
+    /// direksiyon açısı — hâlihazırda gidilen yön ile gidilmek istenen yön
+    /// arasındaki fark. Tuşa basılmıyorsa istek yok, ceza da yok.
+    ///
+    /// Açı dönüşten sonra kendiliğinden kapanıyor (hız yeni yöne oturuyor),
+    /// yani ceza dönüşün **süresince** birikiyor: 90°'lik bir köşe payın kabaca
+    /// üçte birini, geri dönüş çok daha fazlasını götürüyor. Ayrıca ayar
+    /// gerektirmeyen bir ölçekleme.
+    ///
+    /// Yavaşken bedava (`steerMinSpeed`): duruştan dönmek zaten doğal ve
+    /// eşiğin altında pay da dolmuyor.
+    /// </summary>
+    private float SteerPenalty(Vector3 wish)
+    {
+        if (steerScrubTime <= 0f || wish.sqrMagnitude < 0.01f)
+            return 0f;
+
+        Vector3 heading = new Vector3(velocity.x, 0f, velocity.z);
+
+        if (heading.magnitude < steerMinSpeed)
+            return 0f;
+
+        float angle = Vector3.Angle(heading.normalized, wish);
+
+        return Mathf.InverseLerp(steerFreeAngle, steerFullAngle, angle);
     }
 
     /// <summary>

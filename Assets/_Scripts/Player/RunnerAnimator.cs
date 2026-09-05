@@ -19,13 +19,26 @@ using UnityEngine;
 /// duruldu**ğunda iniyor:
 ///
 /// ```
-/// dikey hız > rise      → havada
-/// dikey hız < -fall     → havada + düşüyor
+/// dikey hız > rise        → havada
+/// dikey hız < -fall       → havada + düşüyor
 /// düşüyor && |hız| < land → yere indi
+/// |hız| ≈ 0, settleTime   → yere indi (emniyet — düşüş şart değil)
 /// ```
 ///
 /// Tepe noktası `düşüyor` henüz false olduğu için havada sayılıyor; kenardan
 /// düşmek de yakalanıyor (zıplamadan da `düşüyor` kuruluyor).
+///
+/// ### Dördüncü satır olmadan bayrak SIKIŞIYORDU (2026-09-05)
+///
+/// Üçüncü satır `düşüyor`a bağlı ve `düşüyor` yalnızca hızlı düşüşte
+/// kuruluyor. Kasaya çıkmak, basamağa binmek, zıplayıp hemen bir yüzeye
+/// konmak — hepsi `havada`yı kuruyor ama `düşüyor`u hiç kurmuyor. O durumda
+/// bayrağı indirecek **hiçbir şart kalmıyordu**: karakter yerde dururken
+/// sonsuza kadar zıplama animasyonunda kalıyordu.
+///
+/// Dördüncü satır düşüşe değil **durulmaya** bakıyor ve süre eşiği tepe
+/// noktasından uzun, `airborneGrace`ten kısa seçildi — yani sıkışma
+/// animasyona hiç yansımadan temizleniyor.
 ///
 /// ### Süre payı, eşikten daha önemli
 ///
@@ -68,9 +81,23 @@ public class RunnerAnimator : CharacterAnimatorBase
         "neredeyse bir saniye.")]
     [SerializeField] private float airborneGrace = 0.18f;
 
+    [Header("Sıkışma Emniyeti")]
+    [Tooltip("Dikey hız bu değerin altındayken 'yerleşmiş' sayılıyor (m/s). " +
+        "Zıplamanın tepe noktasından KÜÇÜK olmalı ki tepe yanlışlıkla iniş " +
+        "sanılmasın.")]
+    [SerializeField] private float settleSpeed = 0.35f;
+
+    [Tooltip("Dikey hız bu süre boyunca yerleşik kalırsa havada olma iptal " +
+        "ediliyor — DÜŞÜŞ YAŞANMAMIŞ OLSA BİLE (saniye).\n\n" +
+        "İki sınır arasında olmalı: tepe noktasının süresinden UZUN (yerçekimi " +
+        "600 u/s ve eşik 0.35'te ≈ 0.06 sn), airborneGrace'ten KISA (0.18 sn) " +
+        "ki sıkışma animasyona hiç yansımasın.")]
+    [SerializeField] private float settleTime = 0.12f;
+
     private bool airborne;
     private bool falling;
     private float airborneTime;
+    private float settleTimer;
 
     protected override string[] Triggers => AllTriggers;
 
@@ -103,6 +130,29 @@ public class RunnerAnimator : CharacterAnimatorBase
             falling = false;
         }
 
+        // ---- Sıkışma emniyeti (2026-09-05) ----
+        //
+        // Yukarıdaki çıkış şartı `falling`'e bağlıydı ve `falling` yalnızca
+        // HIZLI DÜŞÜŞTE kuruluyordu. Kasanın üstüne çıkmak, basamağa binmek ya
+        // da zıplayıp hemen bir yüzeye konmak `airborne`'u kuruyor ama
+        // `falling`'i hiç kurmuyor — ve o durumda bayrağı indirecek hiçbir şart
+        // kalmıyordu. Karakter yerde dururken sonsuza kadar zıplama
+        // animasyonunda kalıyordu; oyunda görülen hata buydu.
+        //
+        // Panzehir düşüşe değil DURULMAYA bakıyor: dikey hız bir süre boyunca
+        // sıfıra yakın kaldıysa ayaklar yerdedir. Tepe noktası da sıfırdan
+        // geçiyor ama orada sadece ~0.06 saniye kalıyor, bu eşiğin altında.
+        //
+        // Sayaç kendini sıfırlıyor: kalkış ve düşüş eşikleri `settleSpeed`'ten
+        // büyük olduğu için o karelerde `else` dalına düşülüyor.
+        settleTimer = Mathf.Abs(vertical) < settleSpeed ? settleTimer + Time.deltaTime : 0f;
+
+        if (airborne && settleTimer >= settleTime)
+        {
+            airborne = false;
+            falling = false;
+        }
+
         // Havalanma GECİKMELİ, iniş ANINDA. Küçük engellere takılıp bir kare
         // havalanmak animasyonu tetiklemesin, ama yere değince poz hemen
         // düzelsin — gecikmeli iniş, zıplama pozunda kayan bir karakter demek.
@@ -123,6 +173,7 @@ public class RunnerAnimator : CharacterAnimatorBase
         airborne = false;
         falling = false;
         airborneTime = 0f;
+        settleTimer = 0f;
 
         if (animator != null && animator.isActiveAndEnabled)
             animator.SetBool(AirborneParameter, false);

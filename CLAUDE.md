@@ -121,37 +121,66 @@ hata kaynağı olurdu).
 Pakete **beşinci bir yerel yama eklenmedi**: `RelayLobby`, paketin
 `EOSLobby`'sinden türüyor. Bölüm 9'daki dört yama hâlâ dört.
 
+#### 6. Oynanışta çıkan dört hata
+
+İnternetten oynandığında görülenler. Dördü de kod tarafında; **hiçbiri için
+araç çalıştırmak gerekmiyor**, yeni alanların C# varsayılanları zaten istenen
+değer.
+
+| Hata | Sebep | Nerede |
+|---|---|---|
+| Canavarın adım sesi kimseye ulaşmıyor | `FootstepAudio` `localOnlyComponents`'teydi: uzak oyuncuda **bileşen kapalıydı** | bölüm 12 |
+| Duvara yaslanınca içi görünüyor | Kameranın yakın kırpma düzlemi 0.3 — köşesi gövde yarıçapını aşıyordu | bölüm 5 |
+| Canavar kendi kafasının içini görüyor | Kafa sıfırlanıyordu ama **boyun** duruyordu; aradaki gerdirilmiş üçgenler kameradan geçiyordu | bölüm 14 |
+| Kaçan zıplama animasyonunda takılı kalıyor | Çıkış şartı `falling`'e bağlıydı; kasaya çıkmak `airborne`'u kurup `falling`'i kurmuyordu ve bayrağı indirecek şart kalmıyordu | bölüm 17 |
+
+> **Üçü de aynı sınıftan: "kapalı bileşenden veri okumak."** `PlayerController`
+> uzak oyuncuda kapalı, yani `IsGrounded` ve `HorizontalSpeed` orada donmuş
+> duruyor. Bölüm 14 ve 17 bu tuzağı zaten yazıyordu — ama yalnızca animatörler
+> için. `FootstepAudio` aynı tuzağa düşmüştü ve kimse fark etmemişti, çünkü
+> **kendi adımını duyuyordun**.
+>
+> Ders: bir bileşen `localOnlyComponents`'e konurken "bunun ÇIKTISINI başkası
+> görüyor/duyuyor mu" diye sorulmalı. Görüyorsa liste yanlış yer.
+
+---
+
+### 2026-09-06 oturumunda yapılanlar
+
+**Doğum yerleşimi rol bazlı oldu.** Canavar bazen bir kaçanın dibinde
+doğuyordu; artık kaçanlar bir arada, canavar onlardan en uzak noktada başlıyor.
+Ölçüldü: kaçan noktası hangisi seçilirse seçilsin canavar **en az 36.7 m**
+uzakta (harita 54.4 m). Tasarım ve ağ tarafı bölüm 11.1'de — özeti: rol ancak
+tur başlarken belli olduğu için yerleştirme Mirror'ın doğum noktalarından
+`RoundManager`'a taşındı, ve hareket istemci otoriteli olduğu için taşımayı
+sahibine giden bir `TargetRpc` yapıyor.
+
+**`Terminal.alarmDuration` kodda da 20 oldu.** Sahnedeki beş terminalde elle 20
+yazıyordu, kodda 10 kalmıştı; bileşen yeniden eklenen bir terminal ötekilerden
+yarı yarıya kısa öterdi ve sebebi hiçbir yerde görünmezdi.
+
+**Canavarın havada animasyonu kapsam dışına alındı** — haritada düşülecek
+yüksek bir yer yok ve canavar zıplayamıyor, yani o durum hiç oluşmuyor.
+
 ---
 
 ### Sıradaki adımlar
 
-**1. İki araç çalıştırılacak, bu sırayla:**
-
-```
-Yakalamaca > EOS Kurulumu (relay)   → RelayLobby bileşenini ekler
-Yakalamaca > Menü Kur               → oda listesi ekranını kurar ve bağlar
-```
-
-Sıra önemli: `Menü Kur` lobi servisini `NetworkManager`'da **arayarak**
-bağlıyor, yani bileşen önce var olmalı. İkisi de hiçbir şey silmiyor.
-
-Çalıştırılmazsa oyun bozulmuyor, yalnızca eski davranışta kalıyor: kod 32
-karakterlik ürün kimliği olur ve oda listesi hiç görünmez.
-
-**2. Denge ölçümü.** Bütün sayılar hâlâ tahmin; arkadaşlarla ölçülecek
+**1. Denge ölçümü.** Bütün sayılar hâlâ tahmin; arkadaşlarla ölçülecek
 (bölüm 10, madde 7).
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
 
-**Küçük tutarsızlık:** `Terminal.alarmDuration` kodda 10, sahnede elle 20
-yapıldı. Sahne değeri geçerli; bileşen yeniden eklenirse 10'a döner.
-
 **Hiç başlanmamış:** yakınlık sesi (kalp atışı — **ses dosyası oyuncudan
-gelecek, sentezlenmeyecek**) · sesli sohbet · canavarın havada animasyonu.
+gelecek, sentezlenmeyecek**) · sesli sohbet.
 
-**Kapsam dışı bırakıldı:** fener pili. Fener açık/kapalı olarak kalıyor, şarj
-ya da tükenme mekaniği olmayacak (2026-09-03 kararı).
+**Kapsam dışı bırakıldı:**
+- **Fener pili.** Fener açık/kapalı olarak kalıyor, şarj ya da tükenme
+  mekaniği olmayacak (2026-09-03 kararı).
+- **Canavarın havada animasyonu.** Haritada düşülecek yüksek bir yer yok ve
+  canavar zıplayamıyor, yani o durum hiç oluşmuyor (2026-09-06 kararı).
+  Haritaya yükseklik eklenirse geri gelir.
 
 ---
 
@@ -271,7 +300,9 @@ olarak ayrıldı ve `MovementProfile` üzerinden veriliyor:
 | Hız payı | yok | **+180 u/s**, 3.5 sn koşuyla dolar |
 | Zıplama | var | **yok** |
 | Duvara toslama | ceza yok | **hız ve pay sıfır** |
-| Aşağı bakış | serbest | **55°** |
+| Keskin dönüş | ceza yok | **pay siliniyor** |
+| Aşağı bakış | **70°** | **55°** |
+| Kamera payı | yok | **+6 unit yukarı, +0.10 m ileri** |
 
 **İlk deneme yanlıştı ve düzeltildi.** İvme 0.8'e düşürülmüştü; bu canavarı
 duruştan kalkarken de ağırlaştırıyordu, her yavaşlama bir cezaya dönüşüyordu.
@@ -304,6 +335,46 @@ zemin de sayılsaydı yürürken sürekli duruyorduk.
 iş, payı yeniden doldurmak koridoru baştan koşmak demek. Labirent böylece
 canavarın rakibi oluyor, kaçanın keskin dönüşleri gerçek bir savunma hâline
 geliyor.
+
+### Direksiyon: köşe dönmek payı siliyor (2026-09-05)
+
+> **Yukarıdaki paragraf bir süre YALAN söylüyordu.** "Her köşe onu başa
+> döndürüyor" yazıyordu ama kodda karşılığı yoktu: pay `koşuyor && yerde &&
+> hız ≥ eşik` iken doluyor ve bu üç şart **dönerken de** sağlanıyordu. Canavar
+> tam hızla 90° dönüp hiçbir şey kaybetmiyordu. Var olan tek ceza duvara
+> toslamaktı ve iyi oynayan hiç toslamıyor.
+>
+> Arkadaşlarla oynandığında "canavar çok güçlü olmuş" denmesinin sebebi buydu.
+>
+> Ders: **bir belge cümlesi mekaniğin var olduğunu kanıtlamaz.** Niyet
+> yazılmıştı, uygulaması hiç gelmemişti ve aradaki fark yalnızca oynanınca
+> ortaya çıktı.
+
+Ölçüt **bakış hızı değil**, gidilen yön ile gidilmek istenen yön arasındaki açı
+(`PlayerController.SteerPenalty`). Bakışı ölçmek düz koşarken etrafa bakınmayı
+cezalandırırdı ve canavarı kör hâle getirirdi; burada ölçülen şey direksiyon
+açısı. Tuşa basılmıyorsa istek yok, ceza da yok.
+
+| Alan | Değer | Ne yapıyor |
+|---|---|---|
+| `steerFreeAngle` | 25° | Buraya kadar bedava — rota düzeltmek ceza olmamalı |
+| `steerFullAngle` | 80° | Burada ceza tam; arada doğrusal |
+| `steerScrubTime` | 0.35 sn | Tam cezada dolu payın boşalma süresi |
+| `steerMinSpeed` | 340 u/s | Altında dönmek bedava (pay da zaten dolmuyor) |
+
+**Ceza dönüşün süresince birikiyor ve kendiliğinden ölçekleniyor.** Açı, hız
+yeni yöne oturdukça kapanıyor: 90°'lik bir köşe payın kabaca üçte birini
+götürüyor, geri dönüş çok daha fazlasını. Ayrı bir "kaç derece döndü" sayacı
+gerekmedi.
+
+**Dönerken pay dolmuyor da.** Dolmaya devam etseydi ceza ile kazanç aynı karede
+birbirini yer, köşe yine bedava kalırdı.
+
+**Kaçana hiç dokunmuyor** — ceza payı siliyor ve kaçanın payı yok, o yüzden
+`TickBoost`'un ilk satırındaki erken çıkış onu zaten dışarıda bırakıyor.
+
+Sayılar yine tahmin. Çok sert gelirse `steerScrubTime` büyütülür (0.6 kabaca
+yarı ceza), yumuşak gelirse küçültülür.
 
 Sayılar tahmin, ölçüm değil. `Yakalamaca > Hareket Profillerini Sıfırla`
 tavsiye edilen başlangıcı yazıyor; gerisi oynayarak ayarlanacak (bölüm 10).
@@ -611,6 +682,47 @@ erken uyarısı — kırmızının yaklaşması — ortadan kalkardı.
 Yakalanan anında elenir — yerde sürünme, kaldırılma yok. Bilinçli karar.
 Elenen oyuncu izleyici moduna geçer ve **canavarı asla izleyemez** (sesli
 konuşulan bir oyunda bu doğrudan hile olurdu).
+
+**Duvarın içini görmek: İKİ ayrı sebep vardı** (2026-09-05). Biri kırpma
+düzlemi, öbürü kameranın yeri — ve **ilk düzeltme yalnızca birincisini
+çözdüğü için sorun devam etti.**
+
+**Sebep 1 — kırpma düzlemi bir nokta değil, dikdörtgen.** Unity'nin varsayılanı
+0.3; 60° görüş açısı ve 16:9'da köşesi kameradan `0.3 × 1.55 ≈ 0.46 m` uzakta.
+Duvar ise en fazla `yarıçap − skinWidth = 0.3048 − 0.0305 ≈ 0.274 m`
+yaklaşıyor, yani köşe duvarı deliyordu.
+
+**0.08** yapıldı (`NetworkPlayerSetup.FirstPersonNearClip`): köşe 21:9'da bile
+0.142 m. İlk denemedeki 0.15 hesabı **tam sınırdaydı** — köşe 16:9'da 0.232 m,
+`CameraBob` kamerayı 0.032 m yana kaydırınca kalan pay 10 mm ve ultra geniş
+ekranda hiç pay kalmıyordu.
+
+**Sebep 2 — kamera eksende durmuyor.** Eğilirken 0.25 m öne kayıyor
+(`duckedCameraForward`, bölüm 1) ve yakalama kilidinde 0.7 m geriye
+(`killCameraPullBack`, bölüm 14). Duvara yaslanıp çömelen oyuncunun kamerası
+duvara **0.024 m** kalıyor; o mesafede hiçbir kırpma değeri iş görmez. Asıl
+sebep buydu ve ilk düzeltme ona hiç dokunmuyordu.
+
+`PlayerController.UpdateCameraClearance` payı artık geometriye çarptırıyor:
+kameranın paysız konumundan istenen yöne bir küre atılıyor, bir şeye çarparsa
+pay oraya kadar kısalıyor. Küre yarıçapı (0.18) kırpma köşesinden büyük
+seçildiği için kamera yüzeye hep o kadar uzak kalıyor.
+
+> **Ders: bir düzeltme sorunu bitirmediyse, çözdüğü şeyi geri alma — ikinci
+> sebebi ara.** Kırpma düzlemi gerçekten bozuktu ve düzeltilmesi doğruydu;
+> yalnızca tek başına yetmiyordu. Sayıyı büyütüp küçülterek aramak burada
+> sonuçsuz kalırdı, çünkü aranan şey sayı değildi.
+>
+> Kendi çarpışma kutumuz ışından eleniyor. `groundMask` daraltılmadı (bölüm
+> 16'daki bilinçli tercih), o yüzden filtre maskeyle değil objeyle yapılıyor.
+>
+> Kırpmayı sıfıra yaklaştırmak bedava değil: kendi gövdeni birinci şahısta
+> görüyorsun (bölüm 14) ve gizlenen kafa/boynun çevresinde kalan gerdirilmiş
+> üçgenler kameraya yakın duruyor.
+>
+> Değer **çalışma anında** yazılıyor, çünkü kamera prefabta serileştirilmiş ve
+> yalnızca kodu değiştirmek eski prefaba ulaşmazdı. `Ağ Kurulumu` da aynı sabiti
+> yazıyor — Inspector'daki sayı dürüst kalsın diye.
 
 **Karanlık oynanışın parçası.**
 Ortam ışığı **0.006**, sis yoğunluğu 0.045 (görüş ~25 m), 14 loş lamba ve
@@ -1201,6 +1313,60 @@ terminal yapılmış oluyor, yani "tek başına 2 terminal" cezası pratikte olu
 Seçim tur başında da olsun istenirse `ObjectiveSetup.TerminalCount` 6 yapılır;
 `terminalGoal` kendini ona göre günceller.
 
+#### Doğum: kaçanlar bir arada, canavar uzakta (2026-09-06)
+
+**Mirror doğum noktasını oyuncu objesi spawn olurken seçiyor** — yani lobide,
+rol dağıtılmadan önce. Herkes rastgele bir noktaya düşüyordu ve **canavarın bir
+kaçanın dibinde doğması işten değildi**: kovalamaca daha başlamadan bitiyordu.
+Oynandığında şikâyet edilen buydu.
+
+Rol ancak `AssignRoles`'den sonra belli olduğu için yerleştirme de oraya
+taşındı (`RoundManager.ServerPlaceParticipants`). Mirror'ın kendi doğum
+noktaları duruyor ve hâlâ işe yarıyor: lobide nerede duracağını onlar
+belirliyor, tur başında burası üstüne yazıyor.
+
+**Nokta seçimi her turda değişiyor, mesafe değişmiyor.** Kaçanların noktası
+sahnedeki doğum noktalarından rastgele seçiliyor, canavarınki **ona en uzak**
+olan. Sabit bir çift birkaç turda ezberlenir ve harita ölürdü; sabit olan şey
+mesafenin kendisi, yeri değil.
+
+Bugünkü altı nokta için ölçüldü: en uzak çift 45.5 m, ve kaçan noktası hangisi
+seçilirse seçilsin canavar **en az 36.7 m** uzakta. Harita 54.4 m — yani
+garanti gerçek. `minimumSpawnSeparation` (25 m) altına düşülürse konsola uyarı
+yazılıyor; sessiz kalsaydı sorun yine "canavar dibimde doğdu" olarak geri
+dönerdi.
+
+**Kaçanlar üst üste doğmuyor:** ilki çapada, kalanlar 1.6 m yarıçaplı bir
+halkada. Hepsini aynı noktaya koymak `CharacterController`'ları birbirini
+itmeye zorluyor ve oyuncular tur başlar başlamaz fırlıyordu. Halkadaki bir yer
+duvara denk gelirse çapaya düşülüyor — iki kaçanın aynı noktada doğması,
+birinin duvara gömülmesinden iyi.
+
+**Çapalar elle de konabilir:** `RoundManager`'daki `runnerSpawn` /
+`monsterSpawn` alanlarına birer boş obje sürüklenirse hesaplama devre dışı
+kalıyor. **İkisi birden dolu olmalı** — yarısı elle yarısı otomatik bir çift
+mesafeyi garanti etmez.
+
+> ### Işınlamayı sunucu tek başına yapamıyor
+>
+> Hareket **istemci otoriteli** (bölüm 4): sunucudaki konumu yazmak, sahibinin
+> bir sonraki `NetworkTransform` güncellemesinde eziliyor. Asıl taşımayı
+> sahibine giden `TargetRpc` yapıyor (`RoundParticipant.ServerPlaceAt`).
+>
+> Sunucuda da uygulanıyor, çünkü isabet ve tur kararlarını sunucu kendi gördüğü
+> pozisyonlarla veriyor; bir ağ turu boyunca eski konumda görünmek yanlış
+> kararlara kapı bırakırdı.
+>
+> `NetworkTransform.ServerTeleport` ayrıca çağrılıyor ki **diğer** istemciler
+> sıçramayı ara değerlemesin — yoksa oyuncular haritanın bir ucundan öbürüne
+> duvarların içinden süzülerek gidiyor görünür.
+>
+> `CharacterController` açıkken transform'a yazmak güvenilir değil; kapatılıp
+> açılıyor. Hız **ve hız payı** sıfırlanıyor: lobide koşarak biriktirilen
+> momentumla tura başlamak, canavarın da dolu payla doğması demekti ve bölüm
+> 1'in "payı koşarak kazan" kuralını tur başında delerdi. Dikey bakış da
+> sıfırlanıyor, yoksa lobide yere bakan oyuncu tura yere bakarak başlıyordu.
+
 ### 11.2 Terminaller
 
 > Karanlık uyarısı: sahne ortam ışığı ~0.018. Terminal göstergesi ve çıkış
@@ -1459,6 +1625,33 @@ bozuk lamba gibi duruyor, kısılan ışık nabız gibi.
 edilen mesafeyle tetikleniyor; koşarken kendiliğinden sıklaşıyor. Koşu adım
 aralığı 1.8→2.6 m açılıyor, yoksa tempo iki katına çıkıp makineli tüfek gibi
 duyuluyor.
+
+> ### Adım sesi HERKESTE çalmalı — bir süre çalmıyordu (2026-09-05)
+>
+> `FootstepAudio` `NetworkSetup`'ın `localOnlyComponents` listesindeydi, yani
+> **uzak oyuncularda bileşen tamamen kapalıydı.** Herkes yalnızca kendi adımını
+> duyuyordu: canavar koşarak arkandan gelirken hiçbir ses çıkmıyordu.
+>
+> Bu, bölüm 5'teki hız/gizlilik takasının bir ayağını sessizce yok ediyordu —
+> "koşarsan duyulursun" kuralı işlemiyordu. Fenerin aynı şekilde yıllarca
+> çalışmamasıyla (bölüm 5'teki düzeltme kutusu) birebir aynı hata sınıfı:
+> mekanik yazılmış, ağ tarafında bağlanmamış.
+>
+> **Kendi sesini duyduğun için fark edilmiyordu.** Tek başına test ederken her
+> şey doğru görünüyor; hata ancak iki oyuncuyla ortaya çıkıyor.
+>
+> Listeden çıkarıldı. `NetworkPlayerSetup` ayrıca **eski prefabta listede kalmış
+> olsa bile** bu bileşeni açık tutuyor: alan prefabta serileştirilmiş duruyor ve
+> kodu değiştirmek tek başına yetmezdi (bölüm 16'daki tuzak). Böylece `Ağ
+> Kurulumu` zincirini yeniden çalıştırmak gerekmiyor.
+>
+> Bileşen artık her oyuncuda çalıştığı için hız ve zemin bilgisini
+> `PlayerController`'dan **okuyamıyor**: o bileşen uzakta kapalı ve değerleri
+> donmuş. İkisi de gerektiğinde pozisyon farkından çıkarılıyor — animatörlerin
+> yaptığının aynısı (bölüm 14, 17), ek ağ trafiği sıfır. Ölçüt
+> `controller.enabled`: açıksa hareket kodundan al, kapalıysa pozisyondan çıkar.
+> İniş sesi de aynı yoldan geliyor (en yüksek nokta ile yere değme arasındaki
+> fark düşülen mesafe), çünkü `Landed` olayı uzakta hiç tetiklenmiyor.
 
 **Zıplama tuşuna ses bağlı değil, bilerek.** İniş sesi yere değince çalıyor ve
 **düşülen mesafeye** bakıyor (eşik 0.95 m): kutunun üstüne zıplamak sessiz,
@@ -2100,6 +2293,25 @@ gövde tek bir skinned mesh, kafayı ayrı kapatmanın yolu yok. Kemik ölçeği
 **senkronlanmıyor** (NetworkTransform yalnızca kökü taşıyor), yani bu yalnızca
 kendi ekranını etkiliyor — karşıdakiler seni kafanla görüyor.
 
+> **Kafayı sıfırlamak tek başına yetmedi: BOYUN da gizleniyor** (2026-09-05).
+> Canavar koşarken kendi kafasının içini görüyordu.
+>
+> Sebep sıfırlanan kemiğin kendisi değil **komşusu.** Boyun ile kafa arasında
+> ağırlığı paylaşan vertex'ler var; kafa bir noktaya çökünce o vertex'ler
+> boyundan o noktaya doğru uzun ince üçgenlere dönüşüyor. Koşu animasyonu
+> gövdeyi öne eğdiğinde bu huni kameranın önünden geçiyor ve arka yüzleri
+> görünüyor — "kafamın içi" denen şey o.
+>
+> Boyun da sıfırlanınca huninin ucu omuz hizasına, kameradan belirgin şekilde
+> uzağa iniyor. Bedeli birinci şahısta omuz/yakanın hafif deforme olması —
+> yalnızca kendi ekranında.
+>
+> **Boyun kemiği prefabta alan DEĞİL**, çalışma anında `Animator`'dan
+> çözülüyor (`HumanBodyBones.Neck`). Alan eklemek prefabı yeniden kurmayı, o da
+> canavar/kaçan modellerini yeniden kurmayı gerektirirdi (bölüm 7'deki sıra).
+> Aynı desen `MonsterAura` ve `Terminal`'de de var. Kemiğe adıyla değil
+> **rolüyle** ulaşılıyor: model değişirse kemik adı değişir, `Neck` değişmez.
+
 Kaçanın kapsülü birinci şahısta gizli kalıyor: suratının önünde duran bir
 kapsül kimseye bir şey anlatmıyor.
 
@@ -2116,8 +2328,56 @@ Gövde payı kasten çok düşük (0.15): dönmesi gereken kafa. Yüksek değer
 karakteri belden büküyor ve koşu animasyonunu bozuyor.
 
 **Aşağı bakış 55 derecede sınırlı** (`MovementProfile.maxLookDownAngle`). Tam
-dibe bakınca kafa gövdenin içine giriyordu. Kaçanda sınır yok (89) — onun
-kapsülünde dönecek kafa yok.
+dibe bakınca kafa gövdenin içine giriyordu.
+
+> **Kaçanda da sınır var artık: 70°** (2026-09-05). Burada uzun süre "kaçanda
+> sınır yok (89) — onun kapsülünde dönecek kafa yok" yazıyordu. O gerekçe
+> 2026-08-30'da Banana Man bağlanınca **düştü** ama sayı kalmıştı: kaçan tam
+> dibe bakınca kendi gövdesinin içini görüyordu.
+>
+> Canavarınki kadar dar değil, çünkü kaçanın kafası bakış yönüne dönmüyor —
+> sorun yalnızca en alttaki birkaç derece.
+>
+> Ders: **bir sayının gerekçesi düştüğünde sayıyı da gözden geçir.** Model
+> bağlanırken bakış sınırı kimsenin aklına gelmedi ve arada iki hafta geçti.
+
+### Kamera canavarda yukarı ve ileri alınıyor
+
+Canavarın modeli hull'un **1.18 katı** (bölüm 17). Kamera ise hull'un göz
+hizasında ve ekseninde: yani modelin göğüs hizasına denk geliyor ve oynayınca
+"kamera gövdenin içinde" gibi duruyor.
+
+| Alan | Canavar | Kaçan |
+|---|---|---|
+| `eyeHeightOffset` | **+6 unit** (0.114 m) | 0 |
+| `eyeForwardOffset` | **+0.10 m** | 0 |
+
+Kaçanda ikisi de sıfır: Banana Man hull'la aynı ölçekte, telafi edilecek bir şey
+yok.
+
+**İleri payının duvarla sorunu yok** — `UpdateCameraClearance` onu yüzeye
+çarptırıyor (bölüm 5). Zaten aynı kanaldan geçiyor: eğilme payı, yakalama geri
+çekmesi ve bu, hepsi `RawCameraForward`'da toplanıyor.
+
+**Yukarı payının sınırını TAVAN belirliyor, duvar değil.**
+
+> Burada önce yanlış bir gerekçe yazmıştım: "kapsülün üst yarım küresi 1.067
+> m'de başlıyor, yani kamera yükseldikçe yatay açıklık daralıyor." **Düşey bir
+> duvar için yanlış.** Duvar bir düzlem ve kapsüle **en geniş yerinden**
+> değiyor; yani duvar düzlemi eksenden hep `yarıçap − skinWidth ≈ 0.274 m`
+> uzakta, kameranın yüksekliğinden bağımsız olarak.
+>
+> Yukarı çıkarken daralan şey kapsülün **tepesine** kalan pay. 6 unit'te kamera
+> kapsül tepesinin 3.8 cm altında; yakın düzlemin üst kenarı (0.046 m) o payı
+> biraz aşıyor, yani kafasını tavana dayamış bir canavar yukarı bakarsa tavanın
+> içini görebilir. Bu haritada tavan 3 m olduğu için gerçekleşmiyor — **alçak
+> bir geçit eklenirse burası gözden geçirilmeli.**
+>
+> Ders: bir kısıtın gerekçesini yazarken **hangi geometrinin sınırladığını**
+> doğrula. Yanlış gerekçe, sayıyı ilerde yanlış yerden ayarlatır.
+
+Pay yalnızca **ayaktaki** hizaya biniyor; eğilme geçidi 1.1 m ve orada kamerayı
+yukarı almak tavanın içini gösterirdi.
 
 ### Ayak kayması
 
@@ -2129,8 +2389,10 @@ orantılanıyor ama **sınırlı** (0.7–1.6): tam orantı bacakları gülünç
 
 - ~~Kurbanın animasyonu yok.~~ **Çözüldü** (bölüm 17): beden ölüm klibi bitene
   kadar sahnede kalıyor ve canavarın önüne oturtuluyor.
-- **Havada olma animasyonu yok.** Canavar zıplayamıyor ama düşebilir. (Kaçanda
-  var — bölüm 17.)
+- ~~Havada olma animasyonu yok.~~ **KAPSAM DIŞI** (2026-09-06). Canavar
+  zıplayamıyor ve haritada düşülecek yüksek bir yer yok, yani o durum hiç
+  oluşmuyor. Haritaya yükseklik eklenirse geri gelir. (Kaçanda var —
+  bölüm 17.)
 - ~~Kaçan modeli yok.~~ **Çözüldü** (bölüm 17).
 
 ### Unity'nin derlemeyi atlaması
@@ -2420,6 +2682,31 @@ kaldırabiliyor; 60 FPS'te bu 20 m/s dikey hız demek, yani hiçbir hız eşiği
 eleyemez — ufacık bir tümsekte zıplama animasyonuna girilmesinin sebebi buydu.
 Bu yüzden havada olma `airborneGrace` (0.18 sn) kadar sürmeden animasyona
 geçilmiyor: basamak bir kare sürüyor, gerçek zıplama neredeyse bir saniye.
+
+> ### Bayrak SIKIŞIYORDU: dördüncü bir çıkış şartı eklendi (2026-09-05)
+>
+> Oyunda kaçanlar zıplamadıkları hâlde sürekli zıplama animasyonunda
+> kalıyordu. Sebep yukarıdaki durum makinesinin **tek çıkışının `düşüyor`a
+> bağlı** olmasıydı — ve `düşüyor` yalnızca hızlı düşüşte kuruluyor.
+>
+> Kasanın üstüne çıkmak, basamağa binmek, zıplayıp hemen bir yüzeye konmak:
+> hepsi `havada`yı kuruyor ama `düşüyor`u hiç kurmuyor. O durumda bayrağı
+> indirecek **hiçbir şart kalmıyordu** ve karakter yerde dururken sonsuza kadar
+> havada sayılıyordu. Yere gömülmüyordu; sorun tamamen animasyon durumunda.
+>
+> Yeni şart düşüşe değil **durulmaya** bakıyor: dikey hız `settleTime` (0.12 sn)
+> boyunca sıfıra yakın kaldıysa ayaklar yerdedir.
+>
+> **İki sınır arasına sıkışıyor ve ikisi de gerçek:**
+> - Zıplamanın tepe noktası da sıfırdan geçiyor. Yerçekimi 600 u/s ve eşik
+>   0.35 m/s'de orada ~0.06 saniye kalınıyor — `settleTime` bundan **uzun**
+>   olmalı, yoksa her zıplamanın tepesinde animasyon bir an sönerdi.
+> - `airborneGrace` 0.18 sn. `settleTime` bundan **kısa** olmalı ki basamak
+>   kaynaklı sıkışma animasyona hiç yansımadan temizlensin.
+>
+> Sayaç kendini sıfırlıyor: kalkış (2 m/s) ve düşüş (3 m/s) eşikleri
+> `settleSpeed`ten büyük olduğu için o karelerde sayaç zaten sıfırlanıyor.
+> Ayrı bir sıfırlama satırı gerekmedi.
 
 **İniş gecikmesiz.** Payı iki yöne de koymak, yere bastıktan sonra zıplama
 pozunda kayan bir karakter demekti.

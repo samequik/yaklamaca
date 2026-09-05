@@ -107,6 +107,11 @@ public static class NetworkSetup
             new Vector3(0f, (64f - 36f) * PlayerController.UnitsToMeters, 0f);
 
         Camera camera = cameraObject.AddComponent<Camera>();
+
+        // Tek kaynak NetworkPlayerSetup: değeri çalışma anında da o yazıyor,
+        // çünkü prefab eski olabilir. Burada da yazmak Inspector'daki sayıyı
+        // dürüst tutuyor — iki yerde farklı sayı görmek en kötüsü olurdu.
+        camera.nearClipPlane = NetworkPlayerSetup.FirstPersonNearClip;
         AudioListener listener = cameraObject.AddComponent<AudioListener>();
 
         // --- Bıçak: kameranın child'ı, sadece canavarda görünür ---
@@ -233,14 +238,19 @@ public static class NetworkSetup
         serializedNetwork.FindProperty("bodyVisual").objectReferenceValue = bodyVisual;
 
         // Karşıdaki oyuncuda kapalı kalacaklar: girdi, hareket, nişangah,
-        // fener kontrolü, kamera sallanması, kendi ayak sesi.
+        // fener kontrolü, kamera sallanması.
         //
         // MonsterAttack ve TrailLeaver bu listede DEĞİL, bilerek. MonsterAttack
         // karşıdaki oyuncuda da çalışmalı — bıçağın görünmesi ve savrulması
         // oradan sürülüyor — ve host modunda bu liste sunucuda da uygulandığı
         // için kapatsaydık sunucunun isabet kontrolü hiç çalışmazdı. TrailLeaver
         // ise zaten kendi içinde isLocalPlayer kontrolü yapıyor.
-        Behaviour[] localOnly = { input, playerController, interactor, flashlight, bob, footsteps };
+        //
+        // **FootstepAudio 2026-09-05'te listeden ÇIKARILDI.** Buradaydı ve uzak
+        // oyuncularda kapalı olduğu için herkes yalnızca kendi adımını
+        // duyuyordu: canavarın adımı hiçbir kaçana ulaşmıyordu ve bölüm 5'teki
+        // hız/gizlilik takasının bir ayağı sessizce yoktu.
+        Behaviour[] localOnly = { input, playerController, interactor, flashlight, bob };
         SerializedProperty array = serializedNetwork.FindProperty("localOnlyComponents");
         array.arraySize = localOnly.Length;
         for (int i = 0; i < localOnly.Length; i++)

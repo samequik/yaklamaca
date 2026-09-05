@@ -313,6 +313,10 @@ MonoBehaviour:
   boostBuildTime: 3.5
   boostDecayTime: 1.2
   boostMinSpeed: 380
+  steerFreeAngle: 25
+  steerFullAngle: 80
+  steerScrubTime: 0.35
+  steerMinSpeed: 340
   crashSpeed: 0
   crashSpeedRetained: 0
   crouchSpeedMultiplier: 0.35
@@ -327,8 +331,11 @@ MonoBehaviour:
   unduckTime: 0.2
   cameraTransform: {fileID: 5235436667121320145}
   duckedCameraForward: 0.25
+  cameraProbeRadius: 0.18
   maxLookAngle: 89
   maxLookDownAngle: 89
+  eyeHeightOffset: 0
+  eyeForwardOffset: 0
   groundMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -570,6 +577,7 @@ MonoBehaviour:
   sprintVolume: 0.85
   crouchVolume: 0.12
   landPitchRange: {x: 0.92, y: 1.08}
+  airborneVerticalSpeed: 2.5
 --- !u!82 &794516134023322604
 AudioSource:
   m_ObjectHideFlags: 0
@@ -967,6 +975,8 @@ MonoBehaviour:
   fallThreshold: 3
   landThreshold: 0.6
   airborneGrace: 0.18
+  settleSpeed: 0.35
+  settleTime: 0.12
 --- !u!1 &4301138333092474945
 GameObject:
   m_ObjectHideFlags: 0
