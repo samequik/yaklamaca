@@ -1,3 +1,4 @@
+using EpicTransport;
 using Mirror;
 using UnityEngine;
 
@@ -33,6 +34,14 @@ public class LobbyNetwork : MonoBehaviour
         "adreste Mirror kendi zaman aşımını beklerken oyuncu ne olduğunu " +
         "anlamıyor; bu sayaç ona bir cevap veriyor.")]
     [SerializeField] private float connectTimeout = 10f;
+
+    [Tooltip("İnternet üzerinden oynatan EOS transport'u. Boşsa yalnızca aynı " +
+        "ağda (ya da sanal ağda) oynanabiliyor. EOS Kurulumu bağlıyor.")]
+    [SerializeField] private EosTransport relayTransport;
+
+    [Tooltip("Aynı ağ için doğrudan bağlantı. EOS hazır değilken ve IP ile " +
+        "katılırken kullanılıyor: internet gerektirmiyor, anında açılıyor.")]
+    [SerializeField] private Transport localTransport;
 
     /// <summary>Ekranda gösterilecek son durum/hata metni.</summary>
     public string StatusMessage { get; private set; } = string.Empty;
@@ -113,15 +122,30 @@ public class LobbyNetwork : MonoBehaviour
         }
 
         leaving = false;
-        RoomCode = LobbyCode.FromAddress(LobbyCode.LocalAddress());
 
-        // Kod, internete çıkan adaptörün adresinden üretiliyor. Sanal ağda
-        // (Radmin, Hamachi) gereken adres başka bir adaptörde olduğu için kod
-        // yanlış çıkıyor; bütün adresleri yazmak oyuncunun doğrusunu tanıyıp
-        // arkadaşına vermesini sağlıyor. Katılma alanı ham IP kabul ediyor.
-        StatusMessage = $"Kod aynı ağda çalışır. Sanal ağ (Radmin) " +
-            $"kullanıyorsan koddaki değil şu adreslerden doğru olanı ver:\n" +
-            LobbyCode.LocalAddresses();
+        if (UseRelay)
+        {
+            UseTransport(manager, relayTransport);
+
+            // EOS'ta adres, host'un ürün kimliği (ProductUserId). 32 karakterlik
+            // bir metin: sesli sohbette söylenemez ama kopyalanabilir.
+            // Kısa koda geçmek EOS'un lobi servisini kullanmayı gerektiriyor,
+            // o ayrı bir adım (bölüm 13).
+            RoomCode = EOSSDKComponent.LocalUserProductIdString;
+            StatusMessage = "İnternet odası. Kodu kopyalayıp arkadaşına ver.";
+        }
+        else
+        {
+            UseTransport(manager, localTransport);
+
+            // Kod, internete çıkan adaptörün adresinden üretiliyor. Sanal ağda
+            // (Radmin, Hamachi) gereken adres başka bir adaptörde olduğu için
+            // kod yanlış çıkıyor; bütün adresleri yazmak oyuncunun doğrusunu
+            // tanıyıp arkadaşına vermesini sağlıyor.
+            RoomCode = LobbyCode.FromAddress(LobbyCode.LocalAddress());
+            StatusMessage = "EOS hazır değil, yerel oda kuruldu. Katılacak kişi " +
+                $"şu adreslerden birini yazmalı:\n{LobbyCode.LocalAddresses()}";
+        }
 
         manager.StartHost();
 
@@ -146,14 +170,36 @@ public class LobbyNetwork : MonoBehaviour
             return;
         }
 
-        if (!LobbyCode.TryToAddress(codeOrAddress, out string address))
+        string trimmed = codeOrAddress != null ? codeOrAddress.Trim() : string.Empty;
+        string address;
+
+        // Üç giriş biçimi var ve ayırt etmek kolay:
+        //   "192.168.1.42"  → nokta içeriyor, IP
+        //   "K7M2QXB"       → 7 harf, yerel kod
+        //   32 karakter hex → EOS ürün kimliği
+        // Kod alfabesinde nokta yok, EOS kimliği de 7 karakterden uzun.
+        if (LobbyCode.TryToAddress(trimmed, out address))
         {
-            StatusMessage = $"Kod okunamadı. {LobbyCode.Length} harf ya da bir IP adresi bekleniyor.";
+            UseTransport(manager, localTransport);
+            RoomCode = LobbyCode.FromAddress(address);
+        }
+        else if (UseRelay && trimmed.Length > LobbyCode.Length)
+        {
+            UseTransport(manager, relayTransport);
+            address = trimmed;
+            RoomCode = trimmed;
+        }
+        else
+        {
+            StatusMessage = UseRelay
+                ? $"Kod okunamadı. {LobbyCode.Length} harflik kod, IP adresi ya da " +
+                  "arkadaşının verdiği uzun kod bekleniyor."
+                : $"Kod okunamadı. {LobbyCode.Length} harf ya da bir IP adresi bekleniyor. " +
+                  "(EOS hazır değil, uzun kodla katılamazsın.)";
             return;
         }
 
         leaving = false;
-        RoomCode = LobbyCode.FromAddress(address);
         StatusMessage = "Bağlanılıyor…";
         connectTimer = connectTimeout;
 
@@ -162,6 +208,42 @@ public class LobbyNetwork : MonoBehaviour
 
         if (menu != null)
             menu.ShowLobby();
+    }
+
+    /// <summary>
+    /// EOS kullanılabilir mi.
+    ///
+    /// Üç şart birden: transport bağlı, SDK açılmış ve kimlik alınmış. Üçü de
+    /// çalışma anında belli oluyor — kimlik bilgileri yanlışsa ya da istemci
+    /// politikasında P2P izni yoksa SDK açılmıyor ve `Initialized` false
+    /// kalıyor.
+    ///
+    /// **Hazır değilse sessizce yerel odaya düşüyoruz.** Alternatifi, oyuncuya
+    /// hiç açılmayan bir oda vermekti; EOS kurulumu tamamlanmamış bir projede
+    /// oyunun büsbütün oynanamaz olması doğru değil.
+    /// </summary>
+    private bool UseRelay =>
+        relayTransport != null
+        && EOSSDKComponent.Initialized
+        && !string.IsNullOrEmpty(EOSSDKComponent.LocalUserProductIdString);
+
+    /// <summary>
+    /// İstenen transport'u NetworkManager'a takar.
+    ///
+    /// Mirror'da aktif transport tek (`Transport.active`); ikisini sahnede
+    /// tutup başlamadan önce seçmek serbest. Böylece EOS kurulu olsa bile
+    /// aynı ağdaki bir odaya IP'yle girmek mümkün kalıyor.
+    ///
+    /// Ağ açıkken değiştirmek bağlantıyı koparırdı; çağıranların hepsi önce
+    /// "zaten bir odadasın" kontrolünden geçiyor.
+    /// </summary>
+    private void UseTransport(NetworkManager manager, Transport wanted)
+    {
+        if (wanted == null)
+            return;
+
+        manager.transport = wanted;
+        Transport.active = wanted;
     }
 
     /// <summary>Odadan ayrılır. Sunucuysak oda kapanıyor, herkes düşüyor.</summary>

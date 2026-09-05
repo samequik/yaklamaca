@@ -614,6 +614,7 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Haritayı Giydir (SciFi Kit) | Küplerin üstünü kit modelleriyle kaplar |
 | Harita Süsle (prop dağıt) | Duvar diplerine varil/kasa dağıtır |
 | Ağ Kurulumu (1. adım) | Oyuncu prefabı + NetworkManager + doğum noktaları |
+| EOS Kurulumu (relay) | EOS bileşenlerini kurar ve lobiye bağlar; hiçbir şey silmiyor |
 | Menü Kur | Menü, lobi, ayarlar ve tuş atama ekranları (bkz. bölüm 13) |
 | Terminal ve Çıkış Kur | 5 terminali duvarlara, 2 çıkışı en uzak iki gediğe kurar |
 | Sesleri Yerleştir | Sesleri adlandırır, mono yapar, kapılara ve terminallere bağlar |
@@ -985,10 +986,19 @@ kuralına takılıyor, ama karşılığında sunucu bakımı gerektirmeyen kalı
 çözüm geliyor. Mirror transport'u topluluk tarafından yazılmış
 (`FakeByte/EpicOnlineTransport`), resmi değil.
 
-**Yapılacak:** paket projeye alınacak, Epic Developer Portal'da bir ürün
-açılacak, sonra `LobbyNetwork`'ün bağlanma kısmı ve `LobbyCode` EOS'a göre
-yeniden yazılacak. Edgegap denemesinden öğrenilen yapı korunuyor: oyun kodu
-transport'u bilmiyor, değişen tek yer lobi.
+**Durum (2026-09-05): kuruldu, doğrulama bekliyor.** Paket
+`Assets/Plugins/Mirror/Runtime/Transport/EpicOnlineTransport` altında (tek
+uyumsuzluk düzeltildi, bölüm 9), Epic portalında ürün ve istemci açıldı,
+`EosApiKey` dolduruldu, `Yakalamaca > EOS Kurulumu (relay)` bileşenleri kurup
+lobiye bağlıyor. Lobi iki transport arasında seçim yapıyor (bölüm 13).
+
+**Kalan iki adım:**
+
+1. **Oynanışta doğrulama.** EOS gerçekten açılıyor mu, iki makine birbirine
+   bağlanıyor mu. Açılmazsa ilk bakılacak yer Epic'teki istemci politikası:
+   **P2P izni yoksa SDK başlamıyor.**
+2. **Kısa kod.** Bugün adres host'un 32 karakterlik ürün kimliği. EOS'un lobi
+   servisi (`EOSLobby.cs`, pakette hazır) kısa kod ve oda listesi getiriyor.
 
 **O zamana kadar bağlantı doğrudan.** Aynı ağda çalışıyor; arkadaşlarla test
 için sanal ağ (Radmin, Hamachi) kullanılıyor. Lobi ekranı host olurken
@@ -1411,7 +1421,47 @@ adaptörde olduğu ve internete çıkmadığı için kod orada yanlış çıkıy
 bilerek filtrelenmiyor — hangisinin doğru olduğunu makine bilemez, ama oyuncu
 Radmin penceresindeki adresi listeden tanıyor.
 
-Kod, EOS gelince (bölüm 10) bir adres taşımayı bırakacak.
+### İki transport: EOS ve yerel (2026-09-05)
+
+`NetworkManager`'da **iki** transport birden duruyor, `LobbyNetwork` başlamadan
+önce seçiyor (`UseTransport`):
+
+| Transport | Ne zaman | Kod nasıl görünüyor |
+|---|---|---|
+| `EosTransport` | EOS hazırsa, LOBİ KUR | Host'un **ProductUserId**'si — 32 karakter |
+| `KcpTransport` | EOS hazır değilse, ya da IP ile katılırken | 7 harflik kod / ham IP |
+
+**Aynı objede durabiliyorlar.** `EosTransport` doğrudan `Transport`'tan
+türüyor; `KcpTransport`'un `[DisallowMultipleComponent]`'i yalnızca kendinden
+türeyenleri engelliyor. (Edgegap denemesinde tam bu duvara çarpılmış, alt obje
+kurmak gerekmişti.)
+
+**`UseRelay` üç şartı birden arıyor:** transport bağlı, `EOSSDKComponent`
+açılmış ve kimlik alınmış. Kimlik bilgileri yanlışsa ya da Epic'teki istemci
+politikasında **P2P izni yoksa** SDK açılmıyor ve şart tutmuyor.
+
+**Hazır değilse sessizce yerel odaya düşülüyor.** Alternatifi oyuncuya hiç
+açılmayan bir oda vermekti; EOS kurulumu tamamlanmamış bir projede oyunun
+büsbütün oynanamaz olması doğru değil. Ekranda hangi moda düşüldüğü yazıyor.
+
+**Kod üç biçimi de kabul ediyor** ve ayırt etmek kolay: nokta içeriyorsa IP,
+7 harfse yerel kod, daha uzunsa EOS kimliği. Kod alfabesinde nokta yok.
+
+**Oyuncularda Epic hesabı GEREKMİYOR.** Transport `Connect` arayüzünü
+`DeviceidAccessToken` ile kullanıyor: kimlik cihazda sessizce üretiliyor,
+oyuncu hiçbir şey fark etmiyor. `authInterfaceLogin` bilerek kapalı — açık
+olsaydı herkesin Epic hesabıyla giriş yapması gerekirdi.
+
+> **Kısa kod henüz yok.** EOS'ta adres host'un ürün kimliği ve 32 karakter;
+> kopyalanabiliyor ama sesli sohbette söylenemiyor. Kısa koda geçmek EOS'un
+> **lobi servisini** kullanmayı gerektiriyor ve paket onu getiriyor
+> (`EpicOnlineTransport/Lobby/EOSLobby.cs`). Oda listesi de aynı yerden geliyor,
+> yani teknik borç 5 onunla birlikte kapanabilir. Ayrı bir adım.
+
+> **`EosApiKey.asset` içinde CLIENT SECRET var.** Depo şu an yerel; **herkese
+> açık bir GitHub deposuna gönderilmeden önce bu dosya çıkarılmalı**, yoksa
+> anahtar sızar. Sızarsa Epic portalından yeni bir client oluşturup eskisini
+> silmek gerekiyor.
 
 ### Yetki: arayüz tahmin eder, sunucu karar verir
 
