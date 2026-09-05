@@ -614,7 +614,6 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Haritayı Giydir (SciFi Kit) | Küplerin üstünü kit modelleriyle kaplar |
 | Harita Süsle (prop dağıt) | Duvar diplerine varil/kasa dağıtır |
 | Ağ Kurulumu (1. adım) | Oyuncu prefabı + NetworkManager + doğum noktaları |
-| Relay Transport'unu Kur | Yalnızca Edgegap relay'ini kurar; hiçbir şey silmiyor |
 | Menü Kur | Menü, lobi, ayarlar ve tuş atama ekranları (bkz. bölüm 13) |
 | Terminal ve Çıkış Kur | 5 terminali duvarlara, 2 çıkışı en uzak iki gediğe kurar |
 | Sesleri Yerleştir | Sesleri adlandırır, mono yapar, kapılara ve terminallere bağlar |
@@ -704,7 +703,8 @@ bir tercih olması.
    bırakıldı.
 5. **Oda listesi yok.** Lobideki "herkese açık oda" fikri arayüzden kalktı:
    oda listesi tutmak bir eşleştirme sunucusu gerektiriyor (bölüm 13).
-   Katılmanın tek yolu kod. Edgegap'e geçilirse kutudan çıkıyor (bölüm 10).
+   Katılmanın tek yolu kod. Relay'e geçilince (EOS, bölüm 10) oda listesi de
+   gündeme gelebilir.
 6. ~~**Kaçış kapısı tek.**~~ **ÇÖZÜLDÜ** (2026-08-30) — iki çıkış var, birbirinden
    en uzak iki dış duvar gediğinde (bölüm 11.5). Madde numarası, koddaki atıflar
    bozulmasın diye yerinde bırakıldı.
@@ -923,14 +923,52 @@ yani itch.io'dan indiren biri şu hâliyle arkadaşıyla oynayamaz.
 geçer. "Host'a bağlanmak" ile relay zıt şeyler değil — kararları yine host
 veriyor, relay yalnızca paketleri taşıyor.
 
-Seçenekler, yayına yaklaşınca değerlendirilecek:
+Seçenekler:
 
-| Yol | Para | Herkeste çalışır mı |
-|---|---|---|
-| **EOS** (Epic Online Services) | Bedava, oyuncuda Epic hesabı gerekmiyor | Evet (relay yedeği) |
-| **Edgegap** — Mirror'ın içinde hazır geliyor (`Transports/Edgegap`, `Examples/EdgegapLobby`), oda listesi de kutudan çıkıyor | Ücretsiz katman + sonrası ücretli | Evet |
-| NAT punchthrough (kendimiz) | Bedava | %70-85, CGNAT'ta çalışmıyor |
-| Steam | 100$ giriş, sonra bedava | Evet |
+| Yol | Para | Oyuncudan istenen | Bağımlılık riski |
+|---|---|---|---|
+| **EOS** (Epic Online Services) — **seçildi** | Bedava | Hiçbir şey; Epic hesabı bile gerekmiyor | Epic'in kapanma ihtimali yok denecek kadar az |
+| **LRM** (Light Reflective Mirror) | ~5$/ay VPS | Hiçbir şey | Yok — sunucu senin, kaynak açık |
+| Steam (FizzySteamworks) | 100$ giriş | Steam hesabı + oyun Steam'de | Yok, ama itch.io planıyla uyuşmuyor |
+| NAT punchthrough (kendimiz) | Bedava | Hiçbir şey | %70-85, CGNAT'ta çalışmıyor |
+
+> ### Edgegap denendi ve BIRAKILDI (2026-09-05)
+>
+> Mirror kutuda `Transports/Edgegap` + `Examples/EdgegapLobby` getiriyordu ve
+> yeni bağımlılık gerektirmediği için ilk tercih oydu. Entegrasyon yazıldı ve
+> çalıştı; takılan yer **Edgegap'in kendi servisi** oldu.
+>
+> Ücretsiz katmanda lobi servisi bir türlü dağıtılamadı: `POST /v1/lobbies`
+> başarılı oluyor, ama `GET /v1/lobbies/{name}` sonsuza kadar `status: Error`
+> ve boş `url` döndürüyordu. Relay ağı "operational" görünüyordu, panelde
+> `Deployments` boştu, Unity konsolunda hata yoktu. Servis adı 4-5 karaktere
+> düşürülerek (bilinen 503 hatası) ve terminate/retry ile denendi, değişmedi.
+> Destek kanalından da dönüş olmadı.
+>
+> **Kod tarafında bir sorun yoktu** — bu yüzden entegrasyon `856735a..eef1ee3`
+> aralığında git'te duruyor, gerekirse geri alınabilir. Bırakılma sebebi
+> teknik değil: çalıştırılamayan bir servis kullanılamaz.
+>
+> Edgegap'e ait her şey projeden **tamamen silindi**: `Transports/Edgegap`,
+> `Examples/EdgegapLobby` ve hiç kullanılmayan `Hosting/Edgegap` (sunucu
+> kiralama sihirbazı).
+
+**Seçilen yol: EOS.** Bedava, kalıcı, oyuncuya sıfır sürtünme. Bedeli Epic
+SDK'sını projeye sokmak — bölüm 0'ın "bağımlılık eklemeden önce iki kez düşün"
+kuralına takılıyor, ama karşılığında sunucu bakımı gerektirmeyen kalıcı bir
+çözüm geliyor. Mirror transport'u topluluk tarafından yazılmış
+(`FakeByte/EpicOnlineTransport`), resmi değil.
+
+**Yapılacak:** paket projeye alınacak, Epic Developer Portal'da bir ürün
+açılacak, sonra `LobbyNetwork`'ün bağlanma kısmı ve `LobbyCode` EOS'a göre
+yeniden yazılacak. Edgegap denemesinden öğrenilen yapı korunuyor: oyun kodu
+transport'u bilmiyor, değişen tek yer lobi.
+
+**O zamana kadar bağlantı doğrudan.** Aynı ağda çalışıyor; arkadaşlarla test
+için sanal ağ (Radmin, Hamachi) kullanılıyor. Lobi ekranı host olurken
+makinenin **bütün IPv4 adreslerini** yazıyor (`LobbyCode.LocalAddresses`),
+çünkü kod internete çıkan adaptörden üretiliyor ve sanal ağ adresi orada
+görünmüyor — oyuncu doğrusunu listeden tanıyıp veriyor.
 
 **Bugünkü lobinin neredeyse tamamı korunuyor:** kadro senkronu, hazır işareti,
 canavar seçimi, tur akışı, yetki kontrolleri — hiçbiri baytların nasıl
@@ -1326,104 +1364,28 @@ Oyuncu objesinin kimliği zaten var.
 `LobbyNetwork` bu köprü: sunucu açma, kodla bağlanma, ayrılma, bağlantı
 hatalarını metne çevirme ve tur başlayınca menüyü kapatma.
 
-### Kod = odanın adı (2026-09-05'te değişti)
+### Kod = sunucunun IP adresi
 
-Lobi kodu 6 harflik rastgele bir metin ve **odanın adı** olarak kullanılıyor
-(`LobbyCode`). Host odayı o adla açıyor, katılan kişi kodu yazınca lobi
-listesinde o ad aranıyor. Alfabede karışan harfler yok (I, O, 0, 1) — kod sesli
-sohbette söylenecek.
+Lobi kodu rastgele değil, **sunucunun IPv4 adresinin 32 harflik alfabeyle
+yazılmış hâli** (`LobbyCode`). 32 bit, 7 karaktere sığıyor. Alfabede karışan
+harfler yok (I, O, 0, 1) — kod sesli sohbette söylenecek.
 
-> **Eskiden kod, sunucunun IPv4 adresinin 32 harflik alfabeyle yazılmış
-> hâliydi.** Eşleştirme sunucusu gerektirmediği için öyle seçilmişti (bölüm 0),
-> ama yalnızca aynı ağda çalışıyordu: Türkiye'de CGNAT yaygın olduğu için
-> itch.io'dan indiren biri arkadaşıyla oynayamıyordu. Relay'e geçilince
-> (aşağıda) kod artık bir adres taşımıyor.
->
-> Edgegap'in verdiği `lobby_id` uzun ve okunamaz; sesli sohbette söylenemez. O
-> yüzden kısa kod oda **adı** yapıldı ve kimlik kullanıcıdan tamamen gizlendi.
+Neden böyle: rastgele kod bir eşleştirme sunucusunda saklanmayı gerektirir, o
+da ayakta tutulacak bir servis demek. Bölüm 0'ın "bağımlılık eklemeden önce
+iki kez düşün" kuralı burada da geçerli.
 
-### İki transport: relay ve yerel
+**Sınırı açıkça bilerek kabul ettik:** bu doğrudan bağlantı. Aynı ağda çalışır;
+internet üzerinden 7777/UDP yönlendirmesi ya da sanal ağ (Hamachi, Radmin)
+gerekir. Katılma alanı ham IP de kabul ediyor, tam da bu yüzden.
 
-`NetworkManager`'da **iki** transport birden duruyor, `LobbyNetwork` başlamadan
-önce hangisini kullanacağını seçiyor (`TryUseTransport`):
+**Host olurken bütün IPv4 adresleri ekranda yazıyor**
+(`LobbyCode.LocalAddresses`). Kod, `LocalAddress()`'in bulduğu **internete
+çıkan** adaptörden üretiliyor; sanal ağda (Radmin) gereken adres başka bir
+adaptörde olduğu ve internete çıkmadığı için kod orada yanlış çıkıyor. Liste
+bilerek filtrelenmiyor — hangisinin doğru olduğunu makine bilemez, ama oyuncu
+Radmin penceresindeki adresi listeden tanıyor.
 
-| Transport | Ne zaman | Özelliği |
-|---|---|---|
-| `EdgegapLobbyKcpTransport` | LOBİ KUR / kodla katılma | İnternetten oynatan tek yol |
-| `KcpTransport` | YEREL ODA (test) / ham IP | Anında açılıyor, internet istemiyor |
-
-**Neden ikisi birden.** Yalnızca relay bırakılsaydı her Play'e basışta Edgegap
-servisine gidip gelmek gerekirdi — günde onlarca kez test eden biri için gerçek
-bir sürtünme. Yalnızca KCP bırakılsaydı arkadaşlarla hiç oynanamazdı. Mirror'da
-aktif transport tek (`Transport.active`), ama ikisini sahnede tutup başlamadan
-önce seçmek serbest.
-
-**Ham IP hâlâ kabul ediliyor.** Yerel test odasına girmenin tek yolu o; sanal ağ
-(Radmin) kullanan biri de faydalanıyor. Ayrım noktalı yazımdan yapılıyor: kod
-alfabesinde nokta yok, yani ikisi karışamıyor.
-
-### Relay: kararları yine host veriyor
-
-Relay bir **aracı sunucu**: iki taraf da ona dışarı doğru bağlanıyor ve o
-paketleri aktarıyor. Dışarı çıkan bağlantı CGNAT arkasında da çalıştığı için
-port yönlendirmesi gerekmiyor.
-
-**Oyunu yine host'un bilgisayarı yönetiyor** — rol dağıtımı, isabet, terminal
-sayaçları hepsi orada (bölüm 4). Relay yalnızca kuryelik yapıyor, karar
-vermiyor. Edgegap'in kendi deyişiyle: *"relay'ler otoriter oyun sunucusu
-değildir, işlem gücü içermez."*
-
-> **Relay AYRI bir alt objede duruyor** (`NetworkManager/RelayTransport`).
-> Aynı objeye konulamıyor: `KcpTransport` sınıfında
-> `[DisallowMultipleComponent]` var ve relay ondan türüyor, yani Unity aynı
-> türden ikinci bileşeni **sessizce reddediyor** — `AddComponent` hiçbir hata
-> yazmadan null döndürüyor. İlk denemede tam bu oldu ve bileşen Inspector'da
-> hiç görünmedi, sebebi de hiçbir yerde yazmadı. Mirror'ın transport'u
-> NetworkManager ile aynı objede olmak zorunda değil.
->
-> Var olan bir projeye sonradan eklemek için `Yakalamaca > Relay Transport'unu
-> Kur` var: hiçbir şey silmiyor, yalnızca alt objeyi kurup referansları
-> yazıyor. `Ağ Kurulumu` bunu da yapıyor ama o prefabı sıfırdan kurduğu için
-> bütün zinciri (model, ses, menü, yankı) tekrar gerektiriyor.
-
-**Kurulum sende, kodda değil.** `RelayTransport` objesindeki
-`EdgegapLobbyKcpTransport` bileşeninin `lobbyUrl` alanı boşsa relay çalışmıyor. Doldurmak için o bileşenin
-kurulum penceresi kullanılıyor: Edgegap API anahtarı + bir servis adı → Create.
-Anahtar [app.edgegap.com](https://app.edgegap.com) → User Settings → Tokens.
-
-İki tuzak, ikisi de kurulum penceresinin kendi metninde yazıyor ama gözden
-kaçıyor:
-
-- **Servis adı 4-5 karakteri geçmemeli.** Edgegap'te bilinen bir hata var; daha
-  uzun adlar dağıtımda `503 Service Temporarily Unavailable` veriyor. `yaka`
-  gibi kısa bir ad kullan. Bu ad servisin kimliği; oyuncuların gördüğü oda
-  koduyla ilgisi yok.
-- **Anahtarın başındaki `token ` öneki sorun değil**, pencere onu kendi
-  kırpıyor (`LobbyApi.TrimApiKey`). Panelden kopyaladığını olduğu gibi
-  yapıştırabilirsin.
-- **Bekleme ekranındayken pencerenin geri kalanı çizilmiyor.** `OnGUI`,
-  `waitingCreate`/`waitingStatus` doğruyken en başta `return` ediyor; yani
-  "Terminate existing deploy" düğmesi orada ama görünmüyor. Kurtarmak için
-  pencereyi kapatıp yeniden açmak gerekiyor.
-- **`Latest status: Error` son duraktır, beklemekle geçmez.** Döngü yalnızca
-  `url` dolunca ya da HTTP hatası gelince duruyor; `Error` durumunda ikisi de
-  olmadığı için pencere sonsuza kadar sorgu atar. Lobi servisi Edgegap
-  tarafında oluşmuş ama dağıtımı başarısız olmuş demektir.
-- **Lobi servisi panelde `Deployments` altında görünmüyor**, çünkü o bir
-  dedicated server dağıtımı değil. Yeri: sol menüde **Relays (P2P) → Relays**.
-
-Anahtar hiçbir yere kaydedilmiyor. `lobbyUrl`'ü kaybedersen **aynı adla**
-tekrar oluştur: yenisini kurmuyor, mevcut servisi buluyor.
-
-`lobbyUrl` boşken LOBİ KUR denenirse `LobbyNetwork.FailRelay` oyuncuyu ana
-menüye döndürüp sebebi yazıyor — aksi hâlde "Oda kuruluyor…" ekranında sonsuza
-kadar asılı kalırdı, çünkü **host tarafında bağlanma zaman aşımı yok**
-(`connectTimer` yalnızca katılmada kuruluyor).
-
-**Ücretsiz katman:** panelde **20 eşzamanlı bağlantı** görünüyor (Relays
-ekranı, "0 of 20 Players Connected"). Fiyat sayfası 50 diyor; geçerli olan
-paneldeki sayı. Lobi başına 5 kişi demek **4 eşzamanlı oda** demek — test için
-yeterli, geniş bir çıkış için değil.
+Kod, EOS gelince (bölüm 10) bir adres taşımayı bırakacak.
 
 ### Yetki: arayüz tahmin eder, sunucu karar verir
 

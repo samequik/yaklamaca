@@ -1,4 +1,3 @@
-using Edgegap;
 using kcp2k; // KcpTransport Mirror namespace'inde değil, kendi namespace'inde
 using Mirror;
 using UnityEditor;
@@ -26,9 +25,6 @@ public static class NetworkSetup
     private const string PrefabFolder = "Assets/_Prefabs";
     private const string PrefabPath = PrefabFolder + "/NetworkPlayer.prefab";
     private const string ManagerName = "NetworkManager";
-
-    /// <summary>Relay transport'unun durduğu alt obje. Gerekçe BuildRelayTransport'ta.</summary>
-    private const string RelayObjectName = "RelayTransport";
 
     /// <summary>
     /// Play modunda kapalı: o sırada yapılan sahne değişiklikleri Play bitince
@@ -443,24 +439,9 @@ public static class NetworkSetup
         }
 
         // Taşıma katmanı önce eklenmeli; NetworkManager Awake'te onu arıyor.
-        //
-        // İKİ transport birden duruyor ve LobbyNetwork başlamadan önce hangisini
-        // kullanacağını seçiyor:
-        //
-        // - `KcpTransport` — doğrudan bağlantı. Aynı ağda çalışıyor, internet
-        //   istemiyor, anında açılıyor. Tek başına test etmenin yolu bu.
-        // - `EdgegapLobbyKcpTransport` — relay. İnternetten oynatan tek yol,
-        //   ama oda kurmak Edgegap servisine gidip gelmek demek (birkaç saniye)
-        //   ve internet gerektiriyor.
-        //
-        // Yalnızca relay bırakılsaydı günde onlarca kez Play'e basan biri her
-        // seferinde o gecikmeyi yerdi; yalnızca KCP bırakılsaydı arkadaşlarla
-        // hiç oynanamazdı (CGNAT). İkisi de duruyor, seçimi lobi yapıyor.
         KcpTransport transport = managerObject.GetComponent<KcpTransport>();
         if (transport == null)
             transport = managerObject.AddComponent<KcpTransport>();
-
-        EdgegapLobbyKcpTransport relay = BuildRelayTransport(managerObject);
 
         NetworkManager manager = managerObject.GetComponent<NetworkManager>();
         if (manager == null)
@@ -473,12 +454,8 @@ public static class NetworkSetup
         if (hud != null)
             Undo.DestroyObjectImmediate(hud);
 
-        // Varsayılan yerel: Edgegap'in `lobbyUrl`'ü kurulmadan relay'i aktif
-        // bırakmak, projeyi ilk açan kişiyi hiç açılmayan bir odayla bırakırdı.
         manager.transport = transport;
         manager.playerPrefab = playerPrefab;
-
-        WireLobbyTransports(relay, transport);
         manager.autoCreatePlayer = true;
 
         // Kadro 5 kişi (1 canavar + 4 kaçan). Mirror'ın 100'lük varsayılanı
@@ -486,103 +463,6 @@ public static class NetworkSetup
         manager.maxConnections = LobbyRoster.MaxPlayers;
 
         return manager;
-    }
-
-    [MenuItem("Yakalamaca/Relay Transport'unu Kur", true)]
-    private static bool CanBuildRelay() => !EditorApplication.isPlayingOrWillChangePlaymode;
-
-    /// <summary>
-    /// Yalnızca relay transport'unu kurar ve lobiye bağlar.
-    ///
-    /// **Neden `Ağ Kurulumu`'ndan ayrı bir menü.** O araç oyuncu prefabını
-    /// SIFIRDAN kuruyor, yani bir kez çalıştırmak canavar/kaçan modellerini,
-    /// menüyü, sesleri ve yankıyı da yeniden kurmayı gerektiriyor (bölüm 7).
-    /// Var olan bir projeye sonradan relay eklemek için o zinciri çalıştırmak,
-    /// oturmuş her şeyi riske atmak demek.
-    ///
-    /// Bu menü hiçbir şey silmiyor: yalnızca alt objeyi kuruyor ve iki
-    /// referansı yazıyor.
-    /// </summary>
-    [MenuItem("Yakalamaca/Relay Transport'unu Kur")]
-    private static void BuildRelayOnly()
-    {
-        GameObject managerObject = GameObject.Find(ManagerName);
-        if (managerObject == null)
-        {
-            Debug.LogError("NetworkManager yok. Önce Yakalamaca > Ağ Kurulumu (1. adım).");
-            return;
-        }
-
-        EdgegapLobbyKcpTransport relay = BuildRelayTransport(managerObject);
-        KcpTransport local = managerObject.GetComponent<KcpTransport>();
-
-        WireLobbyTransports(relay, local);
-
-        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-        EditorSceneManager.SaveOpenScenes();
-
-        Selection.activeGameObject = relay.gameObject;
-
-        Debug.Log(
-            "Relay transport'u kuruldu (NetworkManager altında RelayTransport objesi).\n\n" +
-            "Sıradaki adım Unity'de: seçili objedeki EdgegapLobbyKcpTransport " +
-            "bileşeninin kurulum penceresinden Edgegap API anahtarınla bir lobi " +
-            "servisi oluştur. Bittiğinde lobbyUrl kendiliğinden dolacak.\n\n" +
-            "lobbyUrl boşken LOBİ KUR çalışmaz; o zamana kadar YEREL ODA (test) " +
-            "ile denemeye devam edebilirsin.");
-    }
-
-    /// <summary>
-    /// Relay transport'unu AYRI bir alt objede kurar.
-    ///
-    /// **Aynı objeye konulamıyor.** `KcpTransport` sınıfında
-    /// `[DisallowMultipleComponent]` var ve `EdgegapLobbyKcpTransport` ondan
-    /// türüyor; Unity aynı türden ikinci bileşeni **sessizce reddediyor**.
-    /// `AddComponent` hiçbir hata yazmadan null döndürüyor ve relay hiç
-    /// eklenmemiş oluyor — ilk denemede tam bu oldu, bileşen Inspector'da
-    /// bulunamadı ve sebebi hiçbir yerde yazmıyordu.
-    ///
-    /// Mirror'ın transport'u NetworkManager ile aynı objede olmak zorunda
-    /// değil: `NetworkManager.transport` sadece bir referans. Alt obje ikisini
-    /// bir arada tutmanın en basit yolu.
-    /// </summary>
-    private static EdgegapLobbyKcpTransport BuildRelayTransport(GameObject managerObject)
-    {
-        Transform existing = managerObject.transform.Find(RelayObjectName);
-
-        GameObject relayObject = existing != null ? existing.gameObject : null;
-        if (relayObject == null)
-        {
-            relayObject = new GameObject(RelayObjectName);
-            relayObject.transform.SetParent(managerObject.transform, false);
-            Undo.RegisterCreatedObjectUndo(relayObject, "Ağ Kurulumu");
-        }
-
-        EdgegapLobbyKcpTransport relay = relayObject.GetComponent<EdgegapLobbyKcpTransport>();
-        if (relay == null)
-            relay = relayObject.AddComponent<EdgegapLobbyKcpTransport>();
-
-        return relay;
-    }
-
-    /// <summary>
-    /// Menüdeki `LobbyNetwork`'e iki transport'u da bağlar.
-    ///
-    /// Menü `Menü Kur` ile ayrı kuruluyor ve **ağ kurulumundan sonra**
-    /// çalıştırılıyor (bölüm 7), yani burada henüz olmayabilir. O yüzden
-    /// bulunamaması hata değil: `Menü Kur` çalıştığında `MenuSetup` aynı
-    /// bağlantıyı kendisi kuruyor.
-    /// </summary>
-    private static void WireLobbyTransports(EdgegapLobbyKcpTransport relay, Transport local)
-    {
-        LobbyNetwork lobby = Object.FindObjectOfType<LobbyNetwork>(true);
-        if (lobby == null)
-            return;
-
-        SerializedObject serialized = new SerializedObject(lobby);
-        serialized.FindProperty("relayTransport").objectReferenceValue = relay;
-        serialized.FindProperty("localTransport").objectReferenceValue = local;
-        serialized.ApplyModifiedProperties();
     }
 
     /// <summary>
