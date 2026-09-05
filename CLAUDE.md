@@ -22,74 +22,111 @@ geçer. Tur bitince herkes lobiye döner.
 **Bitmiş sistemler:** Source hareketi (kaçan) · araba modeli hareket (canavar,
 bölüm 1) · Mirror ağ katmanı · rol dağıtımı · saldırı (sunucu otoriteli
 isabet) · izler (yalnızca canavara) · duruş senkronu · ses (adım, iniş, kapı,
-ölüm) · sürgülü kapılar ve düğmeler (bölüm 15) · izleyici modu · terminal +
-kaçış sistemi (bölüm 11) · harita giydirme ve prop dağıtımı · mağara yankısı
-(bölüm 12) · menü, lobi, ayarlar ve tuş atamaları (bölüm 13) · canavar modeli
-ve animasyonları (bölüm 14) · katman düzeni ve daraltılmış fizik maskeleri
-(bölüm 16) · kaçan modeli, animasyonları ve yakalanma animasyonu (bölüm 17) ·
-çıkış görünümü ve on adımlık kilit paneli (bölüm 18) · git deposu.
+ölüm, terminal) · sürgülü kapılar ve düğmeler (bölüm 15) · izleyici modu ·
+terminal + kaçış sistemi (bölüm 11) · harita giydirme ve prop dağıtımı ·
+mağara yankısı (bölüm 12) · menü, lobi, ayarlar ve tuş atamaları (bölüm 13) ·
+canavar modeli, animasyonları ve ışıkları (bölüm 14) · katman düzeni
+(bölüm 16) · kaçan modeli ve yakalanma animasyonu (bölüm 17) · çıkış görünümü
+ve kilit paneli (bölüm 18) · lightmap + occlusion · **EOS relay'i** · git.
 
-**Işık tarafı TAMAMEN BİTTİ** (2026-09-03), ikisi de sahne dosyasından
-doğrulandı:
+---
 
-- **Lightmap.** `Assets/_Scenes/SampleScene/` altında `LightingData.asset`, bir
-  lightmap atlası ve bir yansıma probe'u var. Sahnedeki 17 ışığın 16'sı
-  **`Mixed` (Shadowmask)**, gölgeleri Soft; tek gerçek zamanlı olan `Fener`.
-  Lamba şiddeti 0.75.
-- **Occlusion culling.** Sahne artık veriye bağlı:
-  `m_OcclusionCullingData: {fileID: 36300000, guid: 3945ca91…}`.
+### 2026-09-05 oturumunda yapılanlar
 
-**Oyunda doğrulandı (2026-09-04):** lambalar aydınlatıyor, kapalı kapı ışığı
-kesiyor, oyuncular gölge düşürüyor, lambaların arası zifiri kalıyor.
+Uzun bir oturumdu, 35 commit. Dört başlıkta topladım.
 
-Buraya gelene kadar dört ayrı arıza vardı ve hepsi ayrı ayrı belgelendi
-(bölüm 3): pişirme sonrası sahnenin kaydedilmemesi · giydirme bayrağının
-prefabın alt objelerine yazılmaması · iki modun farklı düşüş eğrisi kullanması ·
-kapıların static olmadığı için pişmiş ışıkta hiç görünmemesi.
+#### 1. Işık — dört ayrı arıza vardı, hepsi çözüldü
 
-> **Bu iki madde 2026-09-03'e kadar "16 ışık hâlâ Mixed" ve "occlusion hiç
-> pişirilmedi" diye yazıyordu; ikisi de yanlıştı.** Sahne dosyasındaki
-> `m_Lightmapping: 2` **Baked** demek, Mixed değil (`LightmapBakeType`:
-> Mixed=1, Baked=2, Realtime=4) — ışıklar en baştan doğru pişmişti. Occlusion
-> da pişmişti: `OcclusionCullingData.asset` diskte duruyordu ve commit'e bile
-> girmişti, ama pişirme sonrası sahne kaydedilmediği için referansı
-> kaybolmuştu. Düzeltildiğinde asset **bayt bayt aynı** kaldı, yani veri baştan
-> beri geçerliydi — eksik olan tek şey sahnedeki o satırdı.
->
-> Ders: durumu belgeye bakarak değil, **sahne dosyasından okuyarak** doğrula.
-> "Diskte dosya var" pişmiş demek değil.
+"Lambalar ışık vermiyor" şikâyeti tek bir hata değil, üst üste binmiş dört
+ayrı sebep çıktı. Ayrıntılar bölüm 3'te:
+
+- Pişirme sonrası **sahne kaydedilmiyordu** — occlusion verisi diskte duruyor
+  ama sahne ona bakmıyordu.
+- Giydirme bayrağı prefabın **alt objelerine** yazılmıyordu; lamba gövdeleri
+  lightmap'e hiç girmiyordu. `Işığı Pişir`'e **adım 0** eklendi.
+- **Pişirici ters-kare düşüş kullanıyor**, gerçek zamanlı ise affedici bir
+  eğri. Aynı `0.75` iki modda bambaşka sonuç veriyor — ışığın tamamı tavanda
+  toplanıyordu. Ölçümle doğrulandı (`Pişmiş ışığı ÖLÇ` düğmesi eklendi).
+- Kapılar hareketli olduğu için **tam Baked onları hiç görmüyordu**; ışık
+  kapalı kapıdan geçiyordu. **Mixed (Shadowmask)**'e geçildi.
+
+Ardından **harita karartıldı** (bölüm 5): ortam 0.018 → 0.006, sis rengi
+0.02 → 0.008, yansıma 1 → 0.2, `indirectScale`/`albedoBoost` 2/1.6 → 1/1.
+Ölçüt tek cümle: **fenersiz görülmemeli.**
+
+> Bu oturumun en pahalı dersi: **bir teşhis çürüdüğünde, o teşhis için yapılan
+> değişiklikleri de geri al.** `indirectScale`/`albedoBoost` yanlış bir teşhis
+> için konmuştu, teşhis düştü ama çarpanlar kaldı ve sonraki sorunun sebebi
+> oldu. Aynı şekilde eklenen bir "şiddet çarpanı" geri alma adımında dengesiz
+> bölme yapıp haritayı büsbütün karartmıştı.
+
+#### 2. Canavar ve denge
+
+- **Fener kaldırıldı.** Yerine kırmızı **hâle** (gövdede, 10 m) ve kırmızı
+  **huzme** (kamerada, 13 m) geldi; huzme kapatılamıyor (bölüm 5).
+- **Taban koşu 420 → 380 u/s**, yani kaçanınkinin %5 *altında*. Canavar
+  kovalamacaya geride başlıyor, öne geçmesi tamamen hız payına bağlı.
+  `boostMinSpeed` de 380 → 340 yapılmak zorundaydı, yoksa pay hiç dolmazdı.
+- Saldırı ve yakalama boyunca **bakış kilitli** (`lockYawLimit` = 0): savurmak
+  artık bir taahhüt.
+
+#### 3. Terminal ve çıkış
+
+- Her terminal **göstergesiyle aynı renkte az ışık** döküyor.
+- **Çalışma ve uyarı sesi** eklendi (kullanıcının verdiği dosyalar). Çalışma
+  sesi E'ye basar basmaz başlıyor ve kesintisiz.
+- **Alarm süreli**: kaçanın hatasında ses + yanıp sönen kırmızı, süre bitince
+  sabit kırmızı ve sessizlik. Canavarın kurduğu kilit hiç ötmüyor (bölüm 11.4).
+- Alarm ışığı **sesin anlık genliğinden** sürülüyor — ayrı sayaç kullanılsaydı
+  ikisi zamanla kayardı (bölüm 12).
+- **Çıkış kapısı sessizdi**, çünkü ses aracı yalnızca `Harita/Kapilar` altını
+  tarıyordu; artık sahnedeki bütün `SlidingDoor`'ları buluyor. Çıkış kilit
+  paneli de terminalle aynı çalışma sesini kullanıyor.
+
+#### 4. Ağ: internetten oynama
+
+**Edgegap denendi ve bırakıldı.** Mirror kutuda getiriyordu, entegrasyon
+yazıldı ve kod tarafı çalıştı; ama ücretsiz katmanda lobi servisi bir türlü
+dağıtılamadı (`status: Error`, boş `url`, destekten dönüş yok). Çalıştırılamayan
+bir servis kullanılamaz — Edgegap'e ait her şey projeden **tamamen silindi**.
+
+**EOS (Epic Online Services) kuruldu ve ÇALIŞIYOR.** Lobi kurulduğunda kod 32
+karakterlik EOS ürün kimliği olarak geliyor ve ekran "İnternet odası" diyor.
+Buraya gelene kadar dört engel aşıldı, hepsi bölüm 9'da yazılı: Mirror'ın hata
+olayının imzası · SDK kütüphanesinin koda gömülü yolu · `LoadLibrary`'nin ileri
+eğik çizgiyi kabul etmemesi ve ANSI dönüşümü · girişin asenkron olması.
+
+Lobi **iki transport** arasında seçim yapıyor (bölüm 13): EOS hazırsa internet
+odası, değilse yerel oda. Katılma alanı hem kodu hem ham IP'yi alıyor.
+
+---
+
+### Sıradaki adımlar
+
+**1. Bekleyen araç çalıştırması:** `Yakalamaca > Menü Kur`. Katılma alanının
+karakter sınırı (15 → 64) ve doğrulaması ile lobi kodu satırının taşması bu
+araçla yazılıyor; kodu değiştirmek tek başına yetmiyor. Araç artık EOS
+bağlantısını bozmuyor.
+
+**2. EOS'u iki makineyle dene.** Tek belirsizlik bu.
+**Aynı bilgisayarda test edilemez** — kimlik cihaz başına üretiliyor, iki kopya
+aynı `ProductUserId`'yi alıyor ve kendine bağlanmış oluyor (bölüm 13). Host
+katılım gelene kadar lobide açık kalmalı.
+
+**3. Denge ölçümü.** Bütün sayılar hâlâ tahmin; EOS çalışınca arkadaşlarla
+ölçülecek (bölüm 10, madde 7).
+
+**Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
+bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
+
+**Küçük tutarsızlık:** `Terminal.alarmDuration` kodda 10, sahnede elle 20
+yapıldı. Sahne değeri geçerli; bileşen yeniden eklenirse 10'a döner.
 
 **Hiç başlanmamış:** yakınlık sesi (kalp atışı — **ses dosyası oyuncudan
-gelecek, sentezlenmeyecek**) · yakınlık sesli sohbet.
+gelecek, sentezlenmeyecek**) · sesli sohbet · canavarın havada animasyonu.
 
 **Kapsam dışı bırakıldı:** fener pili. Fener açık/kapalı olarak kalıyor, şarj
 ya da tükenme mekaniği olmayacak (2026-09-03 kararı).
-
-**Test edilip çalıştığı doğrulanan (2026-08-29):** terminal doldurma, yön tuşu
-sınavı, kilitlenme, kilit açma örüntüsü, canavarın kilitleme yetkisi, çıkış
-kapısı · menü, lobi ve ayarlar akışının tamamı (lobi kurma, kodla katılma,
-kadro senkronu, hazır işareti, tur başlatma, tur bitince lobiye dönüş, odadan
-ayrılma, tuş atama ekranı) · canavarın araba modeli hareketi · canavar modeli,
-animasyonları ve saldırı akışı.
-
-**Bu oturumda oynanışta doğrulananlar (2026-09-03):** çıkış akışının TAMAMI —
-kilit paneli, on adımlık yön dizilimi, yanlış tuşta başa sarma, dizilim bitince
-kapının açılması, kapıdan geçen kaçanın izleyici moduna düşmesi · çıkış
-kapısının kit gövdesi ve sahanlığı · eğilme kamerası · kaçan modelinin
-locomotion animasyonları · materyal onarımı (canavar ve kaçan artık kendi
-dokularıyla görünüyor) · düğmelerin tek tek basılması · fenerin ağ üzerinden
-doğru çalışması.
-
-**Bu oturumda bulunan ama HENÜZ ÇÖZÜLMEYEN:** yakalama ve ölme animasyonlarının
-göreli duruşu (bölüm 17, bilinen eksikler).
-
-**Harita elden geçirildi (2026-09-03).** Elle düzenlendi: duvar panelleri, zemin
-karoları, EXIT tabelası eklendi, terminaller elle yerleştirildi. Bundan sonra
-haritayı silen araçlar çalıştırılmayacak — bkz. bölüm 0'daki kural.
-
-**Sırada lightmap + occlusion pişirme var.** İkisi de haritaya eklenen her
-static parçayla geçersiz olduğu için sona bırakılmıştı; harita kesinleştiğine
-göre artık yapılabilir (bölüm 3 ve 10).
 
 ---
 
@@ -1053,13 +1090,14 @@ Mirror'ın hata olayının imzası · SDK kütüphanesinin koda gömülü yolu �
 `LoadLibrary`'nin ileri eğik çizgiyi kabul etmemesi ve ANSI dönüşümü ·
 EOS girişinin asenkron olması.
 
-**Kalan: iki makine arasında bağlantı denemesi.**
+**Kurulum:** paket
+`Assets/Plugins/Mirror/Runtime/Transport/EpicOnlineTransport` altında (dört
+yerel yama, bölüm 9), Epic portalında ürün ve istemci açık, `EosApiKey`
+dolduruldu, `Yakalamaca > EOS Kurulumu (relay)` bileşenleri kurup lobiye
+bağlıyor. Lobi iki transport arasında seçim yapıyor (bölüm 13).
 
-**Eski durum notu (kuruldu, doğrulama bekliyor):** Paket
-`Assets/Plugins/Mirror/Runtime/Transport/EpicOnlineTransport` altında (tek
-uyumsuzluk düzeltildi, bölüm 9), Epic portalında ürün ve istemci açıldı,
-`EosApiKey` dolduruldu, `Yakalamaca > EOS Kurulumu (relay)` bileşenleri kurup
-lobiye bağlıyor. Lobi iki transport arasında seçim yapıyor (bölüm 13).
+**Kalan tek belirsizlik: iki makine arasında bağlantı denemesi.** Aynı
+bilgisayarda test edilemiyor — sebebi bölüm 13'te.
 
 **Kalan iki adım:**
 
@@ -1734,7 +1772,11 @@ kurduğu için hepsi bir sonraki çalıştırmada uçuyor.
 hatasız geliyor — Mixamo'ya rig için yüklemeye gerek yok, animasyonlar
 `Copy From Other Avatar` ile retarget ediliyor.
 
-**Kaçan hâlâ kapsül.** Bebek yalnızca canavarda; insan kiti sonra gelecek.
+**Kaçanın kendi modeli var** (Banana Man, bölüm 17). Burada uzun süre "kaçan
+hâlâ kapsül" yazıyordu; model 2026-08-30'da bağlandı ve bu satır güncellenmeden
+kaldı. Kapsül yalnızca **yer tutucu** olarak duruyor: `Kaçan Modelini Kur` hiç
+çalıştırılmamış bir projede kimse görünmez olmasın diye.
+
 `PlayerBodyVisual` rol değişince gövdeyi değiştiriyor ve üçüncü bir gövde
 eklemek çağıranların hiçbirini değiştirmiyor.
 
