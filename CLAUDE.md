@@ -1401,6 +1401,16 @@ kaçıyor:
 - **Anahtarın başındaki `token ` öneki sorun değil**, pencere onu kendi
   kırpıyor (`LobbyApi.TrimApiKey`). Panelden kopyaladığını olduğu gibi
   yapıştırabilirsin.
+- **Bekleme ekranındayken pencerenin geri kalanı çizilmiyor.** `OnGUI`,
+  `waitingCreate`/`waitingStatus` doğruyken en başta `return` ediyor; yani
+  "Terminate existing deploy" düğmesi orada ama görünmüyor. Kurtarmak için
+  pencereyi kapatıp yeniden açmak gerekiyor.
+- **`Latest status: Error` son duraktır, beklemekle geçmez.** Döngü yalnızca
+  `url` dolunca ya da HTTP hatası gelince duruyor; `Error` durumunda ikisi de
+  olmadığı için pencere sonsuza kadar sorgu atar. Lobi servisi Edgegap
+  tarafında oluşmuş ama dağıtımı başarısız olmuş demektir.
+- **Lobi servisi panelde `Deployments` altında görünmüyor**, çünkü o bir
+  dedicated server dağıtımı değil. Yeri: sol menüde **Relays (P2P) → Relays**.
 
 Anahtar hiçbir yere kaydedilmiyor. `lobbyUrl`'ü kaybedersen **aynı adla**
 tekrar oluştur: yenisini kurmuyor, mevcut servisi buluyor.
@@ -1410,8 +1420,10 @@ menüye döndürüp sebebi yazıyor — aksi hâlde "Oda kuruluyor…" ekranınd
 kadar asılı kalırdı, çünkü **host tarafında bağlanma zaman aşımı yok**
 (`connectTimer` yalnızca katılmada kuruluyor).
 
-**Ücretsiz katman:** 50 eşzamanlı bağlantı, aylık 160 GB. Lobi başına 5 kişi
-demek 10 eşzamanlı oda demek — test ve küçük bir çıkış için fazlasıyla yeter.
+**Ücretsiz katman:** panelde **20 eşzamanlı bağlantı** görünüyor (Relays
+ekranı, "0 of 20 Players Connected"). Fiyat sayfası 50 diyor; geçerli olan
+paneldeki sayı. Lobi başına 5 kişi demek **4 eşzamanlı oda** demek — test için
+yeterli, geniş bir çıkış için değil.
 
 ### Yetki: arayüz tahmin eder, sunucu karar verir
 
