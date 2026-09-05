@@ -13,7 +13,13 @@ public enum GameAction
     Crouch,
     Interact,
     Flashlight,
-    Attack
+    Attack,
+
+    /// <summary>Bas-konuş. Sesli sohbet ayarlarda bu moddayken kullanılıyor.</summary>
+    PushToTalk,
+
+    /// <summary>Kadro/ping/ses paneli. Basılı tutma değil, aç-kapa.</summary>
+    Scoreboard
 }
 
 /// <summary>
@@ -63,6 +69,11 @@ public static class KeyBindings
             case GameAction.Interact: return KeyCode.E;
             case GameAction.Flashlight: return KeyCode.F;
             case GameAction.Attack: return KeyCode.Mouse0;
+
+            // V: WASD'nin dibinde ve hareket tuşlarıyla çakışmıyor. Sesli
+            // sohbette yaygın varsayılan, oyuncu tanıyor.
+            case GameAction.PushToTalk: return KeyCode.V;
+            case GameAction.Scoreboard: return KeyCode.Tab;
             default: return KeyCode.None;
         }
     }
@@ -143,6 +154,8 @@ public static class KeyBindings
             case GameAction.Interact: return "Etkileşim";
             case GameAction.Flashlight: return "Fener";
             case GameAction.Attack: return "Saldırı (canavar)";
+            case GameAction.PushToTalk: return "Bas-konuş";
+            case GameAction.Scoreboard: return "Oyuncu paneli";
             default: return action.ToString();
         }
     }

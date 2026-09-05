@@ -165,6 +165,38 @@ public class RoundParticipant : NetworkBehaviour
     private TestRunnerBot bot;
     private NetworkTransformBase netTransform;
 
+    /// <summary>
+    /// Bu oyuncunun sunucuya gidiş-dönüş süresi (ms). Skor tablosu gösteriyor.
+    ///
+    /// **Sahibi bildiriyor, sunucu yazıyor.** Mirror'ın `NetworkTime.rtt`'si
+    /// yalnızca yerel istemcide anlamlı; sunucunun her bağlantı için aynı
+    /// ölçümü kendi yapması da mümkün ama Mirror bunu her sürümde aynı yerde
+    /// vermiyor. Bildirmek hem taşınabilir hem tek satır.
+    ///
+    /// Bu bir OYUN kararı değil, bir gösterge — yanlış bildiren bir istemci
+    /// yalnızca kendi pingini yanlış gösterir.
+    /// </summary>
+    [SyncVar] private int pingMs;
+
+    public int PingMs => pingMs;
+
+    private float nextPingReport;
+
+    private void Update()
+    {
+        if (!isOwned || !NetworkClient.active || Time.unscaledTime < nextPingReport)
+            return;
+
+        // Saniyede bir yetiyor: ping göstergesi anlık değil eğilim bilgisi ve
+        // her karede komut yollamak boşuna trafik.
+        nextPingReport = Time.unscaledTime + 1f;
+
+        CmdReportPing(Mathf.RoundToInt((float)NetworkTime.rtt * 1000f));
+    }
+
+    [Command]
+    private void CmdReportPing(int value) => pingMs = Mathf.Clamp(value, 0, 9999);
+
     private void Awake()
     {
         playerController = GetComponent<PlayerController>();

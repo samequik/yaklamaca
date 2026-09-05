@@ -175,6 +175,35 @@ public static class NetworkSetup
 
         FootstepAudio footsteps = root.AddComponent<FootstepAudio>();
 
+        // --- Sesli sohbet ---
+        //
+        // Konuşma kendi AudioSource'unda ve 3B: konum ipucu veriyor ve mağara
+        // yankısına kendiliğinden giriyor (bölüm 12). Kişi başı ses seviyesi de
+        // buradan geliyor, AudioMixer gerekmiyor.
+        //
+        // Menzil ayak sesinden kısa (18 m): konuşmanın koridor boyu taşınması
+        // fısıltıyla plan yapmayı anlamsız kılardı. Sunucu da aynı mesafede
+        // süzüyor (VoiceChat.hearingRange) — buradaki yalnızca sönümlenme.
+        AudioSource voiceSource = root.AddComponent<AudioSource>();
+        voiceSource.playOnAwake = false;
+        voiceSource.spatialBlend = 1f;
+        voiceSource.rolloffMode = AudioRolloffMode.Linear;
+        voiceSource.minDistance = 3f;
+        voiceSource.maxDistance = 18f;
+
+        VoicePlayback voicePlayback = root.AddComponent<VoicePlayback>();
+        VoiceCapture voiceCapture = root.AddComponent<VoiceCapture>();
+        VoiceChat voiceChat = root.AddComponent<VoiceChat>();
+
+        SerializedObject serializedPlayback = new SerializedObject(voicePlayback);
+        serializedPlayback.FindProperty("source").objectReferenceValue = voiceSource;
+        serializedPlayback.ApplyModifiedProperties();
+
+        SerializedObject serializedVoice = new SerializedObject(voiceChat);
+        serializedVoice.FindProperty("playback").objectReferenceValue = voicePlayback;
+        serializedVoice.FindProperty("capture").objectReferenceValue = voiceCapture;
+        serializedVoice.ApplyModifiedProperties();
+
         // Bıçak sesi ayrı kaynakta: ayak sesiyle aynı AudioSource'u paylaşsalar
         // savurma, koşarken çalan adımı keserdi.
         AudioSource attackSource = root.AddComponent<AudioSource>();

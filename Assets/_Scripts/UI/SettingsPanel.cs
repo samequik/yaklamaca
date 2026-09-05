@@ -3,15 +3,17 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Seçenekler ekranı. Şimdilik gerçekten işleyen iki ayar var: fare hassasiyeti
-/// ve ses seviyesi. Diğerleri eklendikçe buraya biner.
+/// Seçenekler ekranı: oyuncu adı, fare hassasiyeti, ters bakış.
 ///
-/// Değerler PlayerPrefs'e yazılıyor ki oyun kapanınca kaybolmasın.
+/// **Ses buradan ÇIKARILDI** (2026-09-06). Genel ses ve sesli sohbetin altı
+/// ayarı da buradayken ekran alt alta sığmıyordu; hepsi `AudioPanel`'e taşındı
+/// ve buraya bir SES düğmesi kondu. Tuş atamaları zaten öyleydi — seçenekler
+/// artık kategori kapısı, ayar deposu değil.
+///
+/// Değerler PlayerPrefs'te, oyun kapanınca kaybolmasın diye.
 /// </summary>
 public class SettingsPanel : MonoBehaviour
 {
-    private const string VolumeKey = "Ayar_SesSeviyesi";
-
     [Header("Oyuncu Adı")]
     [Tooltip("itch.io'da Steam gibi hazır isim yok; oyuncu kendi adını giriyor.")]
     [SerializeField] private TMP_InputField nameField;
@@ -20,10 +22,6 @@ public class SettingsPanel : MonoBehaviour
     [SerializeField] private Slider sensitivitySlider;
     [SerializeField] private TMP_Text sensitivityLabel;
     [SerializeField] private Vector2 sensitivityRange = new Vector2(0.5f, 6f);
-
-    [Header("Ses")]
-    [SerializeField] private Slider volumeSlider;
-    [SerializeField] private TMP_Text volumeLabel;
 
     [Header("Bakış")]
     [Tooltip("Ters bakış düğmesinin yazısı; durumu üstünde gösteriyor.")]
@@ -41,12 +39,6 @@ public class SettingsPanel : MonoBehaviour
             sensitivitySlider.onValueChanged.AddListener(_ => ApplySensitivity());
         }
 
-        if (volumeSlider != null)
-        {
-            volumeSlider.value = PlayerPrefs.GetFloat(VolumeKey, 0.8f);
-            volumeSlider.onValueChanged.AddListener(_ => ApplyVolume());
-        }
-
         if (nameField != null)
         {
             nameField.characterLimit = PlayerProfile.MaxNameLength;
@@ -58,7 +50,6 @@ public class SettingsPanel : MonoBehaviour
         }
 
         ApplySensitivity();
-        ApplyVolume();
         RefreshInvert();
     }
 
@@ -118,16 +109,4 @@ public class SettingsPanel : MonoBehaviour
             sensitivityLabel.SetText("Fare hassasiyeti: {0:1}", value);
     }
 
-    private void ApplyVolume()
-    {
-        if (volumeSlider == null)
-            return;
-
-        AudioListener.volume = volumeSlider.value;
-
-        if (volumeLabel != null)
-            volumeLabel.SetText("Ses: {0}%", Mathf.RoundToInt(volumeSlider.value * 100f));
-
-        PlayerPrefs.SetFloat(VolumeKey, volumeSlider.value);
-    }
 }

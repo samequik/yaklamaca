@@ -19,6 +19,7 @@ public class MenuController : MonoBehaviour
         NameEntry,   // ilk girişte bir kez
         Main,
         Settings,
+        Audio,       // ses ve sesli sohbet
         Controls,    // tuş atamaları
         Lobby,       // oda: kadro, hazır, canavar seçimi, başlat
         JoinLobby,   // kod girme
@@ -29,6 +30,7 @@ public class MenuController : MonoBehaviour
     [SerializeField] private GameObject nameEntryPanel;
     [SerializeField] private GameObject mainPanel;
     [SerializeField] private GameObject settingsPanel;
+    [SerializeField] private GameObject audioPanel;
     [SerializeField] private GameObject controlsPanel;
     [SerializeField] private GameObject lobbyPanel;
     [SerializeField] private GameObject joinLobbyPanel;
@@ -64,6 +66,9 @@ public class MenuController : MonoBehaviour
     /// <summary>Menü açık mı — başka sistemler duraklamayı buradan öğrenebilir.</summary>
     public bool IsOpen => current != Screen.None;
 
+    // Menü kapalıyken de imleci serbest bırakan kaplamalar (skor tablosu).
+    private bool overlayOpen;
+
     /// <summary>
     /// Sahnedeki tek menü. Oyuncu prefabı doğduğunda imleci kilitleyip
     /// kilitlemeyeceğini buradan soruyor (bkz. NetworkPlayerSetup).
@@ -92,7 +97,7 @@ public class MenuController : MonoBehaviour
         // haritada dolaşılabiliyordu.
         if (NetworkClient.localPlayer != null
             && NetworkClient.localPlayer.gameObject != resolvedPlayer)
-            ApplyGameplayState(IsOpen);
+            ApplyGameplayState(IsOpen || overlayOpen);
 
         // Faz, ekran değişmeden de değişebiliyor (tur sunucudan başlatılınca).
         ApplyBackdrop();
@@ -119,6 +124,10 @@ public class MenuController : MonoBehaviour
                 Show(settingsReturn);
                 break;
 
+            // Ses ve tuş atamaları seçeneklerin ALTINDA duruyor: Esc bir üst
+            // ekrana, yani seçeneklere dönüyor. Oradaki Esc de geldiği yere
+            // (ana menü ya da duraklatma) dönüyor, yani zincir kırılmıyor.
+            case Screen.Audio:
             case Screen.Controls:
                 Show(Screen.Settings);
                 break;
@@ -170,6 +179,11 @@ public class MenuController : MonoBehaviour
     /// <summary>Seçenekler ekranındaki "TUŞ ATAMALARI" düğmesi.</summary>
     public void ShowControls() => Show(Screen.Controls);
 
+    /// <summary>Ses ekranı. Seçeneklerin altında; GERİ oraya dönüyor.</summary>
+    public void ShowAudio() => Show(Screen.Audio);
+
+    public void CloseAudio() => Show(Screen.Settings);
+
     /// <summary>Tuş atama ekranındaki GERİ düğmesi — her zaman Seçenekler'e döner.</summary>
     public void CloseControls() => Show(Screen.Settings);
     public void ShowJoinLobby() => Show(Screen.JoinLobby);
@@ -196,12 +210,13 @@ public class MenuController : MonoBehaviour
         SetActive(nameEntryPanel, screen == Screen.NameEntry);
         SetActive(mainPanel, screen == Screen.Main);
         SetActive(settingsPanel, screen == Screen.Settings);
+        SetActive(audioPanel, screen == Screen.Audio);
         SetActive(controlsPanel, screen == Screen.Controls);
         SetActive(lobbyPanel, screen == Screen.Lobby);
         SetActive(joinLobbyPanel, screen == Screen.JoinLobby);
         SetActive(pausePanel, screen == Screen.Pause);
 
-        ApplyGameplayState(IsOpen);
+        ApplyGameplayState(IsOpen || overlayOpen);
         ApplyBackdrop();
     }
 
@@ -225,6 +240,22 @@ public class MenuController : MonoBehaviour
             && RoundManager.Instance.Phase == RoundPhase.Playing;
 
         SetActive(backdrop, IsOpen && !inRound);
+    }
+
+    /// <summary>
+    /// Menü dışında bir kaplama (skor tablosu) açıldığını bildirir.
+    ///
+    /// İmleç ve bakış yönetimi tek yerde kalmalı: iki bileşen birden
+    /// `Cursor.lockState` yazmaya kalkarsa hangisinin kapattığı duruma göre
+    /// değişir ve oyuncu bazen imleçsiz kalır.
+    /// </summary>
+    public void SetOverlayOpen(bool value)
+    {
+        if (overlayOpen == value)
+            return;
+
+        overlayOpen = value;
+        ApplyGameplayState(IsOpen || overlayOpen);
     }
 
     private void ApplyGameplayState(bool menuOpen)

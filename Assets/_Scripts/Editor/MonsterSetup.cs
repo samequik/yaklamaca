@@ -46,8 +46,21 @@ public static class MonsterSetup
     ///
     /// `RunnerSetup` bunu okuyor: ölüm pozunda kurbanı aynı ölçeğe çıkarmak
     /// için oran gerekiyor ve sayı iki yere elle yazılmamalı.
+    ///
+    /// **1.18 → 1.30 (2026-09-06),** haritada daha heybetli dursun diye.
+    /// Ekrandaki boy 1.619 → 1.784 m. Değiştirince **iki aracı da** yeniden
+    /// çalıştır (önce canavar, sonra kaçan): ölüm pozunun ölçek eşitlemesi bu
+    /// sayının oranından geliyor.
+    ///
+    /// **Çarpışma kutusuna dokunmuyor** — hull 1.372 m'de kalıyor. Canavar
+    /// nişan ALAN taraf, nişan alınan değil; görünen gövdenin kutudan büyük
+    /// olması isabeti bozmuyor (kaçanda çarpan 1, tam da bu yüzden).
+    ///
+    /// Büyütmenin iki sessiz bedeli var: ölüm pozunda kurban da aynı oranda
+    /// şişiyor (2.6 saniye, yerde yatarken) ve kamera modelin daha da aşağısına
+    /// düşüyor — gerekirse `MovementProfile.eyeHeightOffset` yeniden ayarlanır.
     /// </summary>
-    public const float ExtraScale = 1.18f;
+    public const float ExtraScale = 1.30f;
 
     // Klip adları: dosya adında "@" sonrası kısım.
     private const string LungeClipKey = "attack";

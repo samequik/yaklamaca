@@ -173,7 +173,10 @@ yüksek bir yer yok ve canavar zıplayamıyor, yani o durum hiç oluşmuyor.
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
 
 **Hiç başlanmamış:** yakınlık sesi (kalp atışı — **ses dosyası oyuncudan
-gelecek, sentezlenmeyecek**) · sesli sohbet.
+gelecek, sentezlenmeyecek**).
+
+**Sesli sohbet yazıldı** (2026-09-06, bölüm 19) ama **iki makinede
+denenmedi** — tek makinede kendi sesini kendine göndermiyoruz.
 
 **Kapsam dışı bırakıldı:**
 - **Fener pili.** Fener açık/kapalı olarak kalıyor, şarj ya da tükenme
@@ -1079,7 +1082,7 @@ Prefabtan okunan gerçek değerler:
 
 | | Gövde kökü yerel konumu | Yerel ölçek | Ekranda boy |
 |---|---|---|---|
-| Canavar (KillerDoll) | `(0, -0.6858, 0)` | 0.7048 | **1.619 m** |
+| Canavar (KillerDoll) | `(0, -0.6858, 0)` | 0.7048 | **1.619 m** (bugün 1.784) |
 | Kaçan (Banana Man) | `(0, -0.6858, 0)` | 0.8630 | **1.372 m** |
 
 İki gövde kökü de hull'un tabanında, aynı yerel konumda — `ApplyDeathPose` de
@@ -2845,8 +2848,9 @@ yatıyor — kural değil, `killerNetId` sıfır olduğu için doğal sonuç.
 
 ### Ölçek: canavardan farklı
 
-Canavarda hull boyunun üstüne **1.18** çarpanı var — kovalayan şeyin olduğundan
-büyük görünmesi istenen etki. Kaçanda çarpan **1**: canavar ona nişan alıyor,
+Canavarda hull boyunun üstüne **1.30** çarpanı var (2026-09-06'da 1.18'den
+büyütüldü) — kovalayan şeyin olduğundan büyük görünmesi istenen etki. Ekrandaki
+boy 1.784 m; çarpışma kutusu 1.372 m'de kalıyor. Kaçanda çarpan **1**: canavar ona nişan alıyor,
 görünen gövde çarpışma kutusuyla örtüşmeli. Şişirilmiş bir kaçan, isabet etmesi
 gerekirken etmeyen vuruşlar üretirdi.
 
@@ -2969,3 +2973,152 @@ bir ara yeşildi; panelin kimliği renkten geldiği için sönük sarıya çevri
   sıradakini aramak zorunda kalmıyor.
 - Panel tam ekran değil, bilerek: panel başındaki oyuncunun tek savunması
   etrafını duyup görebilmek.
+
+---
+
+## 19. Sesli sohbet
+
+Yakınlık tabanlı konuşma. Kendi kodumuz: **yeni paket yok.** Dissonance
+ücretli olduğu için elendi, Vivox 3B karışımı sunucuda yaptığı için mağara
+yankısıyla çelişiyordu (bölüm 10, madde 6).
+
+### Sıkıştırma: µ-law, 8 kHz, 20 ms
+
+`VoiceCodec` — G.711, telefon standardı, otuz satır. Her örnek 16 bitten 8
+bite iniyor: konuşurken **64 kbit/s**. Opus 24 kbit/s'e indirirdi ama bir
+paket daha demekti (bölüm 0). Dar geldiği gün değişecek tek yer bu dosya;
+çağıranlar çerçevenin nasıl sıkıştığını bilmiyor.
+
+8 kHz telefon kalitesi: konuşma tamamen anlaşılır, tiz kaybı korku oyununda
+telsiz hissi bile veriyor. Yönü belirleyen şey içerik değil Unity'nin 3B
+panlaması, o yüzden bant genişliği yön ipucunu bozmuyor.
+
+### Kimin duyacağına SUNUCU karar veriyor
+
+| Durum | Kim duyar |
+|---|---|
+| Lobide / tur bitince | Herkes herkesi, mesafesiz |
+| Turda, sahadakiler | Yalnızca 18 m içinde |
+| Elenenler kendi aralarında | Hepsi, mesafesiz |
+| **Elenen → sahadaki** | **Duyulmaz** |
+
+Herkese yollayıp istemcide mesafe süzmek daha kolay olurdu ama o zaman
+konuşanın sesi ve dolaylı olarak **yeri** tüm istemcilere giderdi — bölüm
+4'teki "istemciye görmesi gerekmeyen bilgiyi gönderme" kuralı, izlerin
+yalnızca canavara gönderilmesiyle aynı gerekçe.
+
+**Ölüler yaşayanlardan koparıldı, bilerek.** Bölüm 5 elenen oyuncunun canavarı
+izleyememesini "sesli konuşulan bir oyunda doğrudan hile olurdu" diye
+gerekçelendiriyor; aynı gerekçe sese birebir uyuyor. Ölüler kendi aralarında
+serbestçe konuşuyor — izleyicilik cezalandırılmamalı.
+
+Kanal **unreliable**: geciken bir ses çerçevesi işe yaramaz, yeniden gönderimi
+yalnızca gecikmeyi büyütür. Kayıp çerçevenin karşılığı 20 ms'lik bir boşluk ve
+jitter tamponu onu yutuyor.
+
+### Oynatma: ses thread'i çekiyor, biz itmiyoruz
+
+`VoicePlayback` akan bir `AudioClip` kuruyor (`stream: true`); klip her
+istendiğinde geri çağrıyı tetikliyor, yani zamanlamayı ses motoru yönetiyor.
+Alternatif (`SetData` ile döngüsel klibe yazmak) okuma/yazma kafalarını elle
+senkronlamayı gerektiriyor ve kayma biriktikçe cızırdıyor.
+
+Halka tampon **tek üretici–tek tüketici**: ana thread yalnızca `writeIndex`'i,
+ses thread'i yalnızca `readIndex`'i yazıyor, ikisi de `volatile`. **Kilit yok,
+bilerek** — ses thread'inde kilit beklemek doğrudan cızırtı demek. Tampon
+dolarsa YENİ çerçeve atılıyor; eskiyi atmak ses thread'inin okuduğu yere
+dokunmak olurdu.
+
+Çalmadan önce 80 ms biriktiriliyor (jitter tamponu): gecikme pahasına
+kesintisizlik. Boşalırsa yeniden birikmeyi bekliyor.
+
+**Mimarinin öngördüğü iki şey tuttu.** Konuşma oyuncunun üstündeki 3B
+kaynaktan çaldığı için **mağara yankısı bedavaya geldi** (bölüm 12 bunu baştan
+yazmıştı) ve kişi başı seviye `AudioSource.volume`'dan geldiği için
+**AudioMixer gerekmedi** — ki script'ten kurulamıyor.
+
+### Mikrofon göstergesi (sağ üst)
+
+İki ayrı soruyu cevaplıyor ve karıştırılmaları en sinir bozucu durumu üretir
+(konuştuğunu sanıp kimsenin duymaması):
+
+- **Çubuk her zaman** mikrofonun duyduğu seviyeyi gösteriyor — gönderilmese
+  bile. Bas-konuşa basmadan önce mikrofonun çalıştığını görüyorsun.
+- **Renk** gönderimi söylüyor: sönük gri = duyuyor ama göndermiyor, kırmızı =
+  gidiyor.
+- Otomatik modda çubuğun üstünde **eşik çizgisi** var. Eşiği körlemesine
+  ayarlamak imkânsızdı.
+
+Seviye **karekökle** çiziliyor: RMS doğrusal, kulak logaritmik; ham değerle
+normal konuşma çubuğun ilk beşte birinde kalıp okunmuyordu. Çubuk hızlı çıkıp
+yavaş iniyor — aynı numara kilitli terminalin alarm ışığında da var (bölüm 12).
+
+Simge **üç dikdörtgenle** çiziliyor, harfle değil: varsayılan TMP fontu
+yalnızca temel Latin kapsıyor ve mikrofon emojisi boş kutuya dönerdi (lobi
+etiketlerinde bir kez yaşandı).
+
+### TAB paneli: basılı tutma DEĞİL, aç-kapa
+
+`ScoreboardPanel` kadroyu, pingi ve kişi bazlı ses ayarını gösteriyor.
+
+Susturma düğmesine ve kaydırıcıya tıklamak **imleç gerektiriyor**, turda ise
+imleç kilitli — basılı tutulan bir panelde bunlara ulaşmanın yolu yok. Bu
+yüzden tuş aç-kapa çalışıyor ve panel açıkken imleç serbest bırakılıp bakış
+kesiliyor. Mekanizma duraklatma menüsünün kullandığının aynısı
+(`MenuController.SetOverlayOpen`) — imleç yönetimi tek yerde kalmalı, iki
+bileşen birden `Cursor.lockState` yazarsa oyuncu bazen imleçsiz kalıyor.
+
+**Ses ayarı ağa gitmiyor:** susturma ve kişisel seviye senin kulağının
+tercihi, karşıdakinin mikrofonuna dokunmuyor. Ağa taşımak kimin kimi
+susturduğunu herkese söylemek olurdu.
+
+**Ping'i sahibi bildiriyor, sunucu yazıyor** (`RoundParticipant.pingMs`,
+saniyede bir). Mirror'ın `NetworkTime.rtt`'si yalnızca yerel istemcide
+anlamlı; sunucunun her bağlantı için aynı ölçümü kendi yapması da mümkün ama
+Mirror bunu her sürümde aynı yerde vermiyor. Ping bir oyun kararı değil
+gösterge — yanlış bildiren istemci yalnızca kendi pingini yanlış gösterir.
+
+### Ayarlar ayrı bir ekranda
+
+Sesli sohbetin altı ayarı seçeneklere eklenince ekran **alt alta sığmadı**:
+ad, fare, ses, ters bakış, altı ses ayarı ve iki düğme. Diğer oyunların
+yaptığı gibi kategoriye ayrıldı.
+
+| Ekran | İçerik |
+|---|---|
+| **SEÇENEKLER** | Ad, fare hassasiyeti, ters bakış + `SES` ve `TUŞ ATAMALARI` kapıları |
+| **SES** (`AudioPanel`) | Genel ses + sesli sohbetin tamamı |
+| **TUŞ ATAMALARI** | Zaten ayrıydı |
+
+Esc zinciri kırılmıyor: ses/tuşlar → seçenekler → geldiği yer (ana menü ya da
+duraklatma).
+
+> **Kaydırıcılar açılışta yanlış değer gösteriyordu.** Mikrofon kazancı hep
+> 4.0x, konuşma sesi %200 çıkıyordu. Sebep: `Slider.value`'ya yazmak
+> dinleyiciyi tetikliyor ve tetiklenen dinleyici **kaydırıcının o anki
+> konumunu ayara geri yazıyor** — yani okunan değerin üstüne varsayılan konum
+> biniyordu. `AudioPanel` artık okuma sırasında bir `suppress` bayrağı
+> kaldırıyor ve değerleri `Awake` yerine **`OnEnable`**'da okuyor: ekran her
+> açılışta güncel değeri gösteriyor.
+>
+> Cihaz adı da düğmeye sığmıyordu ("Microphone (High Definition Audio
+> Device)"). Parantez içi sürücünün adı, ayırt edici olan baş kısım; artık
+> orası kesiliyor ve yazı tek satıra kilitli.
+
+### Kurulum
+
+```
+Yakalamaca > Sesli Sohbet Kur   → prefaba bileşenleri ekler
+Yakalamaca > Menü Kur           → ayarlar, gösterge, TAB paneli, tuş satırları
+```
+
+`Sesli Sohbet Kur` bilerek `Ağ Kurulumu`'ndan ayrı: o araç oyuncu prefabını
+sıfırdan kuruyor, yani üç bileşen için model/menü/ses/yankı/katman zincirinin
+tamamı gerekirdi. `EOS Kurulumu` da aynı gerekçeyle ayrı duruyor. İkisi de
+hiçbir şey silmiyor.
+
+### Bilinen sınır
+
+**Tek makinede denenemez.** Kendi sesini kendine göndermiyoruz, yani yakalama
+zinciri çalışsa bile ağ yolu ancak iki makineyle doğrulanıyor — EOS'taki gibi.
+Sağ üstteki çubuk en azından mikrofonun duyduğunu tek başına gösteriyor.

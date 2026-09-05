@@ -76,12 +76,19 @@ public static class MenuSetup
         GameObject nameEntry = BuildNameEntryPanel(canvasObject.transform, controller);
         GameObject main = BuildMainPanel(canvasObject.transform, controller, network);
         GameObject settings = BuildSettingsPanel(canvasObject.transform, controller);
+        GameObject audio = BuildAudioPanel(canvasObject.transform, controller);
         GameObject controls = BuildControlsPanel(canvasObject.transform, controller);
         GameObject lobby = BuildLobbyPanel(canvasObject.transform, network);
         GameObject joinLobby = BuildJoinLobbyPanel(canvasObject.transform, controller, network);
         GameObject pause = BuildPausePanel(canvasObject.transform, controller, network);
 
-        WireController(controller, nameEntry, main, settings, controls, lobby, joinLobby, pause, backdrop);
+        // HUD parçaları: MenuController'ın panel listesine GİRMİYORLAR, çünkü
+        // ekran değiştikçe açılıp kapanmamaları gerekiyor. Canvas'ın çocuğu
+        // olarak duruyorlar ve görünürlüklerini kendileri yönetiyor.
+        BuildVoiceHud(canvasObject.transform);
+        BuildScoreboard(canvasObject.transform);
+
+        WireController(controller, nameEntry, main, settings, audio, controls, lobby, joinLobby, pause, backdrop);
 
         SerializedObject serializedNetwork = new SerializedObject(network);
         serializedNetwork.FindProperty("menu").objectReferenceValue = controller;
@@ -92,6 +99,7 @@ public static class MenuSetup
         // gerçekten açılacağına MenuController çalışma anında karar veriyor.
         nameEntry.SetActive(false);
         settings.SetActive(false);
+        audio.SetActive(false);
         controls.SetActive(false);
         lobby.SetActive(false);
         joinLobby.SetActive(false);
@@ -206,15 +214,16 @@ public static class MenuSetup
         TMP_Text sensitivityLabel = CreateLabel(column, "Fare hassasiyeti");
         Slider sensitivitySlider = CreateSlider(column);
 
-        TMP_Text volumeLabel = CreateLabel(column, "Ses");
-        Slider volumeSlider = CreateSlider(column);
-
         SettingsPanel settings = panel.AddComponent<SettingsPanel>();
 
         CreateSpacer(column, 10f);
         Button invertButton = AddButton(column, "Ters bakış: kapalı", settings.ToggleInvertLook);
         TMP_Text invertLabel = invertButton.GetComponentInChildren<TextMeshProUGUI>();
 
+        // Ses ve tuşlar birer ALT EKRAN. Hepsi burada dururken ekran alt alta
+        // sığmıyordu; seçenekler artık kategori kapısı.
+        CreateSpacer(column, 14f);
+        AddButton(column, "SES", controller.ShowAudio);
         CreateSpacer(column, 10f);
         AddButton(column, "TUŞ ATAMALARI", controller.ShowControls);
 
@@ -228,12 +237,303 @@ public static class MenuSetup
         serialized.FindProperty("invertLabel").objectReferenceValue = invertLabel;
         serialized.FindProperty("sensitivitySlider").objectReferenceValue = sensitivitySlider;
         serialized.FindProperty("sensitivityLabel").objectReferenceValue = sensitivityLabel;
-        serialized.FindProperty("volumeSlider").objectReferenceValue = volumeSlider;
-        serialized.FindProperty("volumeLabel").objectReferenceValue = volumeLabel;
         serialized.FindProperty("nameField").objectReferenceValue = nameField;
         serialized.ApplyModifiedProperties();
 
         return panel;
+    }
+
+    /// <summary>
+    /// Ses ekranı: genel ses ve sesli sohbetin tamamı.
+    ///
+    /// Seçeneklerden ayrıldı çünkü hepsi bir aradayken ekran alt alta
+    /// sığmıyordu. Durum düğmeleri açılır liste yerine döngü: menü kodla
+    /// kuruluyor ve dropdown çok daha fazla parça demek.
+    /// </summary>
+    private static GameObject BuildAudioPanel(Transform parent, MenuController controller)
+    {
+        GameObject panel = CreatePanel("Panel_Ses", parent);
+        Transform column = CreateColumn(panel.transform, 560f);
+
+        CreateTitle(column, "SES");
+        CreateSpacer(column, 10f);
+
+        AudioPanel audio = panel.AddComponent<AudioPanel>();
+
+        TMP_Text volumeLabel = CreateLabel(column, "Ses");
+        Slider volumeSlider = CreateSlider(column);
+
+        CreateSpacer(column, 14f);
+        CreateLabel(column, "SESLİ SOHBET").color = AccentColor;
+
+        Button enabledButton = AddButton(column, "Sesli sohbet: AÇIK", audio.ToggleVoiceEnabled);
+        TMP_Text enabledLabel = enabledButton.GetComponentInChildren<TextMeshProUGUI>();
+
+        Button modeButton = AddButton(column, "Konuşma: BAS-KONUŞ", audio.ToggleVoiceMode);
+        TMP_Text modeLabel = modeButton.GetComponentInChildren<TextMeshProUGUI>();
+
+        Button deviceButton = AddButton(column, "Mikrofon: —", audio.CycleVoiceDevice);
+        TMP_Text deviceLabel = deviceButton.GetComponentInChildren<TextMeshProUGUI>();
+
+        // Cihaz adı uzun olabiliyor ("Microphone (High Definition Audio
+        // Device)") ve düğmeyi iki satıra taşırıyordu. AudioPanel adı zaten
+        // kısaltıyor; bu ikisi kalanı da tek satırda tutuyor.
+        deviceLabel.enableWordWrapping = false;
+        deviceLabel.overflowMode = TextOverflowModes.Ellipsis;
+
+        TMP_Text micGainLabel = CreateLabel(column, "Mikrofon kazancı");
+        Slider micGainSlider = CreateSlider(column);
+
+        TMP_Text thresholdLabel = CreateLabel(column, "Konuşma eşiği");
+        Slider thresholdSlider = CreateSlider(column);
+
+        TMP_Text voiceVolumeLabel = CreateLabel(column, "Konuşma sesi");
+        Slider voiceVolumeSlider = CreateSlider(column);
+
+        CreateSpacer(column, 12f);
+        AddButton(column, "GERİ", controller.CloseAudio);
+
+        SerializedObject serialized = new SerializedObject(audio);
+        serialized.FindProperty("volumeSlider").objectReferenceValue = volumeSlider;
+        serialized.FindProperty("volumeLabel").objectReferenceValue = volumeLabel;
+        serialized.FindProperty("voiceEnabledLabel").objectReferenceValue = enabledLabel;
+        serialized.FindProperty("voiceModeLabel").objectReferenceValue = modeLabel;
+        serialized.FindProperty("voiceDeviceLabel").objectReferenceValue = deviceLabel;
+        serialized.FindProperty("micGainSlider").objectReferenceValue = micGainSlider;
+        serialized.FindProperty("micGainLabel").objectReferenceValue = micGainLabel;
+        serialized.FindProperty("thresholdSlider").objectReferenceValue = thresholdSlider;
+        serialized.FindProperty("thresholdLabel").objectReferenceValue = thresholdLabel;
+        serialized.FindProperty("voiceVolumeSlider").objectReferenceValue = voiceVolumeSlider;
+        serialized.FindProperty("voiceVolumeLabel").objectReferenceValue = voiceVolumeLabel;
+        serialized.ApplyModifiedProperties();
+
+        return panel;
+    }
+
+    /// <summary>
+    /// Sağ üst köşedeki mikrofon göstergesi: simge + seviye çubuğu + eşik
+    /// çizgisi + tuş ipucu.
+    ///
+    /// **Simge çizgilerle kuruluyor, harfle değil.** Varsayılan TMP fontu
+    /// (LiberationSans) yalnızca temel Latin kapsıyor; mikrofon emojisi ya da
+    /// "🎤" gibi bir karakter boş kutuya dönüşürdü — lobi etiketlerinde bir kez
+    /// yaşandı. Üç dikdörtgen (gövde, sap, taban) küçük boyutta mikrofon olarak
+    /// okunuyor ve fonttan bağımsız.
+    /// </summary>
+    private static void BuildVoiceHud(Transform parent)
+    {
+        GameObject root = new GameObject("MikrofonGostergesi", typeof(RectTransform));
+        root.transform.SetParent(parent, false);
+
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(1f, 1f);
+        rect.anchoredPosition = new Vector2(-24f, -24f);
+        rect.sizeDelta = new Vector2(190f, 34f);
+
+        // --- Mikrofon simgesi: sağda, üç dikdörtgen ---
+        GameObject icon = new GameObject("Simge", typeof(RectTransform));
+        icon.transform.SetParent(root.transform, false);
+
+        RectTransform iconRect = icon.GetComponent<RectTransform>();
+        iconRect.anchorMin = new Vector2(1f, 0f);
+        iconRect.anchorMax = new Vector2(1f, 1f);
+        iconRect.pivot = new Vector2(1f, 0.5f);
+        iconRect.anchoredPosition = Vector2.zero;
+        iconRect.sizeDelta = new Vector2(22f, 0f);
+
+        Image body = CreatePart(icon.transform, "Govde",
+            new Vector2(0.5f, 1f), new Vector2(10f, 16f), new Vector2(0f, -3f));
+
+        Image stand = CreatePart(icon.transform, "Sap",
+            new Vector2(0.5f, 0f), new Vector2(3f, 7f), new Vector2(0f, 7f));
+
+        Image micBase = CreatePart(icon.transform, "Taban",
+            new Vector2(0.5f, 0f), new Vector2(14f, 3f), new Vector2(0f, 5f));
+
+        // --- Seviye çubuğu: simgenin solunda ---
+        GameObject bar = new GameObject("Cubuk", typeof(RectTransform), typeof(Image));
+        bar.transform.SetParent(root.transform, false);
+        bar.GetComponent<Image>().color = new Color(0.10f, 0.10f, 0.13f, 0.8f);
+
+        RectTransform barRect = bar.GetComponent<RectTransform>();
+        barRect.anchorMin = new Vector2(0f, 0.5f);
+        barRect.anchorMax = new Vector2(1f, 0.5f);
+        barRect.pivot = new Vector2(0f, 0.5f);
+        barRect.offsetMin = new Vector2(0f, -6f);
+        barRect.offsetMax = new Vector2(-30f, 6f);
+
+        GameObject fill = new GameObject("Dolgu", typeof(RectTransform), typeof(Image));
+        fill.transform.SetParent(bar.transform, false);
+
+        RectTransform fillRect = fill.GetComponent<RectTransform>();
+        fillRect.anchorMin = Vector2.zero;
+        fillRect.anchorMax = new Vector2(0f, 1f);
+        fillRect.offsetMin = Vector2.zero;
+        fillRect.offsetMax = Vector2.zero;
+
+        // Eşik çizgisi: çubuğun üstünde ince bir dikey şerit. Yeri
+        // VoiceHud'dan sürülüyor, çünkü eşik çalışma anında değişiyor.
+        GameObject mark = new GameObject("Esik", typeof(RectTransform), typeof(Image));
+        mark.transform.SetParent(bar.transform, false);
+        mark.GetComponent<Image>().color = new Color(0.95f, 0.9f, 0.5f, 0.9f);
+
+        RectTransform markRect = mark.GetComponent<RectTransform>();
+        markRect.anchorMin = new Vector2(0f, 0f);
+        markRect.anchorMax = new Vector2(0f, 1f);
+        markRect.pivot = new Vector2(0.5f, 0.5f);
+        markRect.sizeDelta = new Vector2(2f, 4f);
+
+        // Tuş ipucu: çubuğun altında, bas-konuş tuşunu yazıyor.
+        TMP_Text hint = CreateAnchoredText(root.transform, "Ipucu", "V", 13f,
+            TextAlignmentOptions.Right, new Vector2(0f, -0.9f), new Vector2(1f, 0f), 30f);
+
+        VoiceHud hud = root.AddComponent<VoiceHud>();
+
+        SerializedObject serialized = new SerializedObject(hud);
+        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("levelFill").objectReferenceValue = fillRect;
+        serialized.FindProperty("levelFillGraphic").objectReferenceValue = fill.GetComponent<Image>();
+        serialized.FindProperty("thresholdMark").objectReferenceValue = markRect;
+        serialized.FindProperty("hintLabel").objectReferenceValue = hint;
+
+        SerializedProperty parts = serialized.FindProperty("micParts");
+        parts.arraySize = 3;
+        parts.GetArrayElementAtIndex(0).objectReferenceValue = body;
+        parts.GetArrayElementAtIndex(1).objectReferenceValue = stand;
+        parts.GetArrayElementAtIndex(2).objectReferenceValue = micBase;
+
+        serialized.ApplyModifiedProperties();
+    }
+
+    /// <summary>Mikrofon simgesinin tek parçası — sabit boyutlu bir dikdörtgen.</summary>
+    private static Image CreatePart(Transform parent, string name, Vector2 pivot,
+        Vector2 size, Vector2 position)
+    {
+        GameObject part = new GameObject(name, typeof(RectTransform), typeof(Image));
+        part.transform.SetParent(parent, false);
+
+        RectTransform rect = part.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, pivot.y);
+        rect.anchorMax = new Vector2(0.5f, pivot.y);
+        rect.pivot = new Vector2(0.5f, pivot.y);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = position;
+
+        return part.GetComponent<Image>();
+    }
+
+    /// <summary>
+    /// TAB paneli: kadro, ping ve kişi bazlı ses ayarı.
+    ///
+    /// Satır sayısı sabit (`LobbyRoster.MaxPlayers`): menü kodla üretiliyor ve
+    /// çalışma anında obje yaratmak bölüm 2'nin havuzlama kuralına takılırdı.
+    /// </summary>
+    private static void BuildScoreboard(Transform parent)
+    {
+        GameObject panel = CreatePanel("Panel_Oyuncular", parent);
+        Transform column = CreateColumn(panel.transform, 760f);
+
+        CreateTitle(column, "OYUNCULAR").fontSize = 38f;
+        CreateSpacer(column, 8f);
+
+        ScoreboardPanel board = panel.AddComponent<ScoreboardPanel>();
+
+        ScoreboardPanel.Row[] rows = new ScoreboardPanel.Row[LobbyRoster.MaxPlayers];
+        for (int i = 0; i < rows.Length; i++)
+            rows[i] = CreateScoreRow(column, board, i);
+
+        CreateSpacer(column, 10f);
+        TMP_Text hint = CreateLabel(column, string.Empty);
+        hint.fontSize = 16f;
+        hint.color = new Color(0.66f, 0.66f, 0.72f, 1f);
+
+        SerializedObject serialized = new SerializedObject(board);
+        serialized.FindProperty("panel").objectReferenceValue = panel;
+        serialized.FindProperty("hintLabel").objectReferenceValue = hint;
+
+        SerializedProperty array = serialized.FindProperty("rows");
+        array.arraySize = rows.Length;
+
+        for (int i = 0; i < rows.Length; i++)
+        {
+            SerializedProperty element = array.GetArrayElementAtIndex(i);
+            element.FindPropertyRelative("root").objectReferenceValue = rows[i].root;
+            element.FindPropertyRelative("background").objectReferenceValue = rows[i].background;
+            element.FindPropertyRelative("nameLabel").objectReferenceValue = rows[i].nameLabel;
+            element.FindPropertyRelative("pingLabel").objectReferenceValue = rows[i].pingLabel;
+            element.FindPropertyRelative("muteButton").objectReferenceValue = rows[i].muteButton;
+            element.FindPropertyRelative("muteLabel").objectReferenceValue = rows[i].muteLabel;
+            element.FindPropertyRelative("volumeSlider").objectReferenceValue = rows[i].volumeSlider;
+        }
+
+        serialized.ApplyModifiedProperties();
+
+        panel.SetActive(false);
+    }
+
+    /// <summary>
+    /// Skor tablosunun tek satırı: ad · ping · ses kaydırıcısı · susturma.
+    ///
+    /// Susturma düğmesinin indeksi kalıcı dinleyiciyle taşınıyor (tuş atama
+    /// satırlarıyla aynı kalıp); kaydırıcı ise çalışma anında bağlanıyor,
+    /// çünkü `UnityEventTools`'un float+int taşıyan bir aşırı yüklemesi yok.
+    /// </summary>
+    private static ScoreboardPanel.Row CreateScoreRow(Transform parent, ScoreboardPanel target,
+        int index)
+    {
+        GameObject row = new GameObject($"Satir_{index + 1}", typeof(RectTransform), typeof(Image));
+        row.transform.SetParent(parent, false);
+        row.GetComponent<Image>().color = new Color(0.12f, 0.12f, 0.16f, 1f);
+
+        TMP_Text nameLabel = CreateAnchoredText(row.transform, "Ad", "—", 20f,
+            TextAlignmentOptions.Left, new Vector2(0f, 0f), new Vector2(0.42f, 1f), 14f);
+
+        TMP_Text pingLabel = CreateAnchoredText(row.transform, "Ping", "—", 18f,
+            TextAlignmentOptions.Left, new Vector2(0.42f, 0f), new Vector2(0.58f, 1f), 6f);
+
+        // Kaydırıcı satırın içinde: kendi RectTransform'unu elle konumluyoruz,
+        // CreateSlider dikey yerleşim içindir.
+        Slider volume = CreateSlider(row.transform);
+        RectTransform volumeRect = volume.GetComponent<RectTransform>();
+        volumeRect.anchorMin = new Vector2(0.58f, 0.28f);
+        volumeRect.anchorMax = new Vector2(0.80f, 0.72f);
+        volumeRect.offsetMin = Vector2.zero;
+        volumeRect.offsetMax = Vector2.zero;
+
+        LayoutElement volumeLayout = volume.GetComponent<LayoutElement>();
+        if (volumeLayout != null)
+            Object.DestroyImmediate(volumeLayout);
+
+        Button mute = AddButton(row.transform, "SUSTUR", null);
+        UnityEventTools.AddIntPersistentListener(mute.onClick, target.ToggleMute, index);
+
+        RectTransform muteRect = mute.GetComponent<RectTransform>();
+        muteRect.anchorMin = new Vector2(0.82f, 0.15f);
+        muteRect.anchorMax = new Vector2(0.99f, 0.85f);
+        muteRect.offsetMin = Vector2.zero;
+        muteRect.offsetMax = Vector2.zero;
+
+        LayoutElement muteLayout = mute.GetComponent<LayoutElement>();
+        if (muteLayout != null)
+            Object.DestroyImmediate(muteLayout);
+
+        TMP_Text muteLabel = mute.GetComponentInChildren<TextMeshProUGUI>();
+        muteLabel.fontSize = 16f;
+
+        SetPreferredHeight(row, 46f);
+
+        return new ScoreboardPanel.Row
+        {
+            root = row,
+            background = row.GetComponent<Image>(),
+            nameLabel = nameLabel,
+            pingLabel = pingLabel,
+            muteButton = mute,
+            muteLabel = muteLabel,
+            volumeSlider = volume
+        };
     }
 
     /// <summary>
@@ -622,13 +922,14 @@ public static class MenuSetup
     /// yerel oyuncu spawn olduğunda kendisi çözüyor.
     /// </summary>
     private static void WireController(MenuController controller, GameObject nameEntry, GameObject main,
-        GameObject settings, GameObject controls, GameObject lobby, GameObject joinLobby,
-        GameObject pause, GameObject backdrop)
+        GameObject settings, GameObject audio, GameObject controls, GameObject lobby,
+        GameObject joinLobby, GameObject pause, GameObject backdrop)
     {
         SerializedObject serialized = new SerializedObject(controller);
         serialized.FindProperty("nameEntryPanel").objectReferenceValue = nameEntry;
         serialized.FindProperty("mainPanel").objectReferenceValue = main;
         serialized.FindProperty("settingsPanel").objectReferenceValue = settings;
+        serialized.FindProperty("audioPanel").objectReferenceValue = audio;
         serialized.FindProperty("controlsPanel").objectReferenceValue = controls;
         serialized.FindProperty("lobbyPanel").objectReferenceValue = lobby;
         serialized.FindProperty("joinLobbyPanel").objectReferenceValue = joinLobby;
