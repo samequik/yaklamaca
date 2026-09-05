@@ -627,6 +627,27 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Test Botu Ekle/Kaldır | Tek başına test için sahte kaçan |
 | Hataları Temizle (Sahne Onarımı) | Eksik NetworkIdentity ekler, ağ öncesi artıkları söker |
 
+> ### Editörde çalışan her API build'de yok
+>
+> `Light.lightmapBakeType` **yalnızca editörde var** — pişirme ayarı olduğu için
+> Unity onu build'e koymuyor. Çalışma anında ışık kuran üç yerde kullanılmıştı
+> ve **hata ancak build alınırken çıktı**; editörde her şey yolunda görünüyordu.
+>
+> Üçü de `#if UNITY_EDITOR` içine alındı. Silmek yerine korumaya almanın sebebi:
+> Inspector'da modun ne olduğu belli olsun. Build'de davranış değişmiyor, çünkü
+> çalışma anında eklenen bir ışık zaten pişirilemez ve Unity'nin varsayılanı da
+> Realtime.
+>
+> **Ders: yeni bir Unity API'si kullanmadan önce build'de var mı diye düşün.**
+> Aynı sınıf hatalar `Renderer.scaleInLightmap`, `receiveGI`, `shadowRadius` ve
+> `UnityEditor` altındaki her şey için geçerli. `MenuController.QuitGame` bunu
+> baştan doğru yapıyor (`#if UNITY_EDITOR` / `#else Application.Quit()`).
+>
+> Tarama komutu — build almadan önce çalıştırılabilir:
+> ```
+> grep -rn "UnityEditor\." --include=*.cs Assets/_Scripts/ | grep -v "/Editor/"
+> ```
+
 **Kurulum araçları sahneyi kendileri kaydeder.** Etmezlerse Unity kapanınca
 kurulum geri gider — bu tuzağa bir kez düşüldü, saatler kaybedildi. Aynı
 sebeple hepsi Play modunda gri: o sırada yapılan sahne değişiklikleri Play

@@ -32676,6 +32676,7 @@ MonoBehaviour:
   connectTimeout: 10
   relayTransport: {fileID: 1220486535}
   localTransport: {fileID: 1220486533}
+  relayWaitTimeout: 12
 --- !u!114 &587476810
 MonoBehaviour:
   m_ObjectHideFlags: 0

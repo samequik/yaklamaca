@@ -282,7 +282,14 @@ public class Terminal : NetworkBehaviour, IInteractable
 
         // Gerçek zamanlı olmak zorunda: renk duruma göre her karede değişiyor,
         // pişmiş ışık bunu takip edemez.
+        // `lightmapBakeType` YALNIZCA EDITORDE var: pisirme ayari oldugu
+        // icin Unity onu build'e koymuyor ve derleme hatasi veriyordu.
+        // Calisma aninda eklenen bir isik zaten pisirilemez; Unity'nin
+        // varsayilani da Realtime, yani build'de davranis ayni kaliyor.
+        // Editorde yine de aciyoruz: Inspector'da modun ne oldugu belli olsun.
+#if UNITY_EDITOR
         light.lightmapBakeType = LightmapBakeType.Realtime;
+#endif
 
         return light;
     }

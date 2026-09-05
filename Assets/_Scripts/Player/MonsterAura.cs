@@ -111,7 +111,14 @@ public class MonsterAura : MonoBehaviour
         light.intensity = viewIntensity;
         light.color = color;
         light.shadows = LightShadows.Hard;
+        // `lightmapBakeType` YALNIZCA EDITORDE var: pisirme ayari oldugu
+        // icin Unity onu build'e koymuyor ve derleme hatasi veriyordu.
+        // Calisma aninda eklenen bir isik zaten pisirilemez; Unity'nin
+        // varsayilani da Realtime, yani build'de davranis ayni kaliyor.
+        // Editorde yine de aciyoruz: Inspector'da modun ne oldugu belli olsun.
+#if UNITY_EDITOR
         light.lightmapBakeType = LightmapBakeType.Realtime;
+#endif
         light.enabled = false;
 
         return light;
@@ -152,7 +159,14 @@ public class MonsterAura : MonoBehaviour
         // Gölgesiz nokta ışık duvar tanımaz; hâle yan koridora sızsaydı
         // canavarın yeri duvarın arkasından belli olurdu (bölüm 4).
         light.shadows = LightShadows.Hard;
+        // `lightmapBakeType` YALNIZCA EDITORDE var: pisirme ayari oldugu
+        // icin Unity onu build'e koymuyor ve derleme hatasi veriyordu.
+        // Calisma aninda eklenen bir isik zaten pisirilemez; Unity'nin
+        // varsayilani da Realtime, yani build'de davranis ayni kaliyor.
+        // Editorde yine de aciyoruz: Inspector'da modun ne oldugu belli olsun.
+#if UNITY_EDITOR
         light.lightmapBakeType = LightmapBakeType.Realtime;
+#endif
 
         // Rol gelene kadar kapalı. RoundParticipant.ApplyRole açıyor.
         light.enabled = false;
