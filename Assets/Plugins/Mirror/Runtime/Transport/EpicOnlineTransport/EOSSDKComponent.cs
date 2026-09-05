@@ -150,7 +150,15 @@ namespace EpicTransport {
         // If we're in editor, we should dynamically load and unload the SDK between play sessions.
         // This allows us to initialize the SDK each time the game is run in editor.
 #if UNITY_EDITOR_WIN
-        [DllImport("Kernel32.dll")]
+        // CharSet.Unicode EKLENDI: varsayilan ANSI, yani LoadLibraryA cagriliyor
+        // ve yol sistem kod sayfasina cevriliyor. Proje yolunda ASCII disi bir
+        // karakter varsa (ornegin "Yeni klasor" icindeki o harfi) donusum
+        // bozulabiliyor ve yukleme sessizce basarisiz oluyor. Unicode ile
+        // LoadLibraryW cagriliyor ve yol oldugu gibi gidiyor.
+        //
+        // GetProcAddress'e DOKUNULMUYOR: onun ikinci parametresi Windows'ta her
+        // zaman ANSI (LPCSTR), W surumu yok.
+        [DllImport("Kernel32.dll", CharSet = CharSet.Unicode)]
         private static extern IntPtr LoadLibrary(string lpLibFileName);
 
         [DllImport("Kernel32.dll")]
@@ -206,7 +214,11 @@ namespace EpicTransport {
                 Application.dataPath, bareName + ".*", System.IO.SearchOption.AllDirectories)) {
 
                 if (!path.EndsWith(".meta", System.StringComparison.OrdinalIgnoreCase)) {
-                    return path;
+                    // GetFullPath ayraclari normalliyor. Application.dataPath
+                    // ILERI egik cizgi veriyor, Directory.GetFiles TERS; ortaya
+                    // "C:/Users/.../Assets\\Plugins\\..." gibi karisik bir yol
+                    // cikiyor ve LoadLibrary ileri egik cizgiyi KABUL ETMIYOR.
+                    return System.IO.Path.GetFullPath(path);
                 }
             }
 

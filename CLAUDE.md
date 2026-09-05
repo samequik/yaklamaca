@@ -760,8 +760,32 @@ eski çağrı çalışıyor.
   çıkışta `NullReferenceException` atıyordu: **asıl hatanın üstüne ikinci bir
   hata biniyor** ve sebebi görünmez oluyordu.
 
-**Paket güncellenirse üç yama da kaybolur.** Aynı hataları tekrar verirse çözüm
-bu satırlar.
+- `EOSSDKComponent.cs` → `LoadLibrary`'nin `DllImport`'una
+  **`CharSet = CharSet.Unicode`** eklendi ve bulunan yol `Path.GetFullPath`
+  ile normalleniyor. DLL bulunuyor ama yüklenemiyordu; iki ayrı sebep vardı
+  ve ikisi de proje klasörünün adından geliyordu:
+
+  - **`LoadLibrary` ileri eğik çizgiyi kabul etmiyor.** `Application.dataPath`
+    `/` veriyor, `Directory.GetFiles` `\` veriyor; ortaya
+    `C:/Users/.../Assets\Plugins\...` gibi karışık bir yol çıkıyordu.
+  - **Varsayılan `DllImport` ANSI**, yani `LoadLibraryA` çağrılıyor ve yol
+    sistem kod sayfasına çevriliyor. Proje yolu `Yeni klasör` — ASCII dışı
+    bir karakter taşıyor ve dönüşüm bozulabiliyor. Unicode ile
+    `LoadLibraryW` çağrılıyor, yol olduğu gibi gidiyor.
+
+  `GetProcAddress`'e dokunulmadı: ikinci parametresi Windows'ta her zaman
+  ANSI (`LPCSTR`), W sürümü yok.
+
+  DLL'in kendisi elendi: 22 MB ve geçerli `MZ` başlığı taşıyor, yani ZIP
+  indirmede Git LFS işaretçisi inmiş değil.
+
+> **Proje yolu ASCII dışı karakter ve boşluk içeriyor**
+> (`C:\Users\TR\Desktop\Yeni klasör`). Yerel eklenti yükleyen her
+> kütüphane bu yüzden takılabilir. Benzer bir hata çıkarsa akla ilk gelmesi
+> gereken şey bu; kalıcı çözüm proje klasörünü ASCII bir ada taşımak.
+
+**Paket güncellenirse dört yama da kaybolur.** Aynı hataları tekrar verirse
+çözüm bu satırlar.
 
 **Konum bilinçli.** `Assets/Plugins` altındaki script'ler
 `Assembly-CSharp-firstpass`'e giriyor ve o, `Assembly-CSharp`'tan **önce**
