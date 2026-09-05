@@ -188,6 +188,32 @@ namespace EpicTransport {
         private IntPtr libraryPointer;
 #endif
 
+#if UNITY_EDITOR
+        /// <summary>
+        /// EOS yerel kutuphanesini proje icinde adiyla arar.
+        ///
+        /// Yalnizca editorde gerekiyor: build'de DLL normal eklenti yolundan
+        /// yukleniyor. Sabit yol yerine arama yapmak, paketin nereye
+        /// kopyalandigindan bagimsiz calismasini sagliyor.
+        ///
+        /// .meta dosyalari eleniyor; uzanti da soyuluyor cunku Config.LibraryName
+        /// derleme sembollerine gore bazen ".dll" ile bazen onsuz geliyor.
+        /// </summary>
+        private static string FindEditorLibrary(string libraryName) {
+            string bareName = System.IO.Path.GetFileNameWithoutExtension(libraryName);
+
+            foreach (string path in System.IO.Directory.GetFiles(
+                Application.dataPath, bareName + ".*", System.IO.SearchOption.AllDirectories)) {
+
+                if (!path.EndsWith(".meta", System.StringComparison.OrdinalIgnoreCase)) {
+                    return path;
+                }
+            }
+
+            return null;
+        }
+#endif
+
         private void Awake() {
             // Initialize Java version of the SDK with a reference to the VM with JNI
             // See https://eoshelp.epicgames.com/s/question/0D54z00006ufJBNCA2/cant-get-createdeviceid-to-work-in-unity-android-c-sdk?language=en_US
@@ -208,11 +234,21 @@ namespace EpicTransport {
             instance = this;
 
 #if UNITY_EDITOR
-            var libraryPath = "Assets/Mirror/Runtime/Transport/EpicOnlineTransport/EOSSDK/" + Config.LibraryName;
+            // Yol ESKIDEN SABITTI ve "Assets/Mirror/Runtime/..." yaziyordu.
+            // Paket baska bir klasore konunca (bizde Assets/Plugins altinda)
+            // DLL bulunamiyor ve Awake istisna atiyor. Editorde asset yolu
+            // sabit olmak zorunda degil; dosyayi adiyla ariyoruz.
+            var libraryPath = FindEditorLibrary(Config.LibraryName);
+
+            if (string.IsNullOrEmpty(libraryPath)) {
+                throw new Exception(
+                    "EOS SDK kutuphanesi projede bulunamadi: " + Config.LibraryName +
+                    ". EOSSDK klasorunun projeye kopyalandigindan emin ol.");
+            }
 
             libraryPointer = LoadLibrary(libraryPath);
             if (libraryPointer == IntPtr.Zero) {
-                throw new Exception("Failed to load library" + libraryPath);
+                throw new Exception("Failed to load library " + libraryPath);
             }
 
             Bindings.Hook(libraryPointer, GetProcAddress);

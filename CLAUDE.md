@@ -748,8 +748,20 @@ hata olayı artık **üç** parametre istiyor `(int, TransportError, string)`.
 `NetworkServer` obsolete `OnServerConnected`'a **hâlâ abone** (satır 228), yani
 eski çağrı çalışıyor.
 
-**Paket güncellenirse yama kaybolur.** Aynı hatayı tekrar verirse çözüm bu
-satır.
+**İki yama daha (2026-09-05):**
+
+- `EOSSDKComponent.cs` → yerel kütüphane yolu **sabit yazılmıştı**
+  (`"Assets/Mirror/Runtime/Transport/EpicOnlineTransport/EOSSDK/"`). Paket başka
+  bir klasöre konunca DLL bulunamıyor ve `Awake` istisna atıyor. Artık dosya
+  projede **adıyla aranıyor** (`FindEditorLibrary`), yani paketin yeri serbest.
+  Yalnızca editörde gerekiyor; build'de DLL normal eklenti yolundan yükleniyor.
+- `EosTransport.Shutdown()` → metrik bloğuna `EOSSDKComponent.Initialized`
+  şartı eklendi. EOS açılamadığında `EOS` null kalıyor ve `GetMetricsInterface()`
+  çıkışta `NullReferenceException` atıyordu: **asıl hatanın üstüne ikinci bir
+  hata biniyor** ve sebebi görünmez oluyordu.
+
+**Paket güncellenirse üç yama da kaybolur.** Aynı hataları tekrar verirse çözüm
+bu satırlar.
 
 **Konum bilinçli.** `Assets/Plugins` altındaki script'ler
 `Assembly-CSharp-firstpass`'e giriyor ve o, `Assembly-CSharp`'tan **önce**

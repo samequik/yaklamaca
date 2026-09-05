@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -265,7 +265,11 @@ namespace EpicTransport {
         }
 
         public override void Shutdown() {
-            if (EOSSDKComponent.CollectPlayerMetrics) {
+            // `Initialized` sarti EKLENDI. EOS acilamadiginda (yanlis kimlik,
+            // eksik P2P izni, kutuphane bulunamadi) `EOS` null kaliyor ve
+            // GetMetricsInterface() cikista NullReference atiyordu: asil hatanin
+            // ustune ikinci bir hata biniyor ve sebebi gorunmez oluyordu.
+            if (EOSSDKComponent.Initialized && EOSSDKComponent.CollectPlayerMetrics) {
                 // Stop Metrics collection session
                 EndPlayerSessionOptions endSessionOptions = new EndPlayerSessionOptions();
                 endSessionOptions.AccountId = EOSSDKComponent.LocalUserAccountId;
