@@ -1548,6 +1548,35 @@ bir projede oyunu büsbütün oynanamaz yapardı.
 oyuncu hiçbir şey fark etmiyor. `authInterfaceLogin` bilerek kapalı — açık
 olsaydı herkesin Epic hesabıyla giriş yapması gerekirdi.
 
+> ### Aynı bilgisayarda iki kopyayla EOS test edilemez
+>
+> Kimlik **cihaz** başına üretiliyor, oyuncu başına değil. Editördeki oyun
+> da build de aynı `ProductUserId`'yi alıyor; biri öbürünün koduna
+> bağlanmaya çalıştığında **kendine** bağlanmış oluyor ve EOS bunu
+> reddediyor. Geriye yalnızca zaman aşımı kalıyor ve sebep hiçbir yerde
+> yazmıyordu.
+>
+> `LobbyNetwork.JoinLobby` artık bu durumu yakalayıp açıkça söylüyor.
+>
+> **KCP'de böyle bir sorun yok** — orada kimlik adres, iki kopya `127.0.0.1`
+> üzerinden birbirini görüyor. Yerel test bu yüzden hâlâ tek makinede
+> yapılabiliyor.
+>
+> **EOS'u denemenin iki yolu var:**
+>
+> 1. **İkinci bir makine** (arkadaş). Ek kurulum gerekmiyor ve zaten
+>    gönderilecek yapılandırma bu.
+> 2. **EOS Dev Auth Tool** — pakette hazır geliyor
+>    (`EpicOnlineTransport/DevAuthTool/`). Epic hesabıyla iki ayrı kimlik
+>    üretip tek makinede test etmeyi sağlıyor: zip'i sonu `~` ile biten bir
+>    klasöre aç (Unity öyle bir klasörü içe aktarmıyor), aracı çalıştır, iki
+>    ayrı kimlik adı oluştur, sonra `EOSSDKComponent`'te
+>    `authInterfaceLogin` aç, tür `Developer`, `devAuthToolCredentialName`
+>    her kopyada farklı olacak şekilde ayarla (`devAuthToolPort` 7878).
+>
+>    İki kopyaya farklı ad vermek build başına ayrı yapılandırma demek, o
+>    yüzden zahmetli. Arkadaş varsa birinci yol her zaman daha hızlı.
+
 > **Kısa kod henüz yok.** EOS'ta adres host'un ürün kimliği ve 32 karakter;
 > kopyalanabiliyor ama sesli sohbette söylenemiyor. Kısa koda geçmek EOS'un
 > **lobi servisini** kullanmayı gerektiriyor ve paket onu getiriyor

@@ -237,6 +237,18 @@ public class LobbyNetwork : MonoBehaviour
             UseTransport(manager, localTransport);
             RoomCode = LobbyCode.FromAddress(address);
         }
+        else if (UseRelay && trimmed == EOSSDKComponent.LocalUserProductIdString)
+        {
+            // EOS kimliği CİHAZ başına üretiliyor (Device ID), oyuncu başına
+            // değil: aynı bilgisayardaki iki kopya aynı ProductUserId'yi alıyor
+            // ve biri öbürüne bağlanmaya çalıştığında kendine bağlanmış oluyor.
+            // EOS bunu reddediyor ve geriye yalnızca zaman aşımı kalıyordu —
+            // sebebi hiçbir yerde görünmüyordu.
+            StatusMessage = "Bu senin kendi kodun. Aynı bilgisayardaki iki kopya " +
+                "aynı EOS kimliğini paylaşıyor, yani kendine bağlanamazsın — " +
+                "test için ikinci bir makine gerekiyor.";
+            return;
+        }
         else if (UseRelay && trimmed.Length > LobbyCode.Length)
         {
             UseTransport(manager, relayTransport);
