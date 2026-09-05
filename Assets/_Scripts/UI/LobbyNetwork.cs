@@ -233,7 +233,12 @@ public class LobbyNetwork : MonoBehaviour
 
         leaving = false;
         RoomCode = LobbyCode.Generate();
-        StatusMessage = relay ? "Oda kuruluyor…" : string.Empty;
+        // Yerel odada kod işe yaramıyor: karşı taraf IP ile giriyor. Makinenin
+        // bütün IPv4 adreslerini yazıyoruz ki oyuncu Radmin/Hamachi'deki
+        // adresini listeden tanıyıp arkadaşına verebilsin.
+        StatusMessage = relay
+            ? "Oda kuruluyor…"
+            : $"Yerel oda. Katılacak kişi şu adreslerden birini yazmalı:\n{LobbyCode.LocalAddresses()}";
 
         // Oda adı = kod. Katılan kişi listeden bu adı arıyor.
         if (relay)

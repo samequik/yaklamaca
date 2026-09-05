@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 
 /// <summary>
@@ -33,6 +36,42 @@ public static class LobbyCode
 
     /// <summary>Kod bilinmiyorken gösterilecek metin.</summary>
     public const string Unknown = "------";
+
+    /// <summary>
+    /// Bu makinenin bütün IPv4 adresleri, virgülle ayrılmış.
+    ///
+    /// **Neden hepsi, biri değil.** Eski sürüm 8.8.8.8'e bir UDP soketi açıp
+    /// "hangi arayüzden çıktın" diye soruyordu; o, internete çıkan adaptörü
+    /// veriyor. Ama yerel oda çoğunlukla **sanal ağ** (Radmin, Hamachi)
+    /// üzerinden oynanıyor ve orada gereken adres sanal adaptörünki. Tek adres
+    /// göstermek, oyuncuya yanlış olanı vermek demekti.
+    ///
+    /// Liste bilerek filtrelenmiyor: hangisinin doğru olduğunu makine bilemez,
+    /// ama oyuncu Radmin penceresindeki adresi görünce listeden tanır.
+    /// </summary>
+    public static string LocalAddresses()
+    {
+        List<string> found = new List<string>();
+
+        try
+        {
+            foreach (IPAddress candidate in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
+            {
+                if (candidate.AddressFamily != AddressFamily.InterNetwork)
+                    continue;
+
+                string text = candidate.ToString();
+                if (!found.Contains(text))
+                    found.Add(text);
+            }
+        }
+        catch (SocketException)
+        {
+            // Ağ yoksa liste boş kalıyor; aşağıdaki geri dönüş devreye giriyor.
+        }
+
+        return found.Count > 0 ? string.Join("  ·  ", found) : "127.0.0.1";
+    }
 
     /// <summary>Yeni bir oda kodu üretir.</summary>
     public static string Generate()
