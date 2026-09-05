@@ -731,6 +731,32 @@ satırı hiç çalışmıyor, transform istenenden ~3 kat sık gidiyordu.
 `NetworkSetup.BuildPlayerPrefab` içinde `syncInterval` açıkça yazılarak da
 güvenceye alındı.
 
+### EpicOnlineTransport (2026-09-05)
+
+EOS transport'u `Assets/Plugins/Mirror/Runtime/Transport/EpicOnlineTransport`
+altında duruyor. **Üçüncü parti ve bir satırı değiştirildi:**
+
+`Server.cs` → `CreateServer` içinde
+`transport.OnServerError.Invoke(id, exception)` iki parametreliydi; Mirror'ın
+hata olayı artık **üç** parametre istiyor `(int, TransportError, string)`.
+`TransportError.Unexpected` + `exception.Message` veriliyor.
+
+**Bu paket Mirror v44 dönemine ait** (son commit 3 yıl önce, son sürüm 5 yıl
+önce) ve biz 96.11.0'dayız. Buna rağmen tek uyumsuzluk bu çıktı: Mirror'ın
+`Transport` sınıfındaki 14 abstract üyenin hepsi karşılanıyor ve
+`NetworkServer` obsolete `OnServerConnected`'a **hâlâ abone** (satır 228), yani
+eski çağrı çalışıyor.
+
+**Paket güncellenirse yama kaybolur.** Aynı hatayı tekrar verirse çözüm bu
+satır.
+
+**Konum bilinçli.** `Assets/Plugins` altındaki script'ler
+`Assembly-CSharp-firstpass`'e giriyor ve o, `Assembly-CSharp`'tan **önce**
+derleniyor. Sonuç bizim için doğru yönde: transport Mirror'ı görüyor, bizim
+kodumuz transport'u görüyor, ama transport bizim kodumuzu göremiyor — zaten
+görmesi de gerekmiyor. `Assets/Mirror`'ın içine karıştırılmadı: orası üçüncü
+parti ve orada zaten başka bir yama var (yukarıdaki madde).
+
 ---
 
 ## 10. Sırada ne var
