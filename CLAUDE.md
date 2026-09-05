@@ -1483,6 +1483,23 @@ iki kez düşün" kuralı burada da geçerli.
 internet üzerinden 7777/UDP yönlendirmesi ya da sanal ağ (Hamachi, Radmin)
 gerekir. Katılma alanı ham IP de kabul ediyor, tam da bu yüzden.
 
+> **Katılma alanının iki sessiz kısıtı vardı; ikisi de EOS'la ortaya çıktı.**
+>
+> - `characterLimit` **15**'ti — `255.255.255.255` tam sığsın diye seçilmiş.
+>   EOS kodu 32 karakter; yapıştırınca **sessizce kırpılıyor** ve oyuncu
+>   neden bağlanamadığını anlamıyordu. **64** yapıldı: alan üç biçimi birden
+>   almak zorunda (7 karakter yerel kod, 15 karakter IP, 32 karakter EOS
+>   kimliği).
+> - `characterValidation` **alfanümerikti** ve o kural **noktayı eliyordu**.
+>   Yani "ham IP de kabul ediliyor" sözü aslında hiç tutmuyordu: girilen
+>   adresten noktalar düşüyordu. **Kapatıldı** — içeriği zaten
+>   `LobbyNetwork.JoinLobby` denetliyor, alanda ikinci kez süzmek yalnızca
+>   sessiz hata üretiyor.
+>
+> Ders: **bir giriş alanına kısıt koyarken, o alana gelebilecek EN UZUN ve
+> EN GENİŞ biçimi düşün.** İkisi de yıllarca fark edilmedi çünkü tek bir
+> biçim (7 harflik kod) deneniyordu.
+
 **Host olurken bütün IPv4 adresleri ekranda yazıyor**
 (`LobbyCode.LocalAddresses`). Kod, `LocalAddress()`'in bulduğu **internete
 çıkan** adaptörden üretiliyor; sanal ağda (Radmin) gereken adres başka bir

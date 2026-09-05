@@ -45,6 +45,6 @@ public class JoinLobbyPanel : MonoBehaviour
 
         statusLabel.SetText(network != null && !string.IsNullOrEmpty(network.StatusMessage)
             ? network.StatusMessage
-            : $"Arkadaşının verdiği {LobbyCode.Length} harflik kodu ya da IP adresini gir.");
+            : "Arkadaşının verdiği kodu ya da IP adresini gir.");
     }
 }

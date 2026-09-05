@@ -465,8 +465,22 @@ public static class MenuSetup
         CreateSpacer(column, 12f);
 
         CreateLabel(column, "Arkadaşının verdiği kodu gir");
-        TMP_InputField codeField = CreateInputField(column, $"ÖRN: K7M2QXB  ({LobbyCode.Length} harf)");
-        codeField.characterLimit = 15; // IP adresi de kabul ediliyor, kod uzunluğu yetmez
+        TMP_InputField codeField = CreateInputField(column, "KOD YA DA IP ADRESİ");
+
+        // Alan üç biçimi birden almak zorunda ve en uzunu sınırı belirliyor:
+        //   7 karakter  → yerel kod
+        //   15 karakter → IP (255.255.255.255)
+        //   32 karakter → EOS ürün kimliği
+        // Sınır 15'ti; EOS kodu yapıştırılınca sessizce kırpılıyor ve oyuncu
+        // neden bağlanamadığını anlamıyordu.
+        codeField.characterLimit = 64;
+
+        // Doğrulama KAPALI. `CreateInputField` alfanümerik kuruyor ve o kural
+        // NOKTAYI eliyor — yani "ham IP de kabul ediliyor" sözü aslında hiç
+        // tutmuyordu, girilen adresten noktalar sessizce düşüyordu. İçeriği
+        // zaten `LobbyNetwork.JoinLobby` denetliyor; burada süzmek yalnızca
+        // sessiz hata üretiyor.
+        codeField.characterValidation = TMP_InputField.CharacterValidation.None;
 
         JoinLobbyPanel join = panel.AddComponent<JoinLobbyPanel>();
 
