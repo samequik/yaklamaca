@@ -1022,7 +1022,19 @@ kuralına takılıyor, ama karşılığında sunucu bakımı gerektirmeyen kalı
 çözüm geliyor. Mirror transport'u topluluk tarafından yazılmış
 (`FakeByte/EpicOnlineTransport`), resmi değil.
 
-**Durum (2026-09-05): kuruldu, doğrulama bekliyor.** Paket
+**Durum (2026-09-05): ÇALIŞIYOR.** Lobi kurulduğunda kod 32 karakterlik EOS
+ürün kimliği olarak geliyor ve ekran "İnternet odası" diyor — yani SDK açıldı,
+kimlik alındı ve oda relay üzerinden kuruldu. Port yönlendirmesi ya da sanal ağ
+gerekmiyor.
+
+Buraya gelene kadar dört ayrı engel vardı ve hepsi bölüm 9'da:
+Mirror'ın hata olayının imzası · SDK kütüphanesinin koda gömülü yolu ·
+`LoadLibrary`'nin ileri eğik çizgiyi kabul etmemesi ve ANSI dönüşümü ·
+EOS girişinin asenkron olması.
+
+**Kalan: iki makine arasında bağlantı denemesi.**
+
+**Eski durum notu (kuruldu, doğrulama bekliyor):** Paket
 `Assets/Plugins/Mirror/Runtime/Transport/EpicOnlineTransport` altında (tek
 uyumsuzluk düzeltildi, bölüm 9), Epic portalında ürün ve istemci açıldı,
 `EosApiKey` dolduruldu, `Yakalamaca > EOS Kurulumu (relay)` bileşenleri kurup

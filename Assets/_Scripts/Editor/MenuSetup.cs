@@ -61,6 +61,7 @@ public static class MenuSetup
         // NetworkBehaviour DEĞİL: sahnedeki menü objesine NetworkIdentity
         // eklenemiyor (CLAUDE.md bölüm 4).
         LobbyNetwork network = canvasObject.AddComponent<LobbyNetwork>();
+        WireTransports(network);
 
         GameObject nameEntry = BuildNameEntryPanel(canvasObject.transform, controller);
         GameObject main = BuildMainPanel(canvasObject.transform, controller, network);
@@ -315,6 +316,35 @@ public static class MenuSetup
     /// canavar seçimi ve başlatma düğmelerinin yalnızca oda sahibinde aktif
     /// olması (gizlenmiyor, griye alınıyor — bkz. LobbyPanel).
     /// </summary>
+    /// <summary>
+    /// Sahnedeki iki transport'u lobiye bağlar.
+    ///
+    /// **Bu araç lobiyi SIFIRDAN kuruyor**, yani `EOS Kurulumu`'nun yazdığı
+    /// referanslar `Menü Kur` her çalıştığında silinirdi ve oyun sessizce
+    /// yerel odaya düşerdi — sebebi hiçbir yerde görünmeden. İki araç da
+    /// bağlaması, hangisinin sonra çalıştığından bağımsız olarak doğru sonucu
+    /// veriyor.
+    ///
+    /// EOS kurulu değilse `relayTransport` boş kalıyor; lobi o durumda yerel
+    /// odaya düşüyor ve sebebini ekranda yazıyor.
+    /// </summary>
+    private static void WireTransports(LobbyNetwork network)
+    {
+        GameObject managerObject = GameObject.Find("NetworkManager");
+        if (managerObject == null)
+            return;
+
+        SerializedObject serialized = new SerializedObject(network);
+
+        serialized.FindProperty("relayTransport").objectReferenceValue =
+            managerObject.GetComponent<EpicTransport.EosTransport>();
+
+        serialized.FindProperty("localTransport").objectReferenceValue =
+            managerObject.GetComponent<kcp2k.KcpTransport>();
+
+        serialized.ApplyModifiedProperties();
+    }
+
     private static GameObject BuildLobbyPanel(Transform parent, LobbyNetwork network)
     {
         GameObject panel = CreatePanel("Panel_Lobi", parent);
@@ -330,7 +360,22 @@ public static class MenuSetup
         // adresinin kendisi (bkz. LobbyCode); yenilenecek bir şey yok.
         Transform codeRow = CreateRow(column, 54f);
         TMP_Text codeLabel = CreateRowText(codeRow, LobbyCode.Unknown, 38f, AccentColor, 0.6f);
-        AddRowButton(codeRow, "KOPYALA", lobby.CopyCode, 0.25f);
+
+        // Kod iki farklı uzunlukta gelebiliyor: yerel odada 7 harf, EOS
+        // odasında 32 karakterlik ürün kimliği. Sabit punto uzun kodu satıra
+        // sığdıramıyor, metin taşıyor ve KOPYALA düğmesini eziyordu.
+        // Otomatik küçültme ikisini de aynı satırda tutuyor.
+        codeLabel.enableAutoSizing = true;
+        codeLabel.fontSizeMin = 14f;
+        codeLabel.fontSizeMax = 38f;
+        codeLabel.enableWordWrapping = false;
+        codeLabel.overflowMode = TextOverflowModes.Ellipsis;
+
+        Button copyButton = AddRowButton(codeRow, "KOPYALA", lobby.CopyCode, 0.25f);
+
+        // Düğmeye taban genişlik: esnek pay tek başına yetmiyor, uzun metin
+        // satırın tamamını isteyince düğme dikey bir şeride dönüşüyordu.
+        copyButton.GetComponent<LayoutElement>().minWidth = 96f;
 
         CreateSpacer(column, 8f);
         TMP_Text countLabel = CreateLabel(column, "Oyuncular: 0/5");
