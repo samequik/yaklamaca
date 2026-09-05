@@ -1,3 +1,4 @@
+using System.Collections;
 using EpicTransport;
 using Mirror;
 using UnityEngine;
@@ -42,6 +43,11 @@ public class LobbyNetwork : MonoBehaviour
     [Tooltip("Aynı ağ için doğrudan bağlantı. EOS hazır değilken ve IP ile " +
         "katılırken kullanılıyor: internet gerektirmiyor, anında açılıyor.")]
     [SerializeField] private Transport localTransport;
+
+    [Tooltip("EOS'un bağlanması için beklenecek en uzun süre (saniye). Giriş " +
+        "asenkron; süre dolarsa yerel odaya düşülüyor ve sebebi ekranda " +
+        "yazıyor. Sonsuza kadar beklemek oyuncuyu asılı bırakırdı.")]
+    [SerializeField] private float relayWaitTimeout = 12f;
 
     /// <summary>Ekranda gösterilecek son durum/hata metni.</summary>
     public string StatusMessage { get; private set; } = string.Empty;
@@ -123,6 +129,57 @@ public class LobbyNetwork : MonoBehaviour
 
         leaving = false;
 
+        // EOS girişi ASENKRON: Device ID üretiliyor, sonra Connect girişi
+        // yapılıyor. Play'e basıp hemen LOBİ KUR diyen biri için henüz hazır
+        // olmuyor ve oyun sessizce yerel odaya düşüyordu — her şey doğru
+        // kurulmuşken bile. Hazır olana kadar bekliyoruz.
+        if (relayTransport != null && !UseRelay)
+        {
+            StatusMessage = "EOS bağlanıyor…";
+
+            if (menu != null)
+                menu.ShowLobby();
+
+            StartCoroutine(HostWhenRelayReady(manager));
+            return;
+        }
+
+        StartHosting(manager);
+
+        if (menu != null)
+            menu.ShowLobby();
+    }
+
+    /// <summary>
+    /// EOS bağlanana kadar bekleyip odayı öyle kuruyor.
+    ///
+    /// Süre sınırı var: EOS hiç bağlanamazsa (kimlik yanlış, P2P izni yok)
+    /// `IsConnecting` sonsuza kadar açık kalabilir ve oyuncu bekleme ekranında
+    /// asılı kalırdı. Süre dolunca yerel odaya düşülüyor ve sebebi yazılıyor.
+    /// </summary>
+    private IEnumerator HostWhenRelayReady(NetworkManager manager)
+    {
+        float deadline = Time.unscaledTime + relayWaitTimeout;
+
+        // `IsConnecting`'e BAKILMIYOR, bilerek: giriş daha başlamadan önceki ilk
+        // karelerde o da false oluyor ve o anı yakalayan bir kontrol EOS'a hiç
+        // şans vermeden yerel odaya düşerdi. Ölçüt tek: hazır mı, değil mi.
+        while (!UseRelay && Time.unscaledTime < deadline)
+        {
+            if (leaving)
+                yield break;
+
+            yield return null;
+        }
+
+        if (leaving)
+            yield break;
+
+        StartHosting(manager);
+    }
+
+    private void StartHosting(NetworkManager manager)
+    {
         if (UseRelay)
         {
             UseTransport(manager, relayTransport);
@@ -148,9 +205,6 @@ public class LobbyNetwork : MonoBehaviour
         }
 
         manager.StartHost();
-
-        if (menu != null)
-            menu.ShowLobby();
     }
 
     /// <summary>Kod ya da ham IP ile bağlanır.</summary>

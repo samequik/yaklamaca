@@ -1452,9 +1452,19 @@ kurmak gerekmişti.)
 açılmış ve kimlik alınmış. Kimlik bilgileri yanlışsa ya da Epic'teki istemci
 politikasında **P2P izni yoksa** SDK açılmıyor ve şart tutmuyor.
 
-**Hazır değilse sessizce yerel odaya düşülüyor.** Alternatifi oyuncuya hiç
-açılmayan bir oda vermekti; EOS kurulumu tamamlanmamış bir projede oyunun
-büsbütün oynanamaz olması doğru değil. Ekranda hangi moda düşüldüğü yazıyor.
+**EOS girişi ASENKRON ve bu bir tuzak.** Device ID üretiliyor, sonra `Connect`
+girişi yapılıyor; Play'e basıp hemen LOBİ KUR diyen biri için henüz hazır
+olmuyor. İlk sürüm o anı görüp **sessizce yerel odaya düşüyordu** — her şey
+doğru kurulmuşken bile. Artık `HostWhenRelayReady` hazır olana kadar bekliyor
+(`relayWaitTimeout`, 12 sn).
+
+Beklerken `IsConnecting`'e **bakılmıyor, bilerek**: giriş daha başlamadan
+önceki ilk karelerde o da false oluyor ve o anı yakalayan bir kontrol EOS'a hiç
+şans vermeden düşerdi. Ölçüt tek: hazır mı, değil mi.
+
+**Süre dolarsa yerel odaya düşülüyor** ve ekranda sebebi yazıyor. Sonsuza kadar
+beklemek oyuncuyu asılı bırakırdı; hiç düşmemek ise EOS kurulumu tamamlanmamış
+bir projede oyunu büsbütün oynanamaz yapardı.
 
 **Kod üç biçimi de kabul ediyor** ve ayırt etmek kolay: nokta içeriyorsa IP,
 7 harfse yerel kod, daha uzunsa EOS kimliği. Kod alfabesinde nokta yok.
