@@ -847,8 +847,26 @@ public static class MenuSetup
     /// </summary>
     private static void BuildScoreboard(Transform parent)
     {
-        GameObject panel = CreatePanel("Panel_Oyuncular", parent);
-        Transform column = CreateColumn(panel.transform, 760f);
+        // Tam ekran panel DEĞİL, ortada bir kutu. Panel açıkken yürümeye
+        // devam edilebiliyor (bölüm 19) ve ekranı komple kapatmak o özelliği
+        // anlamsız kılardı: yürüyebilirsin ama göremezsin.
+        GameObject panel = new GameObject("Panel_Oyuncular", typeof(RectTransform));
+        panel.transform.SetParent(parent, false);
+        Stretch(panel.GetComponent<RectTransform>());
+
+        GameObject box = new GameObject("Kutu", typeof(RectTransform), typeof(Image));
+        box.transform.SetParent(panel.transform, false);
+
+        // Yarı saydam: arkadaki koridor seçiliyor ama liste okunuyor.
+        box.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.07f, 0.86f);
+
+        RectTransform boxRect = box.GetComponent<RectTransform>();
+        boxRect.anchorMin = new Vector2(0.5f, 0.5f);
+        boxRect.anchorMax = new Vector2(0.5f, 0.5f);
+        boxRect.sizeDelta = new Vector2(860f, 430f);
+        boxRect.anchoredPosition = Vector2.zero;
+
+        Transform column = CreateColumn(box.transform, 760f);
 
         CreateTitle(column, "OYUNCULAR").fontSize = 38f;
         CreateSpacer(column, 8f);

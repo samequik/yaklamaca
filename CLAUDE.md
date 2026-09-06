@@ -3067,6 +3067,17 @@ kesiliyor. Mekanizma duraklatma menüsünün kullandığının aynısı
 (`MenuController.SetOverlayOpen`) — imleç yönetimi tek yerde kalmalı, iki
 bileşen birden `Cursor.lockState` yazarsa oyuncu bazen imleçsiz kalıyor.
 
+**Panel tam ekran DEĞİL, ortada yarı saydam bir kutu.** İlk sürüm tam ekran
+paneldi ve "yürümeye devam edebilirsin" özelliğini anlamsız kılıyordu:
+yürüyebiliyorsun ama göremiyorsun.
+
+**İmleç HER KAREDE doğrulanıyor** (`MenuController.ApplyCursor`), yalnızca
+geçişte değil. Unity pencere odağı değişince (alt-tab, editörde Game view'a
+tıklamak) imleç durumunu kendi başına değiştiriyor ve tek seferlik bir yazı
+geri gelmiyordu — panel açık olduğu hâlde imleç kayıp kalıyordu. Yalnızca
+farklıysa yazılıyor: koşulsuz yazmak Unity'nin kendi durumunu ezer ve editörde
+Game view'dan çıkmak imkânsızlaşırdı.
+
 **Panel açıkken yürümeye ve zıplamaya devam ediliyor** (2026-09-06). Kesilen
 tek şey **bakış** — imleç serbestken farenin arayüzdeki hareketi karaktere de
 gitseydi ekran savrulurdu. Eylemler (etkileşim, saldırı, fener) de kapalı:

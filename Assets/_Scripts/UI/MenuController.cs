@@ -102,6 +102,15 @@ public class MenuController : MonoBehaviour
         // Faz, ekran değişmeden de değişebiliyor (tur sunucudan başlatılınca).
         ApplyBackdrop();
 
+        // İmleç HER KAREDE doğrulanıyor, yalnızca geçişte değil. Unity pencere
+        // odağı değişince (alt-tab, editörde Game view'a tıklamak) imleç
+        // durumunu kendi başına değiştiriyor ve tek seferlik bir yazı geri
+        // gelmiyordu — panel açık olduğu hâlde imleç kayıp kalıyordu.
+        //
+        // Yalnızca FARKLIYSA yazılıyor: her karede koşulsuz yazmak Unity'nin
+        // kendi durumunu ezerdi ve editörde Game view'dan çıkmak imkânsızlaşırdı.
+        ApplyCursor();
+
         if (!Input.GetKeyDown(toggleKey))
             return;
 
@@ -282,6 +291,24 @@ public class MenuController : MonoBehaviour
     /// kapatılıyor. Sökmek, bileşeni kapatmaktan güvenilir: kapalı bir
     /// MonoBehaviour'ın metotları yine de çağrılabiliyor.
     /// </summary>
+    /// <summary>
+    /// İmleci istenen duruma getirir — menü ya da kaplama açıksa serbest.
+    ///
+    /// Ayrı bir metot, çünkü `Update`'ten de çağrılıyor: durum yalnızca
+    /// geçişte yazılsaydı pencere odağı değişince kaybolup geri gelmiyordu.
+    /// </summary>
+    private void ApplyCursor()
+    {
+        bool uiActive = IsOpen || overlayOpen;
+        CursorLockMode wanted = uiActive ? CursorLockMode.None : CursorLockMode.Locked;
+
+        if (Cursor.lockState != wanted)
+            Cursor.lockState = wanted;
+
+        if (Cursor.visible != uiActive)
+            Cursor.visible = uiActive;
+    }
+
     private void ApplyGameplayState(bool menuOpen)
     {
         // `menuOpen` çağıranlardan `IsOpen || overlayOpen` olarak geliyor;
@@ -289,8 +316,7 @@ public class MenuController : MonoBehaviour
         bool paused = IsOpen;
         bool uiActive = menuOpen;
 
-        Cursor.lockState = uiActive ? CursorLockMode.None : CursorLockMode.Locked;
-        Cursor.visible = uiActive;
+        ApplyCursor();
 
         ResolveLocalPlayer();
 
