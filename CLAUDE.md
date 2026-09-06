@@ -3074,9 +3074,25 @@ yürüyebiliyorsun ama göremiyorsun.
 **İmleç HER KAREDE doğrulanıyor** (`MenuController.ApplyCursor`), yalnızca
 geçişte değil. Unity pencere odağı değişince (alt-tab, editörde Game view'a
 tıklamak) imleç durumunu kendi başına değiştiriyor ve tek seferlik bir yazı
-geri gelmiyordu — panel açık olduğu hâlde imleç kayıp kalıyordu. Yalnızca
-farklıysa yazılıyor: koşulsuz yazmak Unity'nin kendi durumunu ezer ve editörde
-Game view'dan çıkmak imkânsızlaşırdı.
+geri gelmiyordu — panel açık olduğu hâlde imleç kayıp kalıyordu.
+
+> **`Cursor.visible` KOŞULSUZ yazılıyor, "farklıysa" değil.** İlk düzeltme
+> ikisini de `if (mevcut != istenen)` ile koruyordu ve **hiçbir şeyi
+> çözmedi.** Sebep: `Cursor.visible`'ın getter'ı gerçeği yansıtmıyor — imleç
+> kilitliyken Unity onu zorla gizliyor ama özellik hâlâ en son yazdığın değeri
+> döndürüyor. Koruma bu yüzden yazıyı atlıyor ve imleç bir daha gelmiyordu.
+>
+> Kilit ise hâlâ korumalı yazılıyor: onu her karede koşulsuz yazmak editörde
+> Game view'dan çıkmayı imkânsızlaştırırdı.
+>
+> Ders: **bir Unity özelliğinin getter'ı, motorun o an uyguladığı durumu değil
+> senin yazdığın değeri döndürebilir.** "Zaten doğru" varsayımı buradan
+> geliyordu ve yanlıştı.
+
+`ScoreboardPanel` ayrıca kaplama durumunu **her karede** bildiriyor:
+`SetOverlayOpen` değişmemişse hemen çıkıyor, ama panel açılırken
+`MenuController` henüz uyanmamışsa (Awake sırası garanti değil) tek seferlik
+bildirim kaybolur ve imleç hiç serbest bırakılmazdı.
 
 **Panel açıkken yürümeye ve zıplamaya devam ediliyor** (2026-09-06). Kesilen
 tek şey **bakış** — imleç serbestken farenin arayüzdeki hareketi karaktere de

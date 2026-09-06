@@ -900,6 +900,7 @@ public static class MenuSetup
             element.FindPropertyRelative("muteButton").objectReferenceValue = rows[i].muteButton;
             element.FindPropertyRelative("muteLabel").objectReferenceValue = rows[i].muteLabel;
             element.FindPropertyRelative("volumeSlider").objectReferenceValue = rows[i].volumeSlider;
+            element.FindPropertyRelative("noteLabel").objectReferenceValue = rows[i].noteLabel;
         }
 
         serialized.ApplyModifiedProperties();
@@ -954,6 +955,12 @@ public static class MenuSetup
         TMP_Text muteLabel = mute.GetComponentInChildren<TextMeshProUGUI>();
         muteLabel.fontSize = 16f;
 
+        // Denetimlerin yerini kaplayan açıklama. Kaydırıcı ve susturma
+        // gizlendiğinde burası "neden yok" diye yazıyor — boş bir alan "bozuk"
+        // diye okunuyor.
+        TMP_Text note = CreateAnchoredText(row.transform, "Not", string.Empty, 15f,
+            TextAlignmentOptions.Left, new Vector2(0.58f, 0f), new Vector2(1f, 1f), 6f);
+
         SetPreferredHeight(row, 46f);
 
         return new ScoreboardPanel.Row
@@ -964,7 +971,8 @@ public static class MenuSetup
             pingLabel = pingLabel,
             muteButton = mute,
             muteLabel = muteLabel,
-            volumeSlider = volume
+            volumeSlider = volume,
+            noteLabel = note
         };
     }
 

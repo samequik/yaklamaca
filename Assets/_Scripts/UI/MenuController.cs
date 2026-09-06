@@ -302,11 +302,17 @@ public class MenuController : MonoBehaviour
         bool uiActive = IsOpen || overlayOpen;
         CursorLockMode wanted = uiActive ? CursorLockMode.None : CursorLockMode.Locked;
 
+        // Kilit YALNIZCA farklıysa yazılıyor: her karede koşulsuz yazmak
+        // editörde Game view'dan çıkmayı imkânsızlaştırırdı.
         if (Cursor.lockState != wanted)
             Cursor.lockState = wanted;
 
-        if (Cursor.visible != uiActive)
-            Cursor.visible = uiActive;
+        // Görünürlük KOŞULSUZ yazılıyor. `Cursor.visible`'ın GETTER'ı gerçeği
+        // yansıtmıyor: imleç kilitliyken Unity onu zorla gizliyor ama özellik
+        // hâlâ en son yazdığın değeri döndürüyor. "Farklıysa yaz" koruması bu
+        // yüzden yazıyı atlıyor ve imleç bir daha geri gelmiyordu — düzeltmenin
+        // kendisini etkisiz kılan tam olarak o korumaydı.
+        Cursor.visible = uiActive;
     }
 
     private void ApplyGameplayState(bool menuOpen)

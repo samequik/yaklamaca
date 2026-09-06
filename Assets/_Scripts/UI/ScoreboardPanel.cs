@@ -44,6 +44,9 @@ public class ScoreboardPanel : MonoBehaviour
         public Button muteButton;
         public TMP_Text muteLabel;
         public Slider volumeSlider;
+
+        /// <summary>Denetim gösterilemediğinde SEBEBİ yazan satır.</summary>
+        public TMP_Text noteLabel;
     }
 
     [SerializeField] private CanvasGroup group;
@@ -93,8 +96,17 @@ public class ScoreboardPanel : MonoBehaviour
         if (KeyBindings.Pressed(GameAction.Scoreboard))
             Apply(!open);
 
-        if (open)
-            Refresh();
+        if (!open)
+            return;
+
+        // Durum her karede yeniden bildiriliyor. `SetOverlayOpen` değişmemişse
+        // hemen çıkıyor, yani bedeli yok — ama panel açılırken `MenuController`
+        // henüz uyanmamışsa (Awake sırası garanti değil) tek seferlik bildirim
+        // kaybolur ve imleç serbest bırakılmazdı.
+        if (MenuController.Instance != null)
+            MenuController.Instance.SetOverlayOpen(true);
+
+        Refresh();
     }
 
     private void OnDisable() => Apply(false);
@@ -188,6 +200,23 @@ public class ScoreboardPanel : MonoBehaviour
 
         if (row.volumeSlider != null && row.volumeSlider.gameObject.activeSelf != controllable)
             row.volumeSlider.gameObject.SetActive(controllable);
+
+        // Denetim yoksa SEBEBİ yazılıyor. Boş bir alan "bozuk" diye okunuyor;
+        // tek başına test edildiğinde tam olarak bu yaşandı — ekranda yalnızca
+        // kendi satırın ve botunki oluyor, ikisinde de ayarlanacak bir şey yok.
+        if (row.noteLabel != null)
+        {
+            bool showNote = !controllable;
+
+            if (row.noteLabel.gameObject.activeSelf != showNote)
+                row.noteLabel.gameObject.SetActive(showNote);
+
+            if (showNote)
+            {
+                row.noteLabel.color = mutedTextColor;
+                row.noteLabel.SetText(local ? "kendi sesini duymuyorsun" : "sesi yok");
+            }
+        }
 
         if (!controllable)
             return;
