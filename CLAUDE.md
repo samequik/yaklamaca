@@ -29,7 +29,7 @@ canavar modeli, animasyonları ve ışıkları (bölüm 14) · katman düzeni
 (bölüm 16) · kaçan modeli ve yakalanma animasyonu (bölüm 17) · çıkış görünümü
 ve kilit paneli (bölüm 18) · lightmap + occlusion · **EOS relay'i** ·
 **kısa lobi kodu ve oda listesi** (bölüm 13) · **sesli sohbet, mikrofon
-göstergesi ve TAB paneli** (bölüm 19) · git.
+göstergesi ve TAB paneli** (bölüm 19) · **gerçek UI** (bölüm 20) · git.
 
 ---
 
@@ -890,10 +890,10 @@ bir tercih olması.
 1. **Bıçak sesleri yer tutucu.** `Bicak_Savurma.wav` ve `Bicak_Isabet.wav`
    sentetik. Diğer sesler gerçek dosyalarla değiştirildi. Artık bıçak da yok
    (canavar elle saldırıyor), yani sesler saldırıya göre yeniden seçilmeli.
-2. **Prototip arayüz.** `RoundHud`, `PlayerInteractor` ve terminal ekranı
-   `OnGUI` kullanıyor. IMGUI her zaman Canvas'ın üstünde kaldığı için menü
-   açılırken bunların elle kapatılması gerekiyor; gerçek UI'a (TextMeshPro +
-   Canvas) geçilince hepsi silinecek.
+2. ~~**Prototip arayüz.**~~ **ÇÖZÜLDÜ** (2026-09-06) — oyun içi arayüzün
+   tamamı TextMeshPro + Canvas'a taşındı, çalışma anında `OnGUI` kalmadı
+   (bölüm 20). Madde numarası, koddaki atıflar bozulmasın diye yerinde
+   bırakıldı.
 3. ~~**Katman düzeni yok.**~~ **ÇÖZÜLDÜ** (2026-08-30) — dört katman kuruldu ve
    maskeler daraltıldı. Bkz. bölüm 16. Madde numarası, koddaki atıflar bozulmasın
    diye yerinde bırakıldı.
@@ -3121,3 +3121,94 @@ hiçbir şey silmiyor.
 **Tek makinede denenemez.** Kendi sesini kendine göndermiyoruz, yani yakalama
 zinciri çalışsa bile ağ yolu ancak iki makineyle doğrulanıyor — EOS'taki gibi.
 Sağ üstteki çubuk en azından mikrofonun duyduğunu tek başına gösteriyor.
+
+---
+
+## 20. Gerçek UI: OnGUI'den Canvas'a
+
+Teknik borç 2'nin karşılığı. Oyun içi arayüzün tamamı `OnGUI` ile çiziliyordu:
+nişangah, nişan yazısı, tur durumu, terminal ekranı ve çıkış kilidi paneli.
+**Çalışma anında artık hiç IMGUI yok.**
+
+### Asıl sorun sıralamaydı
+
+IMGUI **her zaman Canvas'ın üstünde** çiziliyor. Yani menü açıldığında tur
+yazıları menünün üzerine biniyordu ve `MenuController` onları elle kapatmak
+zorundaydı:
+
+```csharp
+RoundHud hud = RoundManager.Instance.GetComponent<RoundHud>();
+hud.enabled = !menuOpen;
+```
+
+Bu, kapatılması unutulan her yeni IMGUI parçası için sessizce bozuluyordu —
+nitekim `Terminal` ve `ExitLock` ekranları hiç kapatılmıyordu: terminal
+başındayken Esc'ye basınca ekran duraklatma menüsünün üstünde kalıyordu.
+
+Canvas'a taşınınca sıralama kendiliğinden doğru oldu ve elle kapatma tek bir
+görünürlük kuralına indi: **menü açıkken HUD kapalı** (`GameHud`). Ayrı bir
+"tur oynanıyor mu" şartı yok — lobide menü zaten açık.
+
+### Ne nereye gitti
+
+| Eski | Yeni |
+|---|---|
+| `RoundHud.OnGUI` | `RoundHudView` (dosya silindi) |
+| `PlayerInteractor.OnGUI` | `CrosshairView` |
+| `Terminal.OnGUI` | `TerminalScreen` |
+| `ExitLock.OnGUI` | `ExitLockScreen` |
+
+Hepsi `Menü Kur` ile kuruluyor; mikrofon göstergesi ve TAB paneli zaten
+oradaydı, yani bütün arayüz tek araçtan çıkıyor.
+
+### Karar bileşende, çizim panelde
+
+`Terminal.BuildScreenState()` ekranda ne yazacağını hesaplayıp bir yapı
+döndürüyor; `TerminalScreen` yalnızca yazıyı, rengi ve çubuk oranını
+uyguluyor. Kural terminalin kendi durumundan çıktığı için arayüz değişse de
+tek yerde kalıyor (bölüm 5).
+
+### Beş terminal, TEK panel
+
+Eskiden her terminal kendi ekranını çiziyordu. Canvas'ta beş ayrı panel
+kurmanın anlamı yok: terminal başında hareket kilitli, yani aynı anda yalnızca
+birine bağlanılabiliyor. Panel `Terminal.ActiveLocal`'e bakıp o an hangisi
+bağlıysa onu gösteriyor; kayıt `Update`'te kuruluyor ve `OnDisable`'da
+bırakılıyor — yok olan bir terminale bakan panel ekranda asılı kalırdı.
+`ExitLock` da aynı desende.
+
+### Oklar fontta olmayabilir — kendini onaran yedek
+
+Yön okları (`↑ ↓ ← →`) temel Latin dışında. Varsayılan `LiberationSans SDF`
+atlası **statik** ve yalnızca temel Latin kapsıyor; oklar ancak **dinamik
+fallback**'ten gelebiliyor. Fallback bu projede var ve çalışıyor (Türkçe
+harfler ondan geliyor) ama garantisi yok — lobi etiketlerinde bir kez "★" boş
+kutuya dönüşmüştü (bölüm 13).
+
+`GameHud.Glyph` karakteri `HasCharacter(..., tryAddCharacter: true)` ile
+sınıyor: bulabildiyse fallback'e **ekliyor**, bulamadıysa yedeğe düşüyor. Yani
+ilk çağrı hem cevabı veriyor hem sorunu çözüyor.
+
+Kilit panelinde yedek **basılacak tuşun harfi** (W/S/A/D). Boş kutu
+göstermektense onu göstermek her açıdan daha iyi: oyuncunun gerçekten basacağı
+şey o. Terminal sınavında zaten ok ve tuş yan yana yazılıyor.
+
+### Silinen dosya sahnede iz bırakıyor
+
+`RoundHud` sınıfı silindi ama bileşen `RoundManager` objesinde
+serileştirilmişti: Unity onu "missing script" olarak gösterip her açılışta
+uyarı basardı. `Menü Kur` artık `RemoveMonoBehavioursWithMissingScript` ile
+temizliyor, yani ayrıca `Hataları Temizle` çalıştırmak gerekmiyor.
+
+> **Ders:** çalışma anındaki bir `MonoBehaviour` sınıfını silmeden önce
+> sahnede/prefabta serileştirilmiş olup olmadığına bak. Derleme temiz çıkar,
+> hata yalnızca Unity açılırken görünür.
+
+### Kurulum
+
+```
+Yakalamaca > Menü Kur
+```
+
+Menü canvas'ı sıfırdan kurulduğu için oyun HUD'ı, terminal ve kilit ekranları
+hep birlikte geliyor.

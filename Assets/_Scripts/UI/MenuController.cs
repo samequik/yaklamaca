@@ -270,14 +270,11 @@ public class MenuController : MonoBehaviour
         if (playerController != null)
             playerController.SetInputSource(menuOpen ? null : playerInput);
 
-        // Tur HUD'ı OnGUI ile çiziyor ve IMGUI her zaman Canvas'ın üstünde
-        // kalıyor: kapatılmazsa terminal sayacı menü yazılarının üzerine biner.
-        if (RoundManager.Instance != null)
-        {
-            RoundHud hud = RoundManager.Instance.GetComponent<RoundHud>();
-            if (hud != null)
-                hud.enabled = !menuOpen;
-        }
+        // HUD'ı burada kapatmak GEREKMİYOR artık. Eskiden tur yazıları OnGUI
+        // ile çiziliyordu ve IMGUI her zaman Canvas'ın üstünde kalıyordu, yani
+        // kapatılmazsa menünün üzerine biniyorlardı. Canvas'a taşındıktan
+        // sonra sıralama kendiliğinden doğru ve görünürlüğü `GameHud` tek bir
+        // kuralla yönetiyor (teknik borç 2).
 
         if (disableWhileOpen == null)
             return;

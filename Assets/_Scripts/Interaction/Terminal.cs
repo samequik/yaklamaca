@@ -199,7 +199,6 @@ public class Terminal : NetworkBehaviour, IInteractable
     // Etkileşim tuşunu bu terminal mi üstlendi — bırakırken geri vermek için.
     private bool usingLocally;
 
-    private GUIStyle screenStyle;
     private MaterialPropertyBlock propertyBlock;
 
     // Alarm nabzı: sesin anlık genliğinden geliyor, ayrı bir sayaçtan değil.
@@ -303,6 +302,11 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// </summary>
     private void OnDisable()
     {
+        // Ekran kaydı da bırakılıyor: panel yok olan bir terminale bakmaya
+        // devam ederse tur bittikten sonra ekranda asılı kalır.
+        if (ActiveLocal == this)
+            ActiveLocal = null;
+
         if (!usingLocally)
             return;
 
@@ -323,6 +327,8 @@ public class Terminal : NetworkBehaviour, IInteractable
         UpdateAudio();
         UpdateAlarmLevel();
         UpdateVisual();
+
+        UpdateScreenRegistration();
     }
 
     /// <summary>
@@ -934,201 +940,128 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// Prototip arayüz — RoundHud ve PlayerInteractor ile birlikte gerçek UI'a
     /// geçilince silinecek (CLAUDE.md teknik borç 2).
     /// </summary>
-    private void OnGUI()
+    // ---------- Ekran verisi ----------
+
+    /// <summary>
+    /// Şu anda YEREL oyuncunun başında olduğu terminal; yoksa null.
+    ///
+    /// Ekran artık her terminalin kendi `OnGUI`'sinde değil, Canvas'taki tek
+    /// bir panelde çiziliyor (teknik borç 2). Panel hangi terminali
+    /// göstereceğini buradan öğreniyor. Statik olması dürüst: hareket kilitli
+    /// olduğu için aynı anda yalnızca bir terminale bağlanılabiliyor.
+    /// </summary>
+    public static Terminal ActiveLocal { get; private set; }
+
+    /// <summary>Ekranın tek karelik görüntüsü — `TerminalScreen` bunu çiziyor.</summary>
+    public struct ScreenState
     {
-        if (!IsUsedByLocalPlayer)
-            return;
+        public Color Accent;
+        public string Header;
 
-        EnsureScreenStyles();
+        public string Big;
+        public float BigSize;
 
-        float scale = Mathf.Clamp(Screen.height / 1080f, 0.7f, 1.8f);
-        float width = 360f * scale;
-        float height = 168f * scale;
+        public string Caption;
 
-        // Tam ortada. Nişangah bu sırada çizilmiyor (PlayerInteractor girdiyi
-        // terminale bıraktığında susuyor), o yüzden ortayı kapatan bir şey yok
-        // ve göz sınav yönünü aramak zorunda kalmıyor.
-        Rect box = new Rect((Screen.width - width) / 2f, (Screen.height - height) / 2f,
-            width, height);
+        public bool ShowBar;
+        public float Bar;
 
-        DrawScreenBody(box, scale);
+        public bool ShowPrompt;
+        public string Prompt;
+        public Color PromptTint;
+        public float PromptBar;
     }
 
-    private void DrawScreenBody(Rect box, float scale)
+    private void UpdateScreenRegistration()
+    {
+        if (IsUsedByLocalPlayer)
+            ActiveLocal = this;
+        else if (ActiveLocal == this)
+            ActiveLocal = null;
+    }
+
+    /// <summary>
+    /// Ekranda ne yazacağını hesaplar. Dört hâl var ve sırası önemli:
+    /// canavarın kilitlemesi > kilitli > bağlanıyor > dolum.
+    ///
+    /// **Karar burada, çizim orada.** Hangi metnin görüneceği terminalin kendi
+    /// durumundan çıkıyor; panel yalnızca yazıyı ve rengi uyguluyor. Böylece
+    /// arayüz değişse de kural tek yerde kalıyor (bölüm 5).
+    /// </summary>
+    public ScreenState BuildScreenState()
     {
         bool monsterLocking = monsterLockEndTime > 0d && LocalPlayerIsMonster();
-        Color accent = monsterLocking ? LockingColor : locked ? AlarmColor : ScreenGreen;
 
-        DrawPanel(box, accent);
-
-        float pad = 12f * scale;
-        Rect inner = new Rect(box.x + pad, box.y + pad, box.width - pad * 2f, box.height - pad * 2f);
-
-        float headerHeight = 20f * scale;
-        DrawLabel(new Rect(inner.x, inner.y, inner.width, headerHeight),
-            HeaderText(monsterLocking), 15f * scale, accent, TextAnchor.MiddleLeft);
-
-        DrawLabel(new Rect(inner.x, inner.y, inner.width, headerHeight),
-            $"[{KeyBindings.Describe(KeyBindings.Get(GameAction.Interact))}] bırak",
-            13f * scale, Fade(accent, 0.55f), TextAnchor.MiddleRight);
-
-        float y = inner.y + headerHeight + 6f * scale;
+        ScreenState state = new ScreenState
+        {
+            Accent = monsterLocking ? LockingColor : locked ? AlarmColor : ScreenGreen,
+            PromptTint = PromptColor
+        };
 
         if (monsterLocking)
         {
-            DrawLockingScreen(inner, y, scale, accent);
-            return;
+            float left = Mathf.Max(0f, (float)(monsterLockEndTime - NetworkTime.time));
+
+            state.Header = "KİLİTLEME";
+            state.Big = $"{left:0.0}";
+            state.BigSize = 34f;
+            state.Caption = "hareket edemezsin";
+            state.ShowBar = true;
+            state.Bar = monsterLockDuration > 0f
+                ? Mathf.Clamp01(1f - left / monsterLockDuration)
+                : 1f;
+
+            return state;
         }
 
         if (locked)
         {
-            DrawLockedScreen(inner, y, scale, accent);
-            return;
+            state.Header = "SİSTEM KİLİTLİ";
+            state.Big = BuildUnlockText();
+            state.BigSize = 26f;
+            state.Caption = $"ilerleme %{Mathf.RoundToInt(progress * 100f)} — donduruldu    ·    sırayla gir";
+
+            return state;
         }
 
         if (NetworkTime.time < fillReadyTime)
         {
-            DrawLabel(new Rect(inner.x, y, inner.width, 40f * scale), "BAĞLANIYOR…",
-                24f * scale, Fade(accent, 0.7f), TextAnchor.MiddleCenter);
-            return;
+            state.Header = "BAĞLANTI";
+            state.Big = "BAĞLANIYOR…";
+            state.BigSize = 24f;
+
+            return state;
         }
 
-        DrawFillingScreen(inner, y, scale, accent);
-    }
-
-    private string HeaderText(bool monsterLocking)
-    {
-        if (monsterLocking)
-            return "KİLİTLEME";
-
-        if (locked)
-            return "SİSTEM KİLİTLİ";
-
-        return NetworkTime.time < fillReadyTime ? "BAĞLANTI" : "VERİ AKTARIMI";
-    }
-
-    /// <summary>Canavar kilitlerken: geri sayım ve dolan çubuk.</summary>
-    private void DrawLockingScreen(Rect inner, float y, float scale, Color accent)
-    {
-        float left = Mathf.Max(0f, (float)(monsterLockEndTime - NetworkTime.time));
-        float done = monsterLockDuration > 0f
-            ? Mathf.Clamp01(1f - left / monsterLockDuration)
-            : 1f;
-
-        DrawLabel(new Rect(inner.x, y, inner.width, 44f * scale), $"{left:0.0}",
-            34f * scale, accent, TextAnchor.MiddleCenter);
-
-        DrawBar(new Rect(inner.x, y + 48f * scale, inner.width, 12f * scale), done, accent);
-
-        DrawLabel(new Rect(inner.x, y + 66f * scale, inner.width, 24f * scale),
-            "hareket edemezsin", 14f * scale, Fade(accent, 0.6f), TextAnchor.MiddleCenter);
-    }
-
-    /// <summary>Kilitliyken: girilmesi gereken yön örüntüsü.</summary>
-    private void DrawLockedScreen(Rect inner, float y, float scale, Color accent)
-    {
-        int percent = Mathf.RoundToInt(progress * 100f);
-
-        DrawLabel(new Rect(inner.x, y, inner.width, 26f * scale),
-            $"ilerleme %{percent} — donduruldu", 14f * scale, Fade(accent, 0.6f),
-            TextAnchor.MiddleCenter);
-
-        DrawLabel(new Rect(inner.x, y + 26f * scale, inner.width, 40f * scale),
-            BuildUnlockText(), 26f * scale, accent, TextAnchor.MiddleCenter);
-
-        DrawLabel(new Rect(inner.x, y + 68f * scale, inner.width, 24f * scale),
-            "sırayla gir", 14f * scale, Fade(accent, 0.6f), TextAnchor.MiddleCenter);
-    }
-
-    /// <summary>Normal dolum: yüzde, çubuk ve varsa yön sınavı.</summary>
-    private void DrawFillingScreen(Rect inner, float y, float scale, Color accent)
-    {
-        int percent = Mathf.RoundToInt(progress * 100f);
-
-        DrawLabel(new Rect(inner.x, y, inner.width, 44f * scale), $"%{percent}",
-            34f * scale, accent, TextAnchor.MiddleCenter);
-
-        DrawBar(new Rect(inner.x, y + 48f * scale, inner.width, 12f * scale), progress, accent);
+        state.Header = "VERİ AKTARIMI";
+        state.Big = $"%{Mathf.RoundToInt(progress * 100f)}";
+        state.BigSize = 34f;
+        state.ShowBar = true;
+        state.Bar = progress;
 
         if (prompt == 0)
         {
-            DrawLabel(new Rect(inner.x, y + 66f * scale, inner.width, 24f * scale),
-                "aktarım sürüyor", 14f * scale, Fade(accent, 0.55f), TextAnchor.MiddleCenter);
-            return;
+            state.Caption = "aktarım sürüyor";
+            return state;
         }
 
         // Sınav: kalan süre hem yazıyla hem incelen bir çubukla. Süre azalınca
         // kırmızıya dönüyor — ekrana bakmadan terminal doldurulamıyor.
         float remaining = Mathf.Max(0f, (float)(promptDeadline - NetworkTime.time));
         float ratio = promptWindow > 0f ? Mathf.Clamp01(remaining / promptWindow) : 0f;
-        Color urgency = ratio < 0.35f ? AlarmColor : PromptColor;
 
-        DrawLabel(new Rect(inner.x, y + 62f * scale, inner.width, 34f * scale),
-            DirectionLabel(prompt), 26f * scale, urgency, TextAnchor.MiddleCenter);
+        state.ShowPrompt = true;
+        state.Prompt = DirectionLabel(prompt);
+        state.PromptTint = ratio < 0.35f ? AlarmColor : PromptColor;
+        state.PromptBar = ratio;
 
-        DrawBar(new Rect(inner.x + inner.width * 0.25f, y + 96f * scale,
-            inner.width * 0.5f, 6f * scale), ratio, urgency);
+        return state;
     }
-
-    // ---------- Ekran çizim yardımcıları ----------
 
     private static readonly Color ScreenGreen = new Color(0.35f, 1f, 0.45f);
     private static readonly Color AlarmColor = new Color(1f, 0.35f, 0.2f);
     private static readonly Color LockingColor = new Color(1f, 0.65f, 0.2f);
     private static readonly Color PromptColor = new Color(0.55f, 1f, 0.85f);
-    private static readonly Color PanelBack = new Color(0.02f, 0.05f, 0.03f, 0.88f);
-
-    // Tek piksellik beyaz doku: kutu, çerçeve ve çubuklar bununla çiziliyor.
-    private static Texture2D solidTexture;
-
-    private void EnsureScreenStyles()
-    {
-        screenStyle ??= new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, richText = false };
-
-        if (solidTexture != null)
-            return;
-
-        solidTexture = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
-        solidTexture.SetPixel(0, 0, Color.white);
-        solidTexture.Apply();
-    }
-
-    private static Color Fade(Color color, float alpha) =>
-        new Color(color.r, color.g, color.b, alpha);
-
-    private static void Fill(Rect rect, Color color)
-    {
-        Color previous = GUI.color;
-        GUI.color = color;
-        GUI.DrawTexture(rect, solidTexture);
-        GUI.color = previous;
-    }
-
-    /// <summary>Koyu gövde + ince çerçeve. Ekranın "monitör" hissi buradan.</summary>
-    private static void DrawPanel(Rect box, Color accent)
-    {
-        Fill(box, PanelBack);
-
-        Color border = Fade(accent, 0.55f);
-        Fill(new Rect(box.x, box.y, box.width, 2f), border);
-        Fill(new Rect(box.x, box.yMax - 2f, box.width, 2f), border);
-        Fill(new Rect(box.x, box.y, 2f, box.height), border);
-        Fill(new Rect(box.xMax - 2f, box.y, 2f, box.height), border);
-    }
-
-    private static void DrawBar(Rect rect, float fill, Color accent)
-    {
-        Fill(rect, Fade(accent, 0.18f));
-        Fill(new Rect(rect.x, rect.y, rect.width * Mathf.Clamp01(fill), rect.height), accent);
-    }
-
-    private void DrawLabel(Rect rect, string text, float fontSize, Color color, TextAnchor anchor)
-    {
-        screenStyle.fontSize = Mathf.RoundToInt(fontSize);
-        screenStyle.alignment = anchor;
-        screenStyle.normal.textColor = color;
-        GUI.Label(rect, text, screenStyle);
-    }
 
     /// <summary>Girilen kısmı işaretli, kalanı gizli örüntü.</summary>
     private string BuildUnlockText()

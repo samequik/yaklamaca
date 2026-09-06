@@ -67,6 +67,11 @@ public static class MenuSetup
         // oynanmıyorken açılıyor (bkz. MenuController.ApplyBackdrop).
         GameObject backdrop = CreateBackdrop(canvasObject.transform);
 
+        // Oyun içi HUD hemen karartmanın üstünde: menü panellerinden ÖNCE
+        // geliyor, yani menü açıldığında panel onun üstünü örtüyor. Zaten
+        // `GameHud` menü açıkken kendini gizliyor — sıralama ikinci güvence.
+        BuildGameHud(canvasObject.transform);
+
         // Menüyle Mirror arasındaki köprü. Canvas'ın üstünde duruyor ve
         // NetworkBehaviour DEĞİL: sahnedeki menü objesine NetworkIdentity
         // eklenemiyor (CLAUDE.md bölüm 4).
@@ -135,6 +140,16 @@ public static class MenuSetup
         NetworkManagerHUD hud = Object.FindObjectOfType<NetworkManagerHUD>();
         if (hud != null)
             Undo.DestroyObjectImmediate(hud);
+
+        // `RoundHud` sınıfı silindi (teknik borç 2): tur yazıları artık
+        // Canvas'ta. Sahnedeki bileşen "missing script" olarak kalıyor ve
+        // Unity her açılışta uyarı basıyor — burada temizleniyor ki oyuncu
+        // ayrıca `Hataları Temizle` çalıştırmak zorunda kalmasın.
+        // `Instance` çalışma anında kuruluyor, editörde null — sahneden
+        // aranıyor. Kapalı objeler de taranıyor.
+        RoundManager manager = Object.FindObjectOfType<RoundManager>(true);
+        if (manager != null)
+            GameObjectUtility.RemoveMonoBehavioursWithMissingScript(manager.gameObject);
     }
 
     // ---------- Ekranlar ----------
@@ -241,6 +256,383 @@ public static class MenuSetup
         serialized.ApplyModifiedProperties();
 
         return panel;
+    }
+
+    /// <summary>
+    /// Oyun içi HUD: nişangah, nişan yazısı ve tur bilgisi.
+    ///
+    /// Teknik borç 2'nin karşılığı — üçü de `OnGUI` ile çiziliyordu. IMGUI her
+    /// zaman Canvas'ın üstünde kaldığı için menü açıldığında üzerine biniyorlar
+    /// ve `MenuController` onları elle kapatmak zorunda kalıyordu.
+    ///
+    /// `MenuController`'ın panel listesine GİRMİYOR: ekran değiştikçe açılıp
+    /// kapanmamalı, görünürlüğünü `GameHud` kendi yönetiyor.
+    /// </summary>
+    private static void BuildGameHud(Transform parent)
+    {
+        GameObject root = new GameObject("OyunHud", typeof(RectTransform));
+        root.transform.SetParent(parent, false);
+        Stretch(root.GetComponent<RectTransform>());
+
+        GameHud hud = root.AddComponent<GameHud>();
+
+        BuildCrosshair(root.transform);
+        BuildRoundLines(root.transform);
+
+        // Ekranlar en sonda: nişangahın ÜSTÜNDE çizilsinler. Zaten ikisi de
+        // `PlayerInteractor.InputCaptured` sırasında açılıyor ve o anda
+        // nişangah gizli, ama kardeş sırası ikinci güvence.
+        BuildTerminalScreen(root.transform);
+        BuildExitLockScreen(root.transform);
+
+        SerializedObject serialized = new SerializedObject(hud);
+        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.ApplyModifiedProperties();
+    }
+
+    /// <summary>
+    /// Ekranın ortasındaki nokta ve altındaki nişan yazısı.
+    ///
+    /// Nokta sprite'sız bir `Image`: Unity boş sprite'ı düz beyaz kare olarak
+    /// çiziyor, yani doku üretmeye gerek yok. Eski sürüm 1x1 bir `Texture2D`
+    /// yaratıp saklıyordu.
+    /// </summary>
+    private static void BuildCrosshair(Transform parent)
+    {
+        GameObject root = new GameObject("Nisangah", typeof(RectTransform));
+        root.transform.SetParent(parent, false);
+
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(320f, 80f);
+        rect.anchoredPosition = Vector2.zero;
+
+        GameObject dot = new GameObject("Nokta", typeof(RectTransform), typeof(Image));
+        dot.transform.SetParent(root.transform, false);
+
+        RectTransform dotRect = dot.GetComponent<RectTransform>();
+        dotRect.anchorMin = new Vector2(0.5f, 0.5f);
+        dotRect.anchorMax = new Vector2(0.5f, 0.5f);
+        dotRect.sizeDelta = new Vector2(5f, 5f);
+        dotRect.anchoredPosition = Vector2.zero;
+
+        // Yazı noktanın ALTINDA: üstüne koymak bakılan nesneyi kapatıyordu ve
+        // nişan alınan yer zaten ekranın tam ortası.
+        TMP_Text prompt = CreateAnchoredText(root.transform, "Yazi", string.Empty, 17f,
+            TextAlignmentOptions.Top, new Vector2(0f, 0f), new Vector2(1f, 0f), 0f);
+
+        RectTransform promptRect = prompt.rectTransform;
+        promptRect.anchoredPosition = new Vector2(0f, -34f);
+        promptRect.sizeDelta = new Vector2(0f, 28f);
+
+        CrosshairView view = root.AddComponent<CrosshairView>();
+
+        SerializedObject serialized = new SerializedObject(view);
+        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("dot").objectReferenceValue = dotRect;
+        serialized.FindProperty("dotImage").objectReferenceValue = dot.GetComponent<Image>();
+        serialized.FindProperty("promptLabel").objectReferenceValue = prompt;
+        serialized.ApplyModifiedProperties();
+    }
+
+    /// <summary>Ekranın üstündeki üç satır: terminal sayacı, durum, alarm.</summary>
+    private static void BuildRoundLines(Transform parent)
+    {
+        GameObject root = new GameObject("TurBilgisi", typeof(RectTransform));
+        root.transform.SetParent(parent, false);
+
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.sizeDelta = new Vector2(720f, 110f);
+        rect.anchoredPosition = new Vector2(0f, -12f);
+
+        TMP_Text terminal = CreateHudLine(root.transform, "Terminal", 24f, 0f, TextColor);
+        TMP_Text status = CreateHudLine(root.transform, "Durum", 21f, -34f, TextColor);
+        TMP_Text alarm = CreateHudLine(root.transform, "Alarm", 22f, -66f, AccentColor);
+
+        alarm.fontStyle = FontStyles.Bold;
+
+        RoundHudView view = root.AddComponent<RoundHudView>();
+
+        SerializedObject serialized = new SerializedObject(view);
+        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("terminalLabel").objectReferenceValue = terminal;
+        serialized.FindProperty("statusLabel").objectReferenceValue = status;
+        serialized.FindProperty("alarmLabel").objectReferenceValue = alarm;
+        serialized.ApplyModifiedProperties();
+    }
+
+    /// <summary>
+    /// Terminal ekranı: koyu gövde, ince çerçeve, ortada büyük yazı ve çubuk.
+    ///
+    /// Tek panel beş terminale hizmet ediyor — hareket kilitli olduğu için aynı
+    /// anda yalnızca birine bağlanılabiliyor (bkz. `TerminalScreen`).
+    /// </summary>
+    private static void BuildTerminalScreen(Transform parent)
+    {
+        GameObject root = CreateScreenBox("Panel_TerminalEkrani", parent,
+            new Vector2(380f, 200f), new Color(0.02f, 0.05f, 0.03f, 0.88f),
+            out Graphic[] borders);
+
+        TMP_Text header = CreateScreenText(root.transform, "Baslik", 15f,
+            TextAlignmentOptions.Left, 14f, -12f, 20f);
+
+        TMP_Text exit = CreateScreenText(root.transform, "Cikis", 13f,
+            TextAlignmentOptions.Right, 14f, -12f, 20f);
+
+        TMP_Text big = CreateScreenText(root.transform, "Buyuk", 34f,
+            TextAlignmentOptions.Center, 14f, -40f, 46f);
+
+        GameObject bar = CreateScreenBar(root.transform, "Cubuk", -92f, 12f, 14f,
+            out RectTransform barFill, out Graphic barFillGraphic, out Graphic barBackGraphic);
+
+        TMP_Text caption = CreateScreenText(root.transform, "Alt", 14f,
+            TextAlignmentOptions.Center, 14f, -110f, 22f);
+
+        TMP_Text prompt = CreateScreenText(root.transform, "Sinav", 26f,
+            TextAlignmentOptions.Center, 14f, -134f, 34f);
+
+        GameObject promptBar = CreateScreenBar(root.transform, "SinavCubugu", -174f, 6f, 100f,
+            out RectTransform promptFill, out Graphic promptFillGraphic,
+            out Graphic promptBackGraphic);
+
+        TerminalScreen screen = root.AddComponent<TerminalScreen>();
+
+        SerializedObject serialized = new SerializedObject(screen);
+        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("headerLabel").objectReferenceValue = header;
+        serialized.FindProperty("exitLabel").objectReferenceValue = exit;
+        serialized.FindProperty("bigLabel").objectReferenceValue = big;
+        serialized.FindProperty("captionLabel").objectReferenceValue = caption;
+        serialized.FindProperty("promptLabel").objectReferenceValue = prompt;
+        serialized.FindProperty("bar").objectReferenceValue = bar;
+        serialized.FindProperty("barFill").objectReferenceValue = barFill;
+        serialized.FindProperty("barFillGraphic").objectReferenceValue = barFillGraphic;
+        serialized.FindProperty("barBackGraphic").objectReferenceValue = barBackGraphic;
+        serialized.FindProperty("promptBar").objectReferenceValue = promptBar;
+        serialized.FindProperty("promptBarFill").objectReferenceValue = promptFill;
+        serialized.FindProperty("promptBarFillGraphic").objectReferenceValue = promptFillGraphic;
+        serialized.FindProperty("promptBarBackGraphic").objectReferenceValue = promptBackGraphic;
+
+        SerializedProperty borderArray = serialized.FindProperty("borders");
+        borderArray.arraySize = borders.Length;
+
+        for (int i = 0; i < borders.Length; i++)
+            borderArray.GetArrayElementAtIndex(i).objectReferenceValue = borders[i];
+
+        serialized.ApplyModifiedProperties();
+
+        root.SetActive(false);
+    }
+
+    /// <summary>
+    /// Çıkış kilidi paneli: başlık şeridi, on hücre, ilerleme şeridi.
+    ///
+    /// Hücreler önceden kuruluyor ve sonra yalnızca renkleriyle yazıları
+    /// değişiyor — çalışma anında obje yaratmak bölüm 2'nin havuzlama kuralına
+    /// takılırdı, üstelik dizilim uzunluğu sabit.
+    /// </summary>
+    private static void BuildExitLockScreen(Transform parent)
+    {
+        GameObject root = CreateScreenBox("Panel_KilitEkrani", parent,
+            new Vector2(520f, 200f), new Color(0.045f, 0.042f, 0.028f, 0.94f),
+            out Graphic[] borders);
+
+        Color accent = new Color(0.95f, 0.8f, 0.15f);
+        Color accentDim = new Color(0.52f, 0.43f, 0.10f);
+
+        for (int i = 0; i < borders.Length; i++)
+            borders[i].color = accentDim;
+
+        TMP_Text title = CreateScreenText(root.transform, "Baslik", 13f,
+            TextAlignmentOptions.Center, 16f, -14f, 22f);
+
+        title.SetText("Ç I K I Ş   K İ L İ D İ");
+        title.color = accent;
+
+        const int count = ExitLock.SequenceLength;
+        ExitLockScreen.Cell[] cells = new ExitLockScreen.Cell[count];
+
+        for (int i = 0; i < count; i++)
+            cells[i] = CreateLockCell(root.transform, i, count);
+
+        GameObject bar = CreateScreenBar(root.transform, "Cubuk", -134f, 4f, 16f,
+            out RectTransform barFill, out Graphic barFillGraphic, out Graphic barBackGraphic);
+
+        barFillGraphic.color = accent;
+        barBackGraphic.color = new Color(0.12f, 0.11f, 0.06f);
+
+        TMP_Text caption = CreateScreenText(root.transform, "Alt", 11f,
+            TextAlignmentOptions.Center, 16f, -150f, 20f);
+
+        ExitLockScreen screen = root.AddComponent<ExitLockScreen>();
+
+        SerializedObject serialized = new SerializedObject(screen);
+        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("barFill").objectReferenceValue = barFill;
+        serialized.FindProperty("captionLabel").objectReferenceValue = caption;
+
+        SerializedProperty cellArray = serialized.FindProperty("cells");
+        cellArray.arraySize = count;
+
+        for (int i = 0; i < count; i++)
+        {
+            SerializedProperty element = cellArray.GetArrayElementAtIndex(i);
+            element.FindPropertyRelative("background").objectReferenceValue = cells[i].background;
+            element.FindPropertyRelative("border").objectReferenceValue = cells[i].border;
+            element.FindPropertyRelative("label").objectReferenceValue = cells[i].label;
+        }
+
+        serialized.ApplyModifiedProperties();
+
+        root.SetActive(false);
+    }
+
+    /// <summary>
+    /// Kilit dizilimindeki tek hücre.
+    ///
+    /// Genişlik YÜZDEYLE veriliyor: panel ölçeklenince hücreler de birlikte
+    /// ölçekleniyor ve sabit piksel genişliği on hücrede taşmıyor.
+    /// </summary>
+    private static ExitLockScreen.Cell CreateLockCell(Transform parent, int index, int count)
+    {
+        GameObject cell = new GameObject($"Hucre_{index + 1}", typeof(RectTransform), typeof(Image));
+        cell.transform.SetParent(parent, false);
+
+        float step = 1f / count;
+        const float inset = 1.5f;
+
+        RectTransform rect = cell.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(step * index, 1f);
+        rect.anchorMax = new Vector2(step * (index + 1), 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.offsetMin = new Vector2(inset, -126f);
+        rect.offsetMax = new Vector2(-inset, -48f);
+
+        // Çerçeve AYRI bir Image: arka planla aynı objede olamaz, ikisi de renk
+        // taşıyor ve sıradaki hücrede çerçevenin kapanması gerekiyor.
+        GameObject border = CreateStretchedImage("Cerceve", cell.transform, Color.white);
+
+        TMP_Text label = CreateAnchoredText(cell.transform, "Yazi", string.Empty, 24f,
+            TextAlignmentOptions.Center, Vector2.zero, Vector2.one, 0f);
+
+        // Yazı çerçevenin üstünde kalmalı; kardeş sırası bunu belirliyor.
+        label.transform.SetAsLastSibling();
+
+        return new ExitLockScreen.Cell
+        {
+            background = cell.GetComponent<Image>(),
+            border = border.GetComponent<Image>(),
+            label = label
+        };
+    }
+
+    /// <summary>Ekranın ortasında duran koyu gövde + dört kenarlık.</summary>
+    private static GameObject CreateScreenBox(string name, Transform parent, Vector2 size,
+        Color back, out Graphic[] borders)
+    {
+        GameObject root = new GameObject(name, typeof(RectTransform), typeof(Image));
+        root.transform.SetParent(parent, false);
+        root.GetComponent<Image>().color = back;
+
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = size;
+        rect.anchoredPosition = Vector2.zero;
+
+        borders = new Graphic[4];
+        borders[0] = CreateEdge(root.transform, "Ust", new Vector2(0f, 1f), new Vector2(1f, 1f), 2f);
+        borders[1] = CreateEdge(root.transform, "Alt", new Vector2(0f, 0f), new Vector2(1f, 0f), 2f);
+        borders[2] = CreateEdge(root.transform, "Sol", new Vector2(0f, 0f), new Vector2(0f, 1f), 2f);
+        borders[3] = CreateEdge(root.transform, "Sag", new Vector2(1f, 0f), new Vector2(1f, 1f), 2f);
+
+        return root;
+    }
+
+    private static Graphic CreateEdge(Transform parent, string name, Vector2 min, Vector2 max,
+        float thickness)
+    {
+        GameObject edge = new GameObject(name, typeof(RectTransform), typeof(Image));
+        edge.transform.SetParent(parent, false);
+
+        RectTransform rect = edge.GetComponent<RectTransform>();
+        rect.anchorMin = min;
+        rect.anchorMax = max;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        // Yatay kenar yükseklik alıyor, dikey kenar genişlik.
+        rect.sizeDelta = Mathf.Approximately(min.y, max.y)
+            ? new Vector2(0f, thickness)
+            : new Vector2(thickness, 0f);
+
+        return edge.GetComponent<Image>();
+    }
+
+    /// <summary>Panelin içinde üstten hizalı bir yazı satırı.</summary>
+    private static TMP_Text CreateScreenText(Transform parent, string name, float fontSize,
+        TextAlignmentOptions alignment, float sideInset, float top, float height)
+    {
+        TMP_Text label = CreateAnchoredText(parent, name, string.Empty, fontSize,
+            alignment, new Vector2(0f, 1f), new Vector2(1f, 1f), 0f);
+
+        RectTransform rect = label.rectTransform;
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.offsetMin = new Vector2(sideInset, top - height);
+        rect.offsetMax = new Vector2(-sideInset, top);
+
+        return label;
+    }
+
+    /// <summary>Arka plan + soldan dolan bir çubuk.</summary>
+    private static GameObject CreateScreenBar(Transform parent, string name, float top,
+        float height, float sideInset, out RectTransform fill, out Graphic fillGraphic,
+        out Graphic backGraphic)
+    {
+        GameObject root = new GameObject(name, typeof(RectTransform), typeof(Image));
+        root.transform.SetParent(parent, false);
+
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.offsetMin = new Vector2(sideInset, top - height);
+        rect.offsetMax = new Vector2(-sideInset, top);
+
+        backGraphic = root.GetComponent<Image>();
+
+        GameObject fillObject = new GameObject("Dolgu", typeof(RectTransform), typeof(Image));
+        fillObject.transform.SetParent(root.transform, false);
+
+        fill = fillObject.GetComponent<RectTransform>();
+        fill.anchorMin = Vector2.zero;
+        fill.anchorMax = new Vector2(0f, 1f);
+        fill.offsetMin = Vector2.zero;
+        fill.offsetMax = Vector2.zero;
+
+        fillGraphic = fillObject.GetComponent<Image>();
+
+        return root;
+    }
+
+    private static TMP_Text CreateHudLine(Transform parent, string name, float fontSize,
+        float y, Color color)
+    {
+        TMP_Text label = CreateAnchoredText(parent, name, string.Empty, fontSize,
+            TextAlignmentOptions.Top, new Vector2(0f, 1f), new Vector2(1f, 1f), 0f);
+
+        RectTransform rect = label.rectTransform;
+        rect.pivot = new Vector2(0.5f, 1f);
+        rect.anchoredPosition = new Vector2(0f, y);
+        rect.sizeDelta = new Vector2(0f, 30f);
+
+        label.color = color;
+
+        return label;
     }
 
     /// <summary>

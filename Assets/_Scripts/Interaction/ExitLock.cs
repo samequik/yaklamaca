@@ -77,7 +77,6 @@ public class ExitLock : NetworkBehaviour, IInteractable
 
     private bool focusApplied;
     private bool usingLocally;
-    private GUIStyle screenStyle;
 
     public bool IsSolved => solved;
     public bool IsBusy => activeUserNetId != 0;
@@ -88,6 +87,11 @@ public class ExitLock : NetworkBehaviour, IInteractable
 
     private void OnDisable()
     {
+        // Ekran kaydı da bırakılıyor: panel yok olan bir kilide bakmaya devam
+        // ederse ekranda asılı kalır.
+        if (ActiveLocal == this)
+            ActiveLocal = null;
+
         // Tur biterken panel kapanırsa kilit oyuncunun üstünde kalmasın.
         if (focusApplied)
             ReleaseLocalFocus();
@@ -129,6 +133,8 @@ public class ExitLock : NetworkBehaviour, IInteractable
         ReadLocalInput();
         UpdateStatusLight();
         UpdateAudio();
+
+        UpdateScreenRegistration();
     }
 
     /// <summary>
@@ -457,129 +463,48 @@ public class ExitLock : NetworkBehaviour, IInteractable
     /// Tam ekran değil, bilerek: panel başındaki oyuncunun tek savunması
     /// etrafını duyup görebilmek.
     /// </summary>
-    private void OnGUI()
-    {
-        if (!IsUsedByLocalPlayer)
-            return;
-
-        screenStyle ??= new GUIStyle(GUI.skin.label)
-        {
-            fontStyle = FontStyle.Bold,
-            richText = false
-        };
-
-        float scale = Mathf.Clamp(Screen.height / 1080f, 0.7f, 1.8f);
-        float width = 468f * scale;
-        float height = 176f * scale;
-
-        Rect box = new Rect((Screen.width - width) / 2f, (Screen.height - height) / 2f,
-            width, height);
-
-        // Tek renk ailesi: her şey sarının bir tonu. Tamamlananlar da yeşil
-        // değil sönük sarı — panelin kimliği renkten geliyor.
-        Color accent = new Color(0.95f, 0.8f, 0.15f);
-        Color accentDim = new Color(0.52f, 0.43f, 0.10f);
-        Color ink = new Color(0.05f, 0.045f, 0.02f);
-
-        Fill(box, new Color(0.045f, 0.042f, 0.028f, 0.94f));
-
-        // İnce tek çizgi yerine tam çerçeve + köşe ayraçları: sci-fi kitin
-        // paneleriyle aynı dil, ve panel havada duran bir dikdörtgen gibi
-        // durmuyor.
-        Frame(box, 2f * scale, accentDim);
-        Brackets(box, 22f * scale, 3f * scale, accent);
-
-        float pad = 16f * scale;
-        Rect inner = new Rect(box.x + pad, box.y + pad, box.width - pad * 2f, box.height - pad * 2f);
-
-        // Başlık şeridi.
-        Rect title = new Rect(inner.x, inner.y, inner.width, 20f * scale);
-        Fill(new Rect(title.x, title.y, title.width, title.height), new Color(0.11f, 0.10f, 0.04f));
-        Fill(new Rect(title.x, title.yMax - 1f * scale, title.width, 1f * scale), accentDim);
-        DrawLabel(title, "Ç I K I Ş   K İ L İ D İ", 13f * scale, accent, TextAnchor.MiddleCenter);
-
-        // Dizilim: her adım kendi hücresinde. Sıradaki hücre DOLU sarı, yazısı
-        // koyu — göz onu aramak zorunda kalmıyor.
-        float gap = 3f * scale;
-        float cellWidth = (inner.width - gap * (SequenceLength - 1)) / SequenceLength;
-        float cellHeight = 42f * scale;
-        float cellY = inner.y + 30f * scale;
-
-        for (int i = 0; i < SequenceLength; i++)
-        {
-            Rect cell = new Rect(inner.x + (cellWidth + gap) * i, cellY, cellWidth, cellHeight);
-
-            bool done = i < entered;
-            bool current = i == entered;
-
-            Fill(cell, current ? accent
-                : done ? new Color(0.16f, 0.14f, 0.05f)
-                : new Color(0.085f, 0.082f, 0.06f));
-
-            if (!current)
-                Frame(cell, 1f * scale, done ? accentDim : new Color(0.17f, 0.17f, 0.14f));
-
-            DrawLabel(cell, DirectionArrow(DirectionAt(i)), 24f * scale,
-                current ? ink : done ? accentDim : new Color(0.42f, 0.41f, 0.35f),
-                TextAnchor.MiddleCenter);
-        }
-
-        // İlerleme: hücrelerin altında ince bir şerit, aynı genişlikte.
-        Rect bar = new Rect(inner.x, cellY + cellHeight + 8f * scale, inner.width, 4f * scale);
-        Fill(bar, new Color(0.12f, 0.11f, 0.06f));
-        Fill(new Rect(bar.x, bar.y, bar.width * entered / SequenceLength, bar.height), accent);
-
-        DrawLabel(new Rect(inner.x, inner.yMax - 16f * scale, inner.width, 16f * scale),
-            $"{entered} / {SequenceLength}      yanlış tuş başa sarar",
-            10f * scale, new Color(0.55f, 0.52f, 0.38f), TextAnchor.MiddleCenter);
-    }
-
-    private static void Fill(Rect rect, Color color)
-    {
-        Color previous = GUI.color;
-        GUI.color = color;
-        GUI.DrawTexture(rect, Texture2D.whiteTexture);
-        GUI.color = previous;
-    }
-
-    /// <summary>Dört kenara çerçeve çizer.</summary>
-    private static void Frame(Rect rect, float thickness, Color color)
-    {
-        Fill(new Rect(rect.x, rect.y, rect.width, thickness), color);
-        Fill(new Rect(rect.x, rect.yMax - thickness, rect.width, thickness), color);
-        Fill(new Rect(rect.x, rect.y, thickness, rect.height), color);
-        Fill(new Rect(rect.xMax - thickness, rect.y, thickness, rect.height), color);
-    }
+    // ---------- Ekran verisi ----------
 
     /// <summary>
-    /// Köşe ayraçları: her köşede kısa ve kalın iki çizgi. Çerçevenin tamamını
-    /// kalınlaştırmak paneli ağırlaştırıyordu; vurgu köşelerde toplanınca hem
-    /// oturaklı hem hafif duruyor.
+    /// Şu anda YEREL oyuncunun başında olduğu kilit paneli; yoksa null.
+    ///
+    /// Ekran her panelin kendi `OnGUI`'si yerine Canvas'taki tek bir panelde
+    /// çiziliyor (teknik borç 2). Statik olması dürüst: panel başında hareket
+    /// kilitli, yani aynı anda yalnızca birine bağlanılabiliyor.
     /// </summary>
-    private static void Brackets(Rect rect, float length, float thickness, Color color)
+    public static ExitLock ActiveLocal { get; private set; }
+
+    /// <summary>Kaç adım doğru girildi.</summary>
+    public int Entered => entered;
+
+    /// <summary>Dizilimin `index`. adımının ok karakteri.</summary>
+    public string ArrowAt(int index) => DirectionArrow(DirectionAt(index));
+
+    /// <summary>
+    /// Dizilimin `index`. adımına karşılık gelen TUŞUN adı.
+    ///
+    /// Ok karakteri fontta bulunamazsa ekran buna düşüyor. Varsayılan TMP
+    /// atlası statik ve yalnızca temel Latin kapsıyor; oklar ancak dinamik
+    /// fallback'ten geliyor ve garantisi yok — lobi etiketlerinde bir kez
+    /// "★" boş kutuya dönüşmüştü (bölüm 13).
+    /// </summary>
+    public string KeyAt(int index)
     {
-        // Sol üst
-        Fill(new Rect(rect.x, rect.y, length, thickness), color);
-        Fill(new Rect(rect.x, rect.y, thickness, length), color);
-
-        // Sağ üst
-        Fill(new Rect(rect.xMax - length, rect.y, length, thickness), color);
-        Fill(new Rect(rect.xMax - thickness, rect.y, thickness, length), color);
-
-        // Sol alt
-        Fill(new Rect(rect.x, rect.yMax - thickness, length, thickness), color);
-        Fill(new Rect(rect.x, rect.yMax - length, thickness, length), color);
-
-        // Sağ alt
-        Fill(new Rect(rect.xMax - length, rect.yMax - thickness, length, thickness), color);
-        Fill(new Rect(rect.xMax - thickness, rect.yMax - length, thickness, length), color);
+        switch (DirectionAt(index))
+        {
+            case 1: return KeyBindings.Describe(KeyBindings.Get(GameAction.Forward));
+            case 2: return KeyBindings.Describe(KeyBindings.Get(GameAction.Back));
+            case 3: return KeyBindings.Describe(KeyBindings.Get(GameAction.Left));
+            case 4: return KeyBindings.Describe(KeyBindings.Get(GameAction.Right));
+            default: return "?";
+        }
     }
 
-    private void DrawLabel(Rect rect, string text, float fontSize, Color color, TextAnchor anchor)
+    private void UpdateScreenRegistration()
     {
-        screenStyle.fontSize = Mathf.RoundToInt(fontSize);
-        screenStyle.alignment = anchor;
-        screenStyle.normal.textColor = color;
-        GUI.Label(rect, text, screenStyle);
+        if (IsUsedByLocalPlayer)
+            ActiveLocal = this;
+        else if (ActiveLocal == this)
+            ActiveLocal = null;
     }
 }
