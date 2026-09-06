@@ -24,7 +24,7 @@ using UnityEngine;
 /// </summary>
 public class RoundHudView : MonoBehaviour
 {
-    [SerializeField] private GameObject root;
+    [SerializeField] private CanvasGroup group;
     [SerializeField] private TMP_Text terminalLabel;
     [SerializeField] private TMP_Text statusLabel;
     [SerializeField] private TMP_Text alarmLabel;
@@ -69,8 +69,7 @@ public class RoundHudView : MonoBehaviour
         RoundManager manager = RoundManager.Instance;
         bool active = GameHud.Visible && manager != null;
 
-        if (root != null && root.activeSelf != active)
-            root.SetActive(active);
+        GameHud.SetVisible(group, active);
 
         if (!active)
             return;

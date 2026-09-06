@@ -38,7 +38,7 @@ public class ExitLockScreen : MonoBehaviour
         public TMP_Text label;
     }
 
-    [SerializeField] private GameObject root;
+    [SerializeField] private CanvasGroup group;
     [SerializeField] private Cell[] cells;
 
     [SerializeField] private RectTransform barFill;
@@ -59,8 +59,7 @@ public class ExitLockScreen : MonoBehaviour
         ExitLock lockPanel = ExitLock.ActiveLocal;
         bool active = GameHud.Visible && lockPanel != null;
 
-        if (root != null && root.activeSelf != active)
-            root.SetActive(active);
+        GameHud.SetVisible(group, active);
 
         if (!active || cells == null)
             return;

@@ -268,12 +268,34 @@ public static class MenuSetup
     /// `MenuController`'ın panel listesine GİRMİYOR: ekran değiştikçe açılıp
     /// kapanmamalı, görünürlüğünü `GameHud` kendi yönetiyor.
     /// </summary>
+    /// <summary>
+    /// Görünürlüğü taşıyacak grubu kurar.
+    ///
+    /// **Neden `SetActive` değil.** Kapalı bir `GameObject` `Update`
+    /// çalıştırmıyor; görünürlüğü yöneten bileşen o objenin üstündeyse kendini
+    /// kapattığı anda bir daha açamıyor. Terminal ekranı tam olarak böyle
+    /// kayboldu — kurulumda kapatılmıştı ve oyunda bir kez bile açılmadı.
+    ///
+    /// `CanvasGroup` görüntüyü kapatıyor ama objeyi ayakta bırakıyor.
+    /// </summary>
+    private static CanvasGroup AddVisibilityGroup(GameObject target, bool startVisible)
+    {
+        CanvasGroup group = target.AddComponent<CanvasGroup>();
+
+        group.alpha = startVisible ? 1f : 0f;
+        group.blocksRaycasts = startVisible;
+        group.interactable = startVisible;
+
+        return group;
+    }
+
     private static void BuildGameHud(Transform parent)
     {
         GameObject root = new GameObject("OyunHud", typeof(RectTransform));
         root.transform.SetParent(parent, false);
         Stretch(root.GetComponent<RectTransform>());
 
+        CanvasGroup group = AddVisibilityGroup(root, true);
         GameHud hud = root.AddComponent<GameHud>();
 
         BuildCrosshair(root.transform);
@@ -286,7 +308,7 @@ public static class MenuSetup
         BuildExitLockScreen(root.transform);
 
         SerializedObject serialized = new SerializedObject(hud);
-        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("group").objectReferenceValue = group;
         serialized.ApplyModifiedProperties();
     }
 
@@ -326,10 +348,11 @@ public static class MenuSetup
         promptRect.anchoredPosition = new Vector2(0f, -34f);
         promptRect.sizeDelta = new Vector2(0f, 28f);
 
+        CanvasGroup group = AddVisibilityGroup(root, true);
         CrosshairView view = root.AddComponent<CrosshairView>();
 
         SerializedObject serialized = new SerializedObject(view);
-        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("group").objectReferenceValue = group;
         serialized.FindProperty("dot").objectReferenceValue = dotRect;
         serialized.FindProperty("dotImage").objectReferenceValue = dot.GetComponent<Image>();
         serialized.FindProperty("promptLabel").objectReferenceValue = prompt;
@@ -355,10 +378,11 @@ public static class MenuSetup
 
         alarm.fontStyle = FontStyles.Bold;
 
+        CanvasGroup group = AddVisibilityGroup(root, true);
         RoundHudView view = root.AddComponent<RoundHudView>();
 
         SerializedObject serialized = new SerializedObject(view);
-        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("group").objectReferenceValue = group;
         serialized.FindProperty("terminalLabel").objectReferenceValue = terminal;
         serialized.FindProperty("statusLabel").objectReferenceValue = status;
         serialized.FindProperty("alarmLabel").objectReferenceValue = alarm;
@@ -399,10 +423,11 @@ public static class MenuSetup
             out RectTransform promptFill, out Graphic promptFillGraphic,
             out Graphic promptBackGraphic);
 
+        CanvasGroup group = AddVisibilityGroup(root, false);
         TerminalScreen screen = root.AddComponent<TerminalScreen>();
 
         SerializedObject serialized = new SerializedObject(screen);
-        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("group").objectReferenceValue = group;
         serialized.FindProperty("headerLabel").objectReferenceValue = header;
         serialized.FindProperty("exitLabel").objectReferenceValue = exit;
         serialized.FindProperty("bigLabel").objectReferenceValue = big;
@@ -424,8 +449,6 @@ public static class MenuSetup
             borderArray.GetArrayElementAtIndex(i).objectReferenceValue = borders[i];
 
         serialized.ApplyModifiedProperties();
-
-        root.SetActive(false);
     }
 
     /// <summary>
@@ -468,10 +491,11 @@ public static class MenuSetup
         TMP_Text caption = CreateScreenText(root.transform, "Alt", 11f,
             TextAlignmentOptions.Center, 16f, -150f, 20f);
 
+        CanvasGroup group = AddVisibilityGroup(root, false);
         ExitLockScreen screen = root.AddComponent<ExitLockScreen>();
 
         SerializedObject serialized = new SerializedObject(screen);
-        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("group").objectReferenceValue = group;
         serialized.FindProperty("barFill").objectReferenceValue = barFill;
         serialized.FindProperty("captionLabel").objectReferenceValue = caption;
 
@@ -487,8 +511,6 @@ public static class MenuSetup
         }
 
         serialized.ApplyModifiedProperties();
-
-        root.SetActive(false);
     }
 
     /// <summary>
@@ -781,10 +803,11 @@ public static class MenuSetup
         TMP_Text hint = CreateAnchoredText(root.transform, "Ipucu", "V", 13f,
             TextAlignmentOptions.Right, new Vector2(0f, -0.9f), new Vector2(1f, 0f), 30f);
 
+        CanvasGroup group = AddVisibilityGroup(root, true);
         VoiceHud hud = root.AddComponent<VoiceHud>();
 
         SerializedObject serialized = new SerializedObject(hud);
-        serialized.FindProperty("root").objectReferenceValue = root;
+        serialized.FindProperty("group").objectReferenceValue = group;
         serialized.FindProperty("levelFill").objectReferenceValue = fillRect;
         serialized.FindProperty("levelFillGraphic").objectReferenceValue = fill.GetComponent<Image>();
         serialized.FindProperty("thresholdMark").objectReferenceValue = markRect;
@@ -830,6 +853,7 @@ public static class MenuSetup
         CreateTitle(column, "OYUNCULAR").fontSize = 38f;
         CreateSpacer(column, 8f);
 
+        CanvasGroup group = AddVisibilityGroup(panel, false);
         ScoreboardPanel board = panel.AddComponent<ScoreboardPanel>();
 
         ScoreboardPanel.Row[] rows = new ScoreboardPanel.Row[LobbyRoster.MaxPlayers];
@@ -842,7 +866,7 @@ public static class MenuSetup
         hint.color = new Color(0.66f, 0.66f, 0.72f, 1f);
 
         SerializedObject serialized = new SerializedObject(board);
-        serialized.FindProperty("panel").objectReferenceValue = panel;
+        serialized.FindProperty("group").objectReferenceValue = group;
         serialized.FindProperty("hintLabel").objectReferenceValue = hint;
 
         SerializedProperty array = serialized.FindProperty("rows");
@@ -861,8 +885,6 @@ public static class MenuSetup
         }
 
         serialized.ApplyModifiedProperties();
-
-        panel.SetActive(false);
     }
 
     /// <summary>

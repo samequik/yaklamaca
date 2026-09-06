@@ -25,7 +25,7 @@ using UnityEngine.UI;
 /// </summary>
 public class CrosshairView : MonoBehaviour
 {
-    [SerializeField] private GameObject root;
+    [SerializeField] private CanvasGroup group;
     [SerializeField] private RectTransform dot;
     [SerializeField] private Image dotImage;
     [SerializeField] private TMP_Text promptLabel;
@@ -45,8 +45,7 @@ public class CrosshairView : MonoBehaviour
     {
         bool active = GameHud.Visible && !PlayerInteractor.InputCaptured && ResolveInteractor();
 
-        if (root != null && root.activeSelf != active)
-            root.SetActive(active);
+        GameHud.SetVisible(group, active);
 
         if (!active)
             return;

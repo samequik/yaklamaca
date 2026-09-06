@@ -34,12 +34,47 @@ using UnityEngine;
 /// </summary>
 public class GameHud : MonoBehaviour
 {
-    [SerializeField] private GameObject root;
+    [SerializeField] private CanvasGroup group;
 
     public static GameHud Instance { get; private set; }
 
-    /// <summary>HUD şu an görünür mü — alt parçalar buna bakıyor.</summary>
-    public static bool Visible { get; private set; }
+    /// <summary>
+    /// HUD şu an görünür mü — alt parçalar buna bakıyor.
+    ///
+    /// Varsayılanı **true**, bilerek: bu bileşen sahneden düşerse (menü
+    /// kurulmadan oynanan bir sahne, elle silinmiş bir obje) `Update` hiç
+    /// çalışmaz ve false kalsaydı bütün HUD sessizce kaybolurdu. Yanlış tarafa
+    /// düşmek gerekiyorsa "görünür" tarafına düşmeli: eksik bir gizleme fark
+    /// edilir, eksik bir arayüz "oyun bozuk" diye okunur.
+    /// </summary>
+    public static bool Visible { get; private set; } = true;
+
+    /// <summary>
+    /// Bir arayüz parçasını görünür/görünmez yapar — **objeyi kapatmadan.**
+    ///
+    /// ### Neden `SetActive` değil
+    ///
+    /// Kapalı bir `GameObject` `Update` çalıştırmıyor. Görünürlüğü yöneten
+    /// bileşen o objenin ÜSTÜNDEyse kendini kapattığı anda bir daha
+    /// açamıyor — tek yönlü bir kapı. Terminal ekranı tam olarak böyle
+    /// kayboldu: kurulumda kapatılmıştı ve `TerminalScreen.Update` hiç
+    /// çalışmadığı için oyunda bir kez bile açılmadı.
+    ///
+    /// `CanvasGroup.alpha` görüntüyü kapatıyor ama objeyi ayakta bırakıyor,
+    /// yani bileşen kendi kararını her karede gözden geçirebiliyor.
+    ///
+    /// `blocksRaycasts` da kapanıyor: görünmez bir panel tıklamaları yutmamalı
+    /// (TAB panelindeki düğmeler bunu gerektiriyor).
+    /// </summary>
+    public static void SetVisible(CanvasGroup group, bool visible)
+    {
+        if (group == null)
+            return;
+
+        group.alpha = visible ? 1f : 0f;
+        group.blocksRaycasts = visible;
+        group.interactable = visible;
+    }
 
     private void Awake() => Instance = this;
 
@@ -78,7 +113,6 @@ public class GameHud : MonoBehaviour
     {
         Visible = MenuController.Instance == null || !MenuController.Instance.IsOpen;
 
-        if (root != null && root.activeSelf != Visible)
-            root.SetActive(Visible);
+        SetVisible(group, Visible);
     }
 }

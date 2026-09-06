@@ -32,7 +32,7 @@ using UnityEngine.UI;
 public class VoiceHud : MonoBehaviour
 {
     [Header("Parçalar")]
-    [SerializeField] private GameObject root;
+    [SerializeField] private CanvasGroup group;
     [SerializeField] private Graphic[] micParts;
     [SerializeField] private RectTransform levelFill;
     [SerializeField] private Graphic levelFillGraphic;
@@ -57,8 +57,7 @@ public class VoiceHud : MonoBehaviour
     {
         bool available = VoiceSettings.Enabled && Microphone.devices.Length > 0;
 
-        if (root != null && root.activeSelf != available)
-            root.SetActive(available);
+        GameHud.SetVisible(group, available);
 
         if (!available)
             return;

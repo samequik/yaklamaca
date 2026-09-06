@@ -46,7 +46,7 @@ public class ScoreboardPanel : MonoBehaviour
         public Slider volumeSlider;
     }
 
-    [SerializeField] private GameObject panel;
+    [SerializeField] private CanvasGroup group;
     [SerializeField] private Row[] rows;
     [SerializeField] private TMP_Text hintLabel;
 
@@ -103,8 +103,7 @@ public class ScoreboardPanel : MonoBehaviour
     {
         open = value;
 
-        if (panel != null)
-            panel.SetActive(value);
+        GameHud.SetVisible(group, value);
 
         if (value)
             Refresh();

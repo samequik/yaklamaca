@@ -30,7 +30,7 @@ using UnityEngine.UI;
 /// </summary>
 public class TerminalScreen : MonoBehaviour
 {
-    [SerializeField] private GameObject root;
+    [SerializeField] private CanvasGroup group;
 
     [Header("Çerçeve")]
     [Tooltip("Vurgu rengini alan kenarlıklar. Gövde koyu kalıyor: durumu " +
@@ -60,8 +60,7 @@ public class TerminalScreen : MonoBehaviour
         Terminal terminal = Terminal.ActiveLocal;
         bool active = GameHud.Visible && terminal != null;
 
-        if (root != null && root.activeSelf != active)
-            root.SetActive(active);
+        GameHud.SetVisible(group, active);
 
         if (!active)
             return;

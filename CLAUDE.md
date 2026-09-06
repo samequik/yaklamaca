@@ -3193,6 +3193,35 @@ Kilit panelinde yedek **basılacak tuşun harfi** (W/S/A/D). Boş kutu
 göstermektense onu göstermek her açıdan daha iyi: oyuncunun gerçekten basacağı
 şey o. Terminal sınavında zaten ok ve tuş yan yana yazılıyor.
 
+### Görünürlük `SetActive` ile YÖNETİLMİYOR — CanvasGroup ile
+
+İlk sürüm her paneli `SetActive` ile açıp kapatıyordu ve **terminal ekranı
+oyunda bir kez bile görünmedi.** Sebep tek satırlık ama sinsi:
+
+> **Kapalı bir `GameObject` `Update` çalıştırmıyor.** Görünürlüğü yöneten
+> bileşen o objenin ÜSTÜNDEyse, kendini kapattığı anda bir daha açamıyor —
+> tek yönlü bir kapı.
+
+Terminal ekranı kurulumda kapatılmıştı (Scene penceresinde üst üste binmesin
+diye), yani `TerminalScreen.Update` hiç çalışmadı ve panel hiç açılmadı.
+
+**Aynı hata altı bileşende birden vardı** ve üçü zaten ölüydü: TAB paneli hiç
+açılmıyordu, mikrofon göstergesi sesli sohbet bir kez kapatılınca geri
+gelmiyordu, ve `GameHud` menü ilk açıldığında bütün HUD'ı kalıcı olarak
+söndürüyordu. Terminal ekranı sadece ilk fark edileniydi.
+
+Hepsi `CanvasGroup.alpha`'ya geçirildi: görüntü kapanıyor, obje ayakta kalıyor,
+bileşen kararını her karede gözden geçirebiliyor. `blocksRaycasts` da kapanıyor
+— görünmez bir panel tıklamaları yutmamalı (TAB panelindeki düğmeler bunu
+gerektiriyor).
+
+`GameHud.Visible`'ın varsayılanı **true**: bileşen sahneden düşerse yanlış
+tarafa değil, görünür tarafa düşülüyor. Eksik bir gizleme fark edilir, eksik
+bir arayüz "oyun bozuk" diye okunur.
+
+> **Ders:** bir bileşen kendi `GameObject`'ini kapatıyorsa, onu geri açacak
+> kod nerede? Cevap "aynı bileşende" ise kod hiç çalışmayacak demektir.
+
 ### Silinen dosya sahnede iz bırakıyor
 
 `RoundHud` sınıfı silindi ama bileşen `RoundManager` objesinde
