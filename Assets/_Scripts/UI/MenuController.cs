@@ -258,17 +258,49 @@ public class MenuController : MonoBehaviour
         ApplyGameplayState(IsOpen || overlayOpen);
     }
 
+    /// <summary>
+    /// İmleci, girdiyi ve eylem bileşenlerini duruma göre ayarlar.
+    ///
+    /// **İki ayrı durum var ve ikisi aynı şey değil:**
+    ///
+    /// | | Menü (duraklatma) | TAB paneli (kaplama) |
+    /// |---|---|---|
+    /// | İmleç | serbest | serbest |
+    /// | Etkileşim / saldırı / fener | kapalı | kapalı |
+    /// | Bakış | kapalı | **kapalı** |
+    /// | Hareket ve zıplama | kapalı | **AÇIK** |
+    ///
+    /// TAB paneli bir duraklatma değil: oyuncu listeye bakarken koşmaya ve
+    /// zıplamaya devam edebilmeli — kovalanırken panele bakmak yüzünden
+    /// yakalanmak saçma olurdu. Kesilen tek şey bakış, çünkü imleç serbestken
+    /// farenin arayüzdeki hareketi karaktere de gitseydi ekran savrulurdu.
+    ///
+    /// **Eylemler kaplamada da kapalı:** tıklama arayüze gidiyor ve aynı tıkla
+    /// canavarın savurması ya da bir düğmeye basılması istenmez.
+    ///
+    /// Menüde girdi kaynağı **sökülüyor**, kaplamada yalnızca bakış
+    /// kapatılıyor. Sökmek, bileşeni kapatmaktan güvenilir: kapalı bir
+    /// MonoBehaviour'ın metotları yine de çağrılabiliyor.
+    /// </summary>
     private void ApplyGameplayState(bool menuOpen)
     {
-        Cursor.lockState = menuOpen ? CursorLockMode.None : CursorLockMode.Locked;
-        Cursor.visible = menuOpen;
+        // `menuOpen` çağıranlardan `IsOpen || overlayOpen` olarak geliyor;
+        // ikisini burada tekrar ayırıyoruz.
+        bool paused = IsOpen;
+        bool uiActive = menuOpen;
+
+        Cursor.lockState = uiActive ? CursorLockMode.None : CursorLockMode.Locked;
+        Cursor.visible = uiActive;
 
         ResolveLocalPlayer();
 
-        // Girdi kaynağını sökmek, bileşeni kapatmaktan daha güvenilir: kapalı
-        // MonoBehaviour'ın metotları yine de çağrılabiliyor.
         if (playerController != null)
-            playerController.SetInputSource(menuOpen ? null : playerInput);
+            playerController.SetInputSource(paused ? null : playerInput);
+
+        // Kaplamada kaynak duruyor ama bakış kapalı. Menüde zaten sökülmüş
+        // durumda; yine de yazıyoruz ki menü kapanınca açık kalsın.
+        if (playerInput != null)
+            playerInput.LookEnabled = !uiActive;
 
         // HUD'ı burada kapatmak GEREKMİYOR artık. Eskiden tur yazıları OnGUI
         // ile çiziliyordu ve IMGUI her zaman Canvas'ın üstünde kalıyordu, yani
@@ -282,7 +314,7 @@ public class MenuController : MonoBehaviour
         for (int i = 0; i < disableWhileOpen.Length; i++)
         {
             if (disableWhileOpen[i] != null)
-                disableWhileOpen[i].enabled = !menuOpen;
+                disableWhileOpen[i].enabled = !uiActive;
         }
     }
 

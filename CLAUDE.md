@@ -3067,9 +3067,25 @@ kesiliyor. Mekanizma duraklatma menüsünün kullandığının aynısı
 (`MenuController.SetOverlayOpen`) — imleç yönetimi tek yerde kalmalı, iki
 bileşen birden `Cursor.lockState` yazarsa oyuncu bazen imleçsiz kalıyor.
 
+**Panel açıkken yürümeye ve zıplamaya devam ediliyor** (2026-09-06). Kesilen
+tek şey **bakış** — imleç serbestken farenin arayüzdeki hareketi karaktere de
+gitseydi ekran savrulurdu. Eylemler (etkileşim, saldırı, fener) de kapalı:
+tıklama arayüze gidiyor, aynı tıkla canavarın savurması istenmez.
+
+Menü ise tam duraklatma: orada girdi kaynağı **sökülüyor**. İkisi
+`MenuController.ApplyGameplayState`'te ayrı ayrı ele alınıyor — panel bir
+duraklatma değil, kovalanırken listeye bakmak yüzünden yakalanmak saçma
+olurdu.
+
 **Ses ayarı ağa gitmiyor:** susturma ve kişisel seviye senin kulağının
 tercihi, karşıdakinin mikrofonuna dokunmuyor. Ağa taşımak kimin kimi
 susturduğunu herkese söylemek olurdu.
+
+**Anlamsız denetimler GİZLENİYOR, griye alınmıyor.** Kendi satırında ses
+kaydırıcısı ve susturma yok (kendini duymuyorsun), botta da yok (sesi yok).
+Griye alınmış bir kaydırıcı görünüşte çalışıyor ve oynayan onu "bozuk" diye
+okuyor — tek başına test edildiğinde tam olarak bu yaşandı. Yoksa, olmadığı
+belli.
 
 **Ping'i sahibi bildiriyor, sunucu yazıyor** (`RoundParticipant.pingMs`,
 saniyede bir). Mirror'ın `NetworkTime.rtt`'si yalnızca yerel istemcide

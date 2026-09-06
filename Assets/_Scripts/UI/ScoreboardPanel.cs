@@ -130,7 +130,8 @@ public class ScoreboardPanel : MonoBehaviour
             // Metin araya girişle kuruluyor: TMP'nin SetText(string, ...)
             // aşırı yüklemeleri yalnızca SAYI alıyor, string almıyor.
             string key = KeyBindings.Describe(KeyBindings.Get(GameAction.Scoreboard));
-            hintLabel.SetText($"{key} ile kapat  ·  ses ayarı yalnızca seni etkiler");
+            hintLabel.SetText($"{key} ile kapat  ·  yürümeye devam edebilirsin  ·  " +
+                "ses ayarı yalnızca seni etkiler");
         }
 
         if (rows == null)
@@ -176,25 +177,33 @@ public class ScoreboardPanel : MonoBehaviour
             row.pingLabel.SetText(ping > 0 ? $"{ping} ms" : "—");
         }
 
-        // Kendi sesini kısmanın anlamı yok: kendine göndermiyoruz.
+        // Kendi sesini kısmanın anlamı yok — kendine göndermiyoruz — ve botun
+        // sesi hiç yok. İkisinde de denetimler **gizleniyor, griye
+        // alınmıyor**: griye alınmış bir kaydırıcı görünüşte çalışıyor ve
+        // oynayan "bozuk" diye okuyor. Yoksa, olmadığı belli.
         bool controllable = !local && playback != null;
 
-        if (row.muteButton != null)
-            row.muteButton.interactable = controllable;
+        if (row.muteButton != null && row.muteButton.gameObject.activeSelf != controllable)
+            row.muteButton.gameObject.SetActive(controllable);
 
+        if (row.volumeSlider != null && row.volumeSlider.gameObject.activeSelf != controllable)
+            row.volumeSlider.gameObject.SetActive(controllable);
+
+        if (!controllable)
+            return;
+
+        // Kaydırıcı her karede tazeleniyor: değer başka bir yerden de
+        // değişebilir (genel konuşma sesi) ve gidiş-dönüş birebir olduğu için
+        // sürüklerken çakışmıyor — 0-1 ile 0-2 arasındaki dönüşüm ikinin
+        // kuvvetiyle çarpma, yani kayıpsız.
         if (row.volumeSlider != null)
-        {
-            row.volumeSlider.interactable = controllable;
-
-            if (controllable)
-                row.volumeSlider.SetValueWithoutNotify(playback.PersonalVolume * 0.5f);
-        }
+            row.volumeSlider.SetValueWithoutNotify(playback.PersonalVolume * 0.5f);
 
         if (row.muteLabel == null)
             return;
 
-        row.muteLabel.SetText(controllable && playback.Muted ? "AÇ" : "SUSTUR");
-        row.muteLabel.color = controllable ? normalTextColor : mutedTextColor;
+        row.muteLabel.SetText(playback.Muted ? "AÇ" : "SUSTUR");
+        row.muteLabel.color = normalTextColor;
     }
 
     private static void ApplyEmpty(Row row)

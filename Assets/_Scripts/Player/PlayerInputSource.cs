@@ -36,15 +36,28 @@ public class PlayerInputSource : MonoBehaviour, IMovementInputSource
         InvertLook = PlayerProfile.InvertLook;
     }
 
+    /// <summary>
+    /// Bakış okunuyor mu.
+    ///
+    /// TAB paneli açıkken kapanıyor: imleç serbest ve fare arayüzde geziniyor,
+    /// o hareketi karaktere de vermek ekranı savururdu. Hareket ve zıplama
+    /// etkilenmiyor — panel bir **duraklatma değil**, oyuncu koşmaya devam
+    /// edebiliyor.
+    ///
+    /// Girdi kaynağını komple sökmek (menünün yaptığı) burada yanlış olurdu:
+    /// o zaman hareket de kesilirdi.
+    /// </summary>
+    public bool LookEnabled { get; set; } = true;
+
     public MovementIntent Read()
     {
-        float pitch = Input.GetAxis("Mouse Y") * mouseSensitivity;
+        float pitch = LookEnabled ? Input.GetAxis("Mouse Y") * mouseSensitivity : 0f;
 
         return new MovementIntent
         {
             moveRight = KeyBindings.Axis(GameAction.Left, GameAction.Right),
             moveForward = KeyBindings.Axis(GameAction.Back, GameAction.Forward),
-            lookYaw = Input.GetAxis("Mouse X") * mouseSensitivity,
+            lookYaw = LookEnabled ? Input.GetAxis("Mouse X") * mouseSensitivity : 0f,
             lookPitch = InvertLook ? -pitch : pitch,
             sprint = KeyBindings.Held(GameAction.Sprint),
             jumpPressed = KeyBindings.Pressed(GameAction.Jump),
