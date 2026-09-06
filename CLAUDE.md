@@ -28,7 +28,8 @@ mağara yankısı (bölüm 12) · menü, lobi, ayarlar ve tuş atamaları (böl�
 canavar modeli, animasyonları ve ışıkları (bölüm 14) · katman düzeni
 (bölüm 16) · kaçan modeli ve yakalanma animasyonu (bölüm 17) · çıkış görünümü
 ve kilit paneli (bölüm 18) · lightmap + occlusion · **EOS relay'i** ·
-**kısa lobi kodu ve oda listesi** (bölüm 13) · git.
+**kısa lobi kodu ve oda listesi** (bölüm 13) · **sesli sohbet, mikrofon
+göstergesi ve TAB paneli** (bölüm 19) · git.
 
 ---
 
@@ -1151,23 +1152,21 @@ Kritik tasarım notu: bu ses **2B olmalı**, 3B değil. Yönü belli olursa
 "geliyor ama nereden" gerilimi kaybolur ve radar hâline gelir. Bölüm 12'nin
 kuralı gereği 2B kaynakların `reverbZoneMix`'i de sıfırlanıyor.
 
-**6. Sesli sohbet.** Menü tarafında kalan tek şey: mikrofon ayarları ve oyun
-içi kişi bazlı susturma/ses seviyesi, sesli sohbetin kendisi gelmeden
-yapılamaz.
+**6. ~~Sesli sohbet.~~ YAZILDI (2026-09-06), bölüm 19.**
 
-Ses şu an **tek kanal** (`AudioListener.volume`). Ayrı efekt/konuşma kanalları
-bir AudioMixer gerektiriyor ve **AudioMixer script'ten oluşturulamıyor** —
-Unity'nin böyle bir API'si yok, elle Audio Mixer penceresinden kurulması
-gerekiyor. Bu yüzden konuşma sesi geldiğinde kişi başı ses seviyesi doğrudan
-`AudioSource.volume` üzerinden verilecek; o zaman susturma ve ses seviyesi
-bedava geliyor.
+Karar **kendimiz yazmak** oldu: Dissonance ücretli, Vivox 3B karışımı sunucuda
+yaptığı için mağara yankısıyla çelişiyordu. Yeni paket eklenmedi — µ-law otuz
+satır (bölüm 0'ın bağımlılık kuralı korundu).
 
-**Bağımlılık kararı bekliyor.** Mirror sesli sohbet getirmiyor. Üç yol:
-Dissonance (Asset Store, ücretli, Mirror entegrasyonu resmi, listenin çoğu
-kutudan çıkıyor) · kendimiz yazmak (`Microphone` → Opus/Concentus saf C# →
-Mirror → 3B AudioSource; bölüm 0'ın "bağımlılık eklemeden önce iki kez düşün"
-kuralına en uygunu) · Vivox (bulut, 3B karışımı sunucuda yaptığı için mağara
-yankısıyla çelişiyor — **elenmeli**).
+Buradaki iki öngörü de tuttu: konuşma oyuncunun üstündeki 3B kaynaktan çaldığı
+için **mağara yankısı bedavaya geldi**, kişi başı seviye `AudioSource.volume`'dan
+geldiği için **AudioMixer gerekmedi** (ki script'ten kurulamıyor).
+
+Menü tarafı da bitti: ayrı bir SES ekranı, mikrofon seçimi, bas-konuş/otomatik,
+eşik, kazanç ve TAB panelinde kişi bazlı susturma/seviye.
+
+**Kalan tek şey doğrulama:** iki makineyle denenmedi, çünkü kendi sesimizi
+kendimize göndermiyoruz.
 
 **7. Denge ölçümü.** Canavar hızı, hız payı, terminal süreleri, kilit süreleri
 — hepsi tahmin. Arkadaşlarla oynanarak ölçülmeli. Ölçerken bilinmesi gereken:
