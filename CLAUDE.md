@@ -148,36 +148,136 @@ değer.
 
 ### 2026-09-06 oturumunda yapılanlar
 
-**Doğum yerleşimi rol bazlı oldu.** Canavar bazen bir kaçanın dibinde
-doğuyordu; artık kaçanlar bir arada, canavar onlardan en uzak noktada başlıyor.
-Ölçüldü: kaçan noktası hangisi seçilirse seçilsin canavar **en az 36.7 m**
-uzakta (harita 54.4 m). Tasarım ve ağ tarafı bölüm 11.1'de — özeti: rol ancak
-tur başlarken belli olduğu için yerleştirme Mirror'ın doğum noktalarından
-`RoundManager`'a taşındı, ve hareket istemci otoriteli olduğu için taşımayı
-sahibine giden bir `TargetRpc` yapıyor.
+On commit. Üç büyük blok ve arkalarından gelen düzeltmeler.
 
-**`Terminal.alarmDuration` kodda da 20 oldu.** Sahnedeki beş terminalde elle 20
-yazıyordu, kodda 10 kalmıştı; bileşen yeniden eklenen bir terminal ötekilerden
-yarı yarıya kısa öterdi ve sebebi hiçbir yerde görünmezdi.
+#### 1. Doğum yerleşimi rol bazlı oldu
 
-**Canavarın havada animasyonu kapsam dışına alındı** — haritada düşülecek
-yüksek bir yer yok ve canavar zıplayamıyor, yani o durum hiç oluşmuyor.
+Canavar bazen bir kaçanın dibinde doğuyordu; artık kaçanlar bir arada, canavar
+onlardan en uzak noktada başlıyor. Ölçüldü: kaçan noktası hangisi seçilirse
+seçilsin canavar **en az 36.7 m** uzakta (harita 54.4 m).
+
+Sebep şuydu: **Mirror doğum noktasını oyuncu objesi spawn olurken seçiyor** —
+yani lobide, rol dağıtılmadan önce. Rol ancak tur başlarken belli olduğu için
+yerleştirme `RoundManager`'a taşındı. Hareket istemci otoriteli olduğundan
+ışınlamayı sahibine giden bir `TargetRpc` yapıyor. Ayrıntı bölüm 11.1'de.
+
+#### 2. Sesli sohbet — sıfırdan yazıldı (bölüm 19)
+
+Yeni paket YOK. Dissonance ücretli olduğu için elendi, Vivox 3B karışımı
+sunucuda yaptığı için mağara yankısıyla çelişiyordu. Kendi kodumuz: G.711
+µ-law, 8 kHz, 20 ms çerçeveler, konuşurken 64 kbit/s.
+
+Gelen parçalar:
+
+- **Yakınlık tabanlı konuşma.** Kimin duyacağına sunucu karar veriyor; lobide
+  herkes herkesi, turda 18 m içinde, elenenler yalnızca kendi aralarında.
+- **Mikrofon göstergesi** (sağ üst): çubuk mikrofonun duyduğunu, renk
+  gönderilip gönderilmediğini söylüyor. Otomatik modda eşik çizgisi var.
+- **TAB paneli**: kadro, ping, kişi bazlı susturma ve ses seviyesi.
+- **Ayarlar ikiye ayrıldı**: seçenekler artık kategori kapısı, ses ve sesli
+  sohbetin tamamı ayrı bir SES ekranında.
+
+Mimarinin iki öngörüsü tuttu: 3B kaynak olduğu için **mağara yankısı bedavaya
+geldi** ve kişi başı seviye `AudioSource.volume`'dan geldiği için
+**AudioMixer gerekmedi**.
+
+**Doğrulanmadı:** iki makineyle hiç denenmedi. Kendi sesimizi kendimize
+göndermediğimiz için tek makinede ağ yolu sınanamıyor.
+
+#### 3. Gerçek UI — teknik borç 2 kapandı (bölüm 20)
+
+Oyun içi arayüzün tamamı `OnGUI`'den Canvas'a taşındı. Çalışma anında artık
+hiç IMGUI yok.
+
+Asıl sorun sıralamaydı: IMGUI her zaman Canvas'ın üstünde çiziliyor, o yüzden
+`MenuController` tur yazılarını elle kapatmak zorundaydı — ve terminal/kilit
+ekranlarını kapatmayı kimse yazmamıştı, yani **terminal başındayken Esc'ye
+basınca ekran duraklatma menüsünün üstünde kalıyordu.** Canvas'ta sıralama
+kendiliğinden doğru.
+
+#### 4. Taşımanın ardından çıkan dört hata
+
+Hepsi oynanırken bulundu ve dördü de öğreticiydi:
+
+| Belirti | Gerçek sebep |
+|---|---|
+| Terminal ekranı hiç açılmıyor | Bileşen **kendi objesini** kapatıyordu; kapalı obje `Update` çalıştırmaz, yani kendini bir daha açamıyor |
+| TAB açıkken hareket kesiliyor | Kaplama, menüyle aynı "tam duraklatma" yolundan geçiyordu |
+| Panel ekranı kaplıyor | Skor tablosu tam ekran ve mat panel kullanıyordu — "yürümeye devam edebilirsin" özelliğini anlamsız kılıyordu |
+| İmleç görünmüyor | `Cursor.visible`'ın **getter'ı yalan söylüyor**; "farklıysa yaz" koruması yazıyı atlıyordu |
+
+Birincisi altı bileşende birden vardı ve üçü zaten ölüydü — TAB paneli hiç
+açılmamış, mikrofon göstergesi kapatılınca geri gelmiyor, `GameHud` menü ilk
+açıldığında bütün HUD'ı kalıcı söndürüyormuş. Terminal sadece ilk fark edilendi.
+
+#### 5. Küçük ayarlar
+
+- **Canavar ölçeği 1.18 → 1.30.** Ekrandaki boy 1.784 m; çarpışma kutusu
+  değişmedi.
+- **`Terminal.alarmDuration` kodda da 20 oldu** — sahnede zaten 20'ydi.
+- **Canavarın havada animasyonu kapsam dışına alındı**: haritada düşülecek
+  yüksek bir yer yok ve canavar zıplayamıyor.
+
+#### Bu oturumun üç dersi
+
+> **1. Bir bileşen kendi `GameObject`'ini kapatıyorsa, onu geri açacak kod
+> nerede?** Cevap "aynı bileşende" ise o kod hiç çalışmayacak demektir.
+> Görünürlük `CanvasGroup.alpha` ile yönetilmeli.
+>
+> **2. Bir Unity özelliğinin getter'ı, motorun uyguladığı durumu değil senin
+> yazdığın değeri döndürebilir.** `Cursor.visible` kilitliyken "true" diyor
+> ama imleç gizli. "Zaten doğru" varsayımıyla yazıyı atlamak burayı bozdu.
+>
+> **3. Devre dışı bir denetim "bozuk" diye okunuyor.** Ya sebebini yaz ya
+> tamamen kaldır — ortası oynayanı yanıltıyor. Kendi satırındaki gri ses
+> kaydırıcısı tam olarak bunu yaptı.
 
 ---
 
 ### Sıradaki adımlar
 
-**1. Denge ölçümü.** Bütün sayılar hâlâ tahmin; arkadaşlarla ölçülecek
-(bölüm 10, madde 7).
+#### Önce: bekleyen araç çalıştırması
+
+```
+Yakalamaca > Menü Kur
+```
+
+Skor tablosu satırlarındaki açıklama etiketi (`Not`) sahnede henüz yok. Onsuz
+kendi satırında ve botta boş bir alan kalıyor ve "bozuk" gibi duruyor.
+
+> Bir sahne değişikliğinin gerçekten uygulanıp uygulanmadığını **sahne
+> dosyasından** doğrulayabilirsin, tahmin etmeden:
+> `grep -c "m_Name: Not$" Assets/_Scenes/SampleScene.unity`
+
+#### Sonra: iki doğrulama, ikisi de oynayarak
+
+**1. Sesli sohbeti iki makinede dene.** Yazıldı, derlendi, kuruldu ama **ağ
+yolu hiç sınanmadı** — kendi sesimizi kendimize göndermiyoruz. Listenin en
+tepesindeki iş, çünkü altında bir sürü varsayım var: jitter tamponu,
+unreliable kanal, sunucu taraflı mesafe süzmesi.
+
+Bakılacaklar: sağ üstteki çubuk kırmızıya dönüyor mu (gri = duyuyor ama
+göndermiyor) · karşı taraf 18 m içinde mi · elenen biri konuşabiliyor mu
+(konuşmamalı) · TAB panelinde karşı tarafın satırında kaydırıcı ve SUSTUR
+çıkıyor mu.
+
+**2. Denge ölçümü.** Bütün sayılar hâlâ tahmin. Özellikle **direksiyon cezası**
+(bölüm 1) yepyeni ve hiç ölçülmedi: canavar artık hem %5 yavaş başlıyor hem
+köşelerde pay kaybediyor, fazla zayıflamış olabilir. Profiller Play modunda
+değiştirilince kalıcı.
+
+#### Kalan işler
+
+| # | İş | Not |
+|---|---|---|
+| 1 | **Yakınlık sesi (kalp atışı)** | Ses dosyası **oyuncudan gelecek**, sentezlenmeyecek. `Assets/_Audio/KalpAtisi.*`. **2B olmalı** — yönü belli olursa gerilim radara döner (bölüm 12) |
+| 2 | **Bıçak sesleri** (teknik borç 1) | Hâlâ sentetik yer tutucu, üstelik bıçak kaldırıldı; elle saldırıya göre yeniden seçilmeli |
+| 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
+| 4 | **Kapıdan vuruş** | İki oyuncu da kapıya 0.3 m mesafedeyken ışın kapıya varmadan kesiliyor ve isabet sayılıyor |
+| 5 | **`EosApiKey.asset` client secret** | Depo yerelken sorun yok; **herkese açık bir GitHub deposuna gitmeden önce çıkarılmalı** |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
-
-**Hiç başlanmamış:** yakınlık sesi (kalp atışı — **ses dosyası oyuncudan
-gelecek, sentezlenmeyecek**).
-
-**Sesli sohbet yazıldı** (2026-09-06, bölüm 19) ama **iki makinede
-denenmedi** — tek makinede kendi sesini kendine göndermiyoruz.
 
 **Kapsam dışı bırakıldı:**
 - **Fener pili.** Fener açık/kapalı olarak kalıyor, şarj ya da tükenme
@@ -3235,6 +3335,15 @@ ilk çağrı hem cevabı veriyor hem sorunu çözüyor.
 Kilit panelinde yedek **basılacak tuşun harfi** (W/S/A/D). Boş kutu
 göstermektense onu göstermek her açıdan daha iyi: oyuncunun gerçekten basacağı
 şey o. Terminal sınavında zaten ok ve tuş yan yana yazılıyor.
+
+> **Oklar gerçekten çalışıyor — ölçüldü.** Oynandıktan sonra
+> `LiberationSans SDF - Fallback` varlığına `m_Unicode: 8594` (→) ve `8595`
+> (↓) eklenmiş hâlde bulundu, yani TMP karakterleri kaynak fonttan bulup
+> atlasa yazdı. Yedeğe düşülmüyor; yedek yalnızca sigorta.
+>
+> **Bu yüzden o varlık git'te sık sık değişiyor.** Türkçe harfler ve şimdi
+> oklar oraya çalışma anında ekleniyor — elle yapılmış bir düzenleme değil,
+> commit'lemekte sakınca yok.
 
 ### Görünürlük `SetActive` ile YÖNETİLMİYOR — CanvasGroup ile
 
