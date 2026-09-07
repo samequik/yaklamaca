@@ -202,26 +202,69 @@ public class Corpse : NetworkBehaviour
         for (int i = 0; i < renderers.Length; i++)
             renderers[i].enabled = true;
 
-        Animator animator = clone.GetComponentInChildren<Animator>(true);
-
-        // ---- SIRA KRİTİK ----
+        // Kemikler KURBANIN CANLI animatöründen çözülüyor, klonunkinden DEĞİL.
         //
-        // Kemik sorguları animatör KAPATILMADAN ÖNCE yapılmalı.
-        // `Animator.GetBoneTransform` humanoid eşlemesini çözebilmek için
-        // animatörün bağlı ve etkin olmasını istiyor; kapalı bir animatörde
-        // **null dönüyor.** Bu sırayı ters yapmak ragdoll'un sessizce hiç
-        // kurulmamasına yol açıyordu: ceset öylece havada asılı kalıyor,
-        // ne yere düşüyor ne itilebiliyordu — hiçbir yerde hata da yok,
-        // çünkü eksik kemik "humanoid değil" gibi görünüyor.
-        ResetHeadBone(animator);
-        BuildRagdoll(animator);
+        // `Animator.GetBoneTransform` yalnızca animatör bağlı ve başlatılmışken
+        // çalışıyor; taze `Instantiate` edilmiş bir animatör bu şartı aynı
+        // karede sağlamayabiliyor ve null dönüyor. O zaman ragdoll sessizce
+        // hiç kurulmuyor: ceset havada asılı kalıyor, ne düşüyor ne itiliyor.
+        //
+        // Kurbanın animatörü ise saniyelerdir ölüm klibini oynatıyor, yani
+        // kesinlikle başlatılmış. Ondan aldığımız kemiğin KÖKE GÖRE YOLUNU
+        // klonda arıyoruz — hiyerarşi birebir aynı olduğu için tutuyor.
+        Animator sourceAnimator = source.GetComponentInChildren<Animator>(true);
+        Animator cloneAnimator = clone.GetComponentInChildren<Animator>(true);
 
-        // Animator artık KAPATILABİLİR: açık kalırsa bir sonraki karede kendi
-        // varsayılan durumuna dönüp hem kopyaladığımız pozu siler hem de
-        // kemikleri her karede yeniden yazarak fiziği ezerdi. Aradan bir kare
-        // geçmediği için (hepsi tek metotta) poz bozulmuyor.
-        if (animator != null)
-            animator.enabled = false;
+        BuildRagdoll(bone => MapBone(sourceAnimator, source, clone.transform, bone));
+
+        ResetHeadBone(sourceAnimator, source, clone.transform);
+
+        // Klonun animatörü KAPATILIYOR: açık kalırsa bir sonraki karede kendi
+        // varsayılan durumuna dönüp kemikleri her karede yeniden yazar ve
+        // fiziği tamamen ezerdi.
+        if (cloneAnimator != null)
+            cloneAnimator.enabled = false;
+    }
+
+    /// <summary>
+    /// Canlı gövdedeki bir kemiğin klondaki karşılığını bulur: rolü canlı
+    /// animatörden çözülüyor, sonra köke göre yolu klonda aranıyor.
+    /// </summary>
+    private static Transform MapBone(Animator sourceAnimator, Transform sourceRoot,
+        Transform cloneRoot, HumanBodyBones bone)
+    {
+        if (sourceAnimator == null || !sourceAnimator.isHuman)
+            return null;
+
+        Transform sourceBone = sourceAnimator.GetBoneTransform(bone);
+
+        if (sourceBone == null)
+            return null;
+
+        string path = PathFrom(sourceRoot, sourceBone);
+
+        if (path == null)
+            return null;
+
+        return path.Length == 0 ? cloneRoot : cloneRoot.Find(path);
+    }
+
+    /// <summary>Bir çocuğun köke göre "a/b/c" yolu. Kökün altında değilse null.</summary>
+    private static string PathFrom(Transform root, Transform child)
+    {
+        if (child == root)
+            return string.Empty;
+
+        string path = child.name;
+        Transform current = child.parent;
+
+        while (current != null && current != root)
+        {
+            path = current.name + "/" + path;
+            current = current.parent;
+        }
+
+        return current == root ? path : null;
     }
 
     /// <summary>
@@ -238,29 +281,39 @@ public class Corpse : NetworkBehaviour
     /// Kurulamazsa (humanoid olmayan bir rig) görsel öylece duruyor: hareketsiz
     /// bir ceset, hiç olmayandan iyi.
     /// </summary>
-    private void BuildRagdoll(Animator animator)
+    private void BuildRagdoll(System.Func<HumanBodyBones, Transform> resolve)
     {
-        if (animator == null)
-            return;
-
         // Katman adı elle yazılı: `LayerSetup` editör derlemesinde, çalışma
         // anındaki bu sınıf ona ulaşamıyor (aynı gerekçe RoundManager'da da
         // yazılı). -1 = katman tanımlı değil, o zaman dokunulmuyor.
         int layer = LayerMask.NameToLayer("Sus");
 
-        ragdoll = RagdollFactory.Build(animator, ragdollMass, layer);
+        ragdoll = RagdollFactory.Build(resolve, ragdollMass, layer);
 
         if (ragdoll.Count == 0)
         {
-            Debug.LogWarning("Corpse: ragdoll kurulamadı, ceset hareketsiz kalacak. " +
-                "Sebep genelde animatörün kemik eşlemesini verememesi olur.");
+            Debug.LogWarning("Corpse: ragdoll kurulamadı, ceset hareketsiz kalacak.");
             return;
         }
 
+        // ÖNCE hayati bağlantılar: fizik otoritesi ve ağ senkronu. Kendi
+        // kendine çarpışmayı kapatmak yalnızca bir kararlılık ayarı, o yüzden
+        // en sona alındı — orada bir aksilik olursa ragdoll'un tamamını
+        // götürmesin.
         ApplyAuthority();
 
         if (sync != null)
             sync.Bind(ragdoll);
+
+        RagdollFactory.DisableSelfCollision(ragdoll);
+
+        // Teşhis: ceset yine kımıldamazsa ilk bakılacak yer bu satır.
+        Rigidbody hips = ragdoll[0].Body;
+
+        Debug.Log($"Corpse: ragdoll {ragdoll.Count} parça | " +
+            $"simülasyon={(isServer ? "SUNUCU" : "istemci/kinematik")} | " +
+            $"kalça kinematic={hips.isKinematic} gravity={hips.useGravity} " +
+            $"uyuyor={hips.IsSleeping()}");
     }
 
     /// <summary>
@@ -269,12 +322,11 @@ public class Corpse : NetworkBehaviour
     /// sıfırlanmış kemikle gelir. Ceset üçüncü şahıstan görüleceği için kafa
     /// GÖRÜNMELİ — kemiği 1'e geri alıyoruz.
     /// </summary>
-    private static void ResetHeadBone(Animator animator)
+    private static void ResetHeadBone(Animator sourceAnimator, Transform sourceRoot,
+        Transform cloneRoot)
     {
-        if (animator == null || !animator.isHuman)
-            return;
+        Transform head = MapBone(sourceAnimator, sourceRoot, cloneRoot, HumanBodyBones.Head);
 
-        Transform head = animator.GetBoneTransform(HumanBodyBones.Head);
         if (head != null && head.localScale == Vector3.zero)
             head.localScale = Vector3.one;
     }

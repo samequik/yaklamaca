@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -56,17 +57,6 @@ public static class RagdollFactory
     /// </summary>
     private const float MaxDepenetration = 2f;
 
-    /// <summary>
-    /// Eklem kopmasına karşı projeksiyon: bağlı iki gövde bu mesafeden fazla
-    /// ayrılırsa PhysX onları zorla geri çekiyor.
-    ///
-    /// **Bu, uzuvların uçup gitmesine karşı asıl emniyet kemeri.** Eklem
-    /// normalde yumuşak bir kısıt: yeterince güçlü bir kuvvet altında esniyor
-    /// ve zincir "kopmuş" gibi görünüyor. Projeksiyon bunu geometrik olarak
-    /// düzeltiyor, kuvvet hesabına hiç girmeden.
-    /// </summary>
-    private const float ProjectionDistance = 0.05f;
-    private const float ProjectionAngle = 15f;
 
     /// <summary>
     /// Ragdoll'u kurar. Kemikler eksikse (humanoid olmayan rig) boş liste
@@ -75,54 +65,51 @@ public static class RagdollFactory
     ///
     /// İlk eleman DAİMA kalça (hips): `RagdollSync` pozisyonu ondan okuyor.
     /// </summary>
-    public static List<Part> Build(Animator animator, float totalMass, int layer)
+    /// <param name="resolve">
+    /// Kemik rolünü transform'a çeviren fonksiyon. **Animator doğrudan
+    /// alınmıyor, bilerek:** `Animator.GetBoneTransform` yalnızca animatör
+    /// bağlı ve başlatılmışken çalışıyor; taze `Instantiate` edilmiş,
+    /// kapatılmak üzere olan bir animatörde null dönebiliyor ve ragdoll
+    /// sessizce hiç kurulmuyor. Çağıran (`Corpse`) bu yüzden kemikleri
+    /// CANLI kurbanın animatöründen çözüp yola göre klonda buluyor.
+    /// </param>
+    public static List<Part> Build(Func<HumanBodyBones, Transform> resolve,
+        float totalMass, int layer)
     {
         List<Part> parts = new List<Part>();
 
-        if (animator == null)
+        if (resolve == null)
             return parts;
 
-        // Animatör KAPALI olmamalı: `GetBoneTransform` humanoid eşlemesini
-        // ancak bağlıyken çözüyor, kapalıyken null döndürüyor ve ragdoll
-        // sessizce hiç kurulmuyor. Çağıran (Corpse.BuildVisual) bu yüzden
-        // kemikleri okumayı animatörü kapatmadan ÖNCE yapıyor.
-        if (!animator.isHuman)
-        {
-            Debug.LogWarning($"RagdollFactory: {animator.name} humanoid değil " +
-                "(ya da avatar çözülemedi), ragdoll kurulmadı.");
-            return parts;
-        }
-
-        Transform hips = animator.GetBoneTransform(HumanBodyBones.Hips);
-        Transform spine = animator.GetBoneTransform(HumanBodyBones.Spine);
-        Transform chest = animator.GetBoneTransform(HumanBodyBones.Chest);
+        Transform hips = resolve(HumanBodyBones.Hips);
+        Transform spine = resolve(HumanBodyBones.Spine);
+        Transform chest = resolve(HumanBodyBones.Chest);
         Transform torso = chest != null ? chest : spine;
-        Transform head = animator.GetBoneTransform(HumanBodyBones.Head);
-        Transform neck = animator.GetBoneTransform(HumanBodyBones.Neck);
+        Transform head = resolve(HumanBodyBones.Head);
+        Transform neck = resolve(HumanBodyBones.Neck);
 
-        Transform leftUpperArm = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
-        Transform leftLowerArm = animator.GetBoneTransform(HumanBodyBones.LeftLowerArm);
-        Transform leftHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
+        Transform leftUpperArm = resolve(HumanBodyBones.LeftUpperArm);
+        Transform leftLowerArm = resolve(HumanBodyBones.LeftLowerArm);
+        Transform leftHand = resolve(HumanBodyBones.LeftHand);
 
-        Transform rightUpperArm = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
-        Transform rightLowerArm = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
-        Transform rightHand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+        Transform rightUpperArm = resolve(HumanBodyBones.RightUpperArm);
+        Transform rightLowerArm = resolve(HumanBodyBones.RightLowerArm);
+        Transform rightHand = resolve(HumanBodyBones.RightHand);
 
-        Transform leftUpperLeg = animator.GetBoneTransform(HumanBodyBones.LeftUpperLeg);
-        Transform leftLowerLeg = animator.GetBoneTransform(HumanBodyBones.LeftLowerLeg);
-        Transform leftFoot = animator.GetBoneTransform(HumanBodyBones.LeftFoot);
+        Transform leftUpperLeg = resolve(HumanBodyBones.LeftUpperLeg);
+        Transform leftLowerLeg = resolve(HumanBodyBones.LeftLowerLeg);
+        Transform leftFoot = resolve(HumanBodyBones.LeftFoot);
 
-        Transform rightUpperLeg = animator.GetBoneTransform(HumanBodyBones.RightUpperLeg);
-        Transform rightLowerLeg = animator.GetBoneTransform(HumanBodyBones.RightLowerLeg);
-        Transform rightFoot = animator.GetBoneTransform(HumanBodyBones.RightFoot);
+        Transform rightUpperLeg = resolve(HumanBodyBones.RightUpperLeg);
+        Transform rightLowerLeg = resolve(HumanBodyBones.RightLowerLeg);
+        Transform rightFoot = resolve(HumanBodyBones.RightFoot);
 
         // Kalça ve gövde olmadan ragdoll kurulamaz; gerisi eksik olabilir.
         if (hips == null || torso == null)
         {
-            Debug.LogWarning($"RagdollFactory: {animator.name} üzerinde kalça " +
+            Debug.LogWarning("RagdollFactory: kalça " +
                 $"(hips={hips != null}) ya da gövde (torso={torso != null}) kemiği " +
-                "çözülemedi, ragdoll kurulmadı. Animatör kemik sorgusu sırasında " +
-                "AÇIK olmalı.");
+                "çözülemedi, ragdoll kurulmadı.");
             return parts;
         }
 
@@ -156,8 +143,6 @@ public static class RagdollFactory
         AddLimb(parts, hipsPart, rightUpperLeg, rightLowerLeg, rightFoot,
             UpperLegShare * totalMass, LowerLegShare * totalMass, layer);
 
-        DisableSelfCollision(parts);
-
         return parts;
     }
 
@@ -180,7 +165,7 @@ public static class RagdollFactory
     /// için görünmez bir kusur; karşılığında gövde sakin sakin oturup uykuya
     /// geçiyor. Oyunların çoğu ragdoll'da tam olarak bu takası yapıyor.
     /// </summary>
-    private static void DisableSelfCollision(List<Part> parts)
+    public static void DisableSelfCollision(List<Part> parts)
     {
         for (int i = 0; i < parts.Count; i++)
         {
@@ -319,11 +304,13 @@ public static class RagdollFactory
         joint.connectedBody = parent.Body;
         joint.enablePreprocessing = false;
 
-        // Uzuv kopmasına karşı: kısıt esnerse PhysX gövdeleri geometrik olarak
-        // geri çekiyor (bkz. ProjectionDistance).
-        joint.enableProjection = true;
-        joint.projectionDistance = ProjectionDistance;
-        joint.projectionAngle = ProjectionAngle;
+        // **Projeksiyon KAPALI.** Bir ara uzuv kopmasına karşı açılmıştı, ama
+        // projeksiyon kinematik bir işlem: gövdeleri kısıtı sağlamak için
+        // zorla taşıyor ve zincirin tamamını yerinde çivileyebiliyor —
+        // ceset havada asılı kalıp hiç düşmüyordu. Kopmanın gerçek sebebi
+        // zaten parçaların birbiriyle çarpışmasıydı ve o kapatıldı
+        // (DisableSelfCollision); projeksiyona gerek kalmadı.
+        joint.enableProjection = false;
 
         joint.lowTwistLimit = new SoftJointLimit { limit = -twistLow };
         joint.highTwistLimit = new SoftJointLimit { limit = twistHigh };
