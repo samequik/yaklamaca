@@ -3840,6 +3840,23 @@ oluyor, yoksa gövde yavaşça kabinden dışarı akardı.
   bağımsız sürdüğü için taşırken `Sus`'a geçmek ikisini birden çözüyor.
 - **Kabin menzili 2.8 → 4 m**: terminal cesedi zor algılıyordu.
 
+### Kabine bırakmak yeterli, taşıma duvara uyum sağlıyor (2026-09-08, üçüncü geri bildirim)
+
+- **Cesedi kabine BIRAKMAK artık yetiyor.** Kabul etmenin tek yolu terminale
+  nişan alıp E'ye basmaktı; oyuncu için doğal olan ise gövdeyi kabinin içine
+  bırakmak (hatta uzaktan atmak). `RevivalStation.TryAcceptNearbyCorpse` her
+  karede gövde yuvasının çevresine bakıyor ve orada SERBEST bir ceset bulursa
+  kendiliğinden kabul ediyor. E ile yerleştirme de duruyor — ikisi de aynı
+  sunucu yoluna (`Corpse.ServerPlaceInStation`) çıkıyor.
+- **Kalça duvarın içine giriyordu.** Kinematik olduğu için onu hiçbir şey
+  durdurmuyordu; gövde duvara gömülünce sarkan uzuvlar derin çakışmayı çözmeye
+  çalışıp çılgınca savruluyordu. Taşıma noktası artık taşıyıcıdan öne atılan
+  bir küreyle sınırlanıyor: **önü kapalıysa ceset taşıyana yaklaşıyor**, illa
+  sabit bir noktada durmuyor. Kameranın duvar payındaki (bölüm 5) fikrin
+  aynısı.
+- **Hız tavanı taşırken de uygulanıyor.** Duvara dayanınca uzuvların patlayıp
+  savrulmasını kırpan ikinci emniyet.
+
 ### Bu oturumda düzeltilen iki kusur
 
 - **Kabin sıfırlanınca ceset donuyordu.** `ResetStation` yalnızca `corpseId`'yi

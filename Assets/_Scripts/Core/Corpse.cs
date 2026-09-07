@@ -31,6 +31,12 @@ public class Corpse : NetworkBehaviour, IInteractable
     /// <summary>Bırakırken cesedin taşıyıcının kaç metre önüne konacağı.</summary>
     private const float DropForward = 0.9f;
 
+    /// <summary>Taşıma noktasının duvar yoklamasında kullandığı küre yarıçapı.</summary>
+    private const float CarryProbeRadius = 0.25f;
+
+    /// <summary>Duvara dayanınca ceset en fazla bu kadar yaklaşıyor (metre).</summary>
+    private const float CarryMinReach = 0.15f;
+
     private static readonly List<Corpse> all = new List<Corpse>();
     private readonly Dictionary<Transform, Vector3> lastPlayerPositions = new Dictionary<Transform, Vector3>();
     private readonly Collider[] nearbyPlayers = new Collider[16];
@@ -221,6 +227,13 @@ public class Corpse : NetworkBehaviour, IInteractable
     private void FixedUpdate()
     {
         if (!isServer || ragdoll == null || ragdoll.Count == 0) return;
+        if (stationNetId != 0) return;
+
+        // Hız tavanı TAŞIRKEN DE uygulanıyor. Duvara dayanınca uzuvlar
+        // çarpışmayı çözmeye çalışıp çılgınca savruluyordu; tavan o patlamayı
+        // kırpıyor.
+        ClampSpeeds();
+
         if (carrierNetId != 0)
         {
             RoundParticipant carrier = Resolve(carrierNetId);
@@ -235,18 +248,49 @@ public class Corpse : NetworkBehaviour, IInteractable
             // titriyordu — koşarken cesedin zangırdamasının sebebi buydu.
             // `MovePosition` hareketi adım boyunca yayıyor ve çözücüye hız
             // bilgisi veriyor; uzuvlar sarsılmak yerine akıcı sallanıyor.
-            Vector3 anchor = carrier.transform.TransformPoint(CarryOffset);
             Rigidbody hips = ragdoll[0].Body;
-            hips.MovePosition(anchor);
+            hips.MovePosition(CarryAnchor(carrier.transform));
             hips.MoveRotation(carrier.transform.rotation * carriedHipsRotation);
             return;
         }
-        if (stationNetId != 0) return;
-        foreach (var part in ragdoll)
-            if (part.Body.velocity.sqrMagnitude > maxSpeed * maxSpeed)
-                part.Body.velocity = part.Body.velocity.normalized * maxSpeed;
+
         ShoveFromPlayers();
     }
+    /// <summary>
+    /// Taşınan cesedin tutulacağı nokta — ama **duvara girmeyecek şekilde.**
+    ///
+    /// Kalça kinematik olduğu için hiçbir şey onu durdurmuyordu: duvara doğru
+    /// yürüyünce gövde duvarın içine giriyor, sarkan uzuvlar derin çakışmayı
+    /// çözmeye çalışıp çılgınca savruluyordu.
+    ///
+    /// Artık taşıyıcıdan öne bir küre atılıyor; önü kapalıysa ceset
+    /// **taşıyana yaklaşıyor.** Yani gövde illa sabit bir noktada durmuyor,
+    /// dar yerde sana sokuluyor. Aynı fikir kameranın duvar payında (bölüm 5)
+    /// ve cesedi bırakırken de kullanılıyor.
+    /// </summary>
+    private static Vector3 CarryAnchor(Transform carrier)
+    {
+        Vector3 origin = carrier.position + Vector3.up * CarryOffset.y;
+        Vector3 forward = Vector3.ProjectOnPlane(carrier.forward, Vector3.up).normalized;
+        float reach = CarryOffset.z;
+
+        if (Physics.SphereCast(origin, CarryProbeRadius, forward, out RaycastHit hit, reach,
+                LayerMask.GetMask("Harita"), QueryTriggerInteraction.Ignore))
+            reach = Mathf.Max(CarryMinReach, hit.distance - 0.05f);
+
+        return origin + forward * reach;
+    }
+
+    /// <summary>Taşırken hız tavanı: uzuvlar çarpışmadan patlayıp savrulmasın.</summary>
+    private void ClampSpeeds()
+    {
+        float limit = maxSpeed * maxSpeed;
+
+        foreach (var part in ragdoll)
+            if (!part.Body.isKinematic && part.Body.velocity.sqrMagnitude > limit)
+                part.Body.velocity = part.Body.velocity.normalized * maxSpeed;
+    }
+
     private void CaptureHeldPose(Quaternion orientation)
     {
         heldOffsets = new Vector3[ragdoll.Count]; heldRotations = new Quaternion[ragdoll.Count];
@@ -345,10 +389,30 @@ public class Corpse : NetworkBehaviour, IInteractable
     }
     [Server] public bool ServerDeposit(RoundParticipant carrier, RevivalStation station)
     {
-        if (carrier == null || carrier.netId != carrierNetId || station == null) return false;
+        if (carrier == null || carrier.netId != carrierNetId) return false;
+        return ServerPlaceInStation(station);
+    }
+
+    /// <summary>
+    /// Cesedi kabine yerleştirir — TAŞINIYOR OLMASI ŞART DEĞİL.
+    ///
+    /// Kabin, gövdesinin içine bırakılan serbest cesedi kendi de fark ediyor
+    /// (`RevivalStation.ServerTick`), yani cesedi kabine atmak da yeterli;
+    /// terminale nişan alıp E'ye basmak zorunlu değil. İkisi de aynı yere
+    /// çıkıyor.
+    /// </summary>
+    [Server] public bool ServerPlaceInStation(RevivalStation station)
+    {
+        if (station == null || stationNetId != 0) return false;
+
         carrierNetId = 0;
         stationNetId = station.netId;
         ApplyAuthority();
+
+        // Yerden alınmadan doğrudan kabine giren cesedin poz kaydı yok;
+        // o anki duruşunu kaydedip kabine öyle taşıyoruz.
+        if (heldOffsets == null) CaptureHeldPose(station.BodyAnchor.rotation);
+
         MoveHeld(station.BodyAnchor.position, station.BodyAnchor.rotation);
         sync.Publish();
         return true;

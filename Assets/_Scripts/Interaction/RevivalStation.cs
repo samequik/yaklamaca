@@ -18,6 +18,13 @@ public class RevivalStation : NetworkBehaviour, IInteractable
         "İki kabin var, yani tur başına toplam hak bunun iki katı.")]
     [SerializeField] private int charges = 1;
 
+    [Tooltip("Kabinin içine bırakılan cesedi bu yarıçapta kendiliğinden kabul " +
+        "ediyor (metre). Kabin içi ~1.4 m geniş; terminale nişan almadan, " +
+        "gövdeyi kabine bırakmak da yetsin diye.")]
+    [SerializeField] private float acceptRadius = 1.1f;
+
+    private readonly Collider[] acceptBuffer = new Collider[16];
+
     [SyncVar] private int chargesUsed;
     [SyncVar] private uint corpseId;
     [SyncVar] private uint operatorId;
@@ -219,6 +226,8 @@ public class RevivalStation : NetworkBehaviour, IInteractable
             if (chargesUsed != 0) chargesUsed = 0;
             return;
         }
+        if (corpseId == 0) TryAcceptNearbyCorpse();
+
         if (corpseId != 0)
         {
             Corpse body = Body;
@@ -247,6 +256,44 @@ public class RevivalStation : NetworkBehaviour, IInteractable
             ResetStation();
         }
     }
+    /// <summary>
+    /// Kabinin içine bırakılmış serbest bir ceset var mı diye bakar ve varsa
+    /// kendiliğinden kabul eder.
+    ///
+    /// **Neden gerekti:** cesedi kabul etmenin tek yolu terminale nişan alıp
+    /// E'ye basmaktı. Oyuncu için doğal olan ise cesedi kabinin içine
+    /// bırakmak — hatta uzaktan atmak. Artık ikisi de çalışıyor; ikisi de
+    /// aynı sunucu yoluna (`Corpse.ServerPlaceInStation`) çıkıyor.
+    ///
+    /// Yalnızca SERBEST ceset kabul ediliyor: taşınan gövde birinin elinden
+    /// alınmamalı, kabinde duran da ikinci kez alınmamalı.
+    /// </summary>
+    [Server] private void TryAcceptNearbyCorpse()
+    {
+        if (!HasCharge) return;
+
+        Vector3 center = BodyAnchor.position;
+        int count = Physics.OverlapSphereNonAlloc(center, acceptRadius, acceptBuffer,
+            LayerMask.GetMask("Etkilesim", "Sus"), QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < count; i++)
+        {
+            if (acceptBuffer[i] == null) continue;
+
+            Corpse candidate = acceptBuffer[i].GetComponentInParent<Corpse>();
+            if (candidate == null || candidate.IsHeld) continue;
+
+            RoundParticipant victim = Corpse.Resolve(candidate.VictimNetId);
+            if (victim == null || victim.IsAlive) continue;
+
+            if (!candidate.ServerPlaceInStation(this)) continue;
+
+            corpseId = candidate.netId;
+            ResetProgress();
+            return;
+        }
+    }
+
     [Server] private void Fail()
     {
         locked = true; ResetProgress(); unlockEntered = 0; unlockCode = 0;
