@@ -175,6 +175,6 @@ MonoBehaviour:
     Hand/Right Hand Pinky 1/Right Hand Pinky 2/Right Hand Pinky 3
   - Armature/Hips/Spine 1/Spine 2/Spine 3
   ragdollMass: 70
-  maxSpeed: 20
-  pushStrength: 0.6
+  maxSpeed: 6
+  pushStrength: 0.3
   pushReach: 0.25

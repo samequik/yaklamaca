@@ -262,20 +262,56 @@ public static class RagdollFactory
         return Finish(parts, bone, sphere, mass, layer);
     }
 
+    /// <summary>
+    /// Ceset yüzeyinin sürtünmesi. Unity'nin varsayılanı (0.6) bir kasa için
+    /// makul ama ölü bir gövde için fazla kaygan: bir kez itilen ceset
+    /// koridorda kayıp gidiyordu.
+    ///
+    /// `Maximum` birleştirmesi bilerek: zeminin materyali ne olursa olsun
+    /// yüksek olan kazanıyor, yani ceset her zemin üstünde aynı ağırlıkta
+    /// duruyor. Sıçrama sıfır — ölü bir gövde zıplamaz.
+    ///
+    /// Çalışma anında üretiliyor, varlık olarak değil: ragdoll'un tamamı
+    /// zaten çalışma anında kuruluyor (bkz. sınıf notu), tek bir materyal
+    /// için proje dosyası eklemenin karşılığı yok.
+    /// </summary>
+    private static PhysicMaterial surface;
+
+    private static PhysicMaterial Surface()
+    {
+        if (surface != null)
+            return surface;
+
+        surface = new PhysicMaterial("Ceset")
+        {
+            dynamicFriction = 0.9f,
+            staticFriction = 0.95f,
+            bounciness = 0f,
+            frictionCombine = PhysicMaterialCombine.Maximum,
+            bounceCombine = PhysicMaterialCombine.Minimum,
+        };
+
+        return surface;
+    }
+
     private static Part Finish(List<Part> parts, Transform bone, Collider collider,
         float mass, int layer)
     {
+        collider.sharedMaterial = Surface();
+
         if (layer >= 0)
             bone.gameObject.layer = layer;
 
         Rigidbody body = bone.gameObject.AddComponent<Rigidbody>();
         body.mass = Mathf.Max(mass, 0.1f);
         body.useGravity = true; // varsayılan zaten böyle; ceset "havada kaldı" hatasından sonra açıkça yazılıyor
-        // Doğrusal sürtünme düşük (ceset itilince kaymalı), AÇISAL sürtünme
-        // yüksek: gerçek bir uzuv dönerek savrulmaz, hemen sönümlenir. Düşük
-        // tutmak parçaları birbirinin etrafında fır fır döndürüyordu.
-        body.drag = 0.1f;
-        body.angularDrag = 1.5f;
+        // **Ağırlık hissi buradan geliyor.** İlk ayarda ceset "kaygan ve hafif"
+        // hissettiriyordu: bir kez itince kayıp gidiyordu. Üç şey birden
+        // değişti — yüzey sürtünmesi (aşağıdaki fizik materyali), doğrusal
+        // sönümleme ve açısal sönümleme. Ölü bir gövde zemine yapışır, buz
+        // gibi kaymaz.
+        body.drag = 0.9f;
+        body.angularDrag = 3f;
 
         // Eklemler varsayılan çözücü adımıyla yaylanıp titriyor; ragdoll için
         // yükseltmek oturmayı belirgin şekilde sakinleştiriyor.

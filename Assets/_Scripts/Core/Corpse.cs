@@ -13,9 +13,20 @@ public class Corpse : NetworkBehaviour, IInteractable
     [SerializeField] private GameObject bodyPrefab;
     [SerializeField] private string[] bonePaths;
     [SerializeField] private float ragdollMass = 70f;
-    [SerializeField] private float maxSpeed = 20f;
-    [SerializeField] private float pushStrength = 0.6f;
+    [SerializeField] private float maxSpeed = 6f;
+    [SerializeField] private float pushStrength = 0.3f;
     [SerializeField] private float pushReach = 0.25f;
+    /// <summary>
+    /// Taşınan cesedin taşıyıcıya göre yeri. Oyuncunun orijini kapsülün
+    /// ORTASI (ayaklardan 0.69 m yukarısı), göz hizası ise +0.53 m. Gövdeyi
+    /// biraz aşağıya ve öne koymak onu ekranın alt yarısına oturtuyor:
+    /// taşıdığını görüyorsun ama görüşünü kapatmıyor.
+    /// </summary>
+    private static readonly Vector3 CarryOffset = new Vector3(0f, 0.05f, 0.95f);
+
+    /// <summary>Bırakırken cesedin taşıyıcının kaç metre önüne konacağı.</summary>
+    private const float DropForward = 0.9f;
+
     private static readonly List<Corpse> all = new List<Corpse>();
     private readonly Dictionary<Transform, Vector3> lastPlayerPositions = new Dictionary<Transform, Vector3>();
     private readonly Collider[] nearbyPlayers = new Collider[16];
@@ -126,12 +137,11 @@ public class Corpse : NetworkBehaviour, IInteractable
         }
         sync.Continuous = IsHeld;
     }
-    private void LateUpdate()
-    {
-        if (renderers == null) return;
-        bool hide = NetworkClient.localPlayer != null && NetworkClient.localPlayer.netId == carrierNetId;
-        foreach (Renderer renderer in renderers) renderer.enabled = !hide;
-    }
+    // Taşınan ceset ARTIK GİZLENMİYOR. Eskiden taşıyanın ekranında
+    // kapatılıyordu (yüzünü kapatmasın diye) ama o zaman elinde bir şey
+    // olduğu hiç görünmüyor, kabine yerleştirmek de körlemesine oluyordu.
+    // Çözüm gizlemek değil, gövdeyi kameranın ALTINA, öne almak — bkz.
+    // CarryOffset.
     private void FixedUpdate()
     {
         if (!isServer || ragdoll == null || ragdoll.Count == 0) return;
@@ -140,7 +150,7 @@ public class Corpse : NetworkBehaviour, IInteractable
             RoundParticipant carrier = Resolve(carrierNetId);
             if (!LivingRunner(carrier) || carrier.GetComponent<PlayerController>()?.IsFocused == true)
             { ServerDrop(); return; }
-            MoveHeld(carrier.transform.TransformPoint(new Vector3(0.45f, 0.65f, -0.1f)), carrier.transform.rotation);
+            MoveHeld(carrier.transform.TransformPoint(CarryOffset), carrier.transform.rotation);
             return;
         }
         if (stationNetId != 0) return;
@@ -202,9 +212,22 @@ public class Corpse : NetworkBehaviour, IInteractable
         var carrier = Resolve(carrierNetId);
         if (carrier != null)
         {
-            Vector3 anchor = carrier.transform.position + Vector3.up * 0.5f;
-            // Bırakırken duvarın ötesine atma: taşıyıcının ayaklarının üstüne indir.
-            MoveHeld(anchor, carrier.transform.rotation);
+            // Bakılan yöne bırakılıyor: cesedi ayağının dibine değil, önüne
+            // koyuyorsun. Kabine yerleştirirken de, koridorda bırakırken de
+            // nereye koyduğunu görmek gerekiyor.
+            Transform owner = carrier.transform;
+            Vector3 origin = owner.position + Vector3.up * 0.2f;
+            Vector3 forward = Vector3.ProjectOnPlane(owner.forward, Vector3.up).normalized;
+            float reach = DropForward;
+
+            // Duvara dayanmışken öne bırakmak cesedi duvarın içine sokardı;
+            // önüne bir şey varsa mesafe oraya kadar kısalıyor. Aynı fikir
+            // kameranın duvar payında da var (bölüm 5).
+            if (Physics.SphereCast(origin, 0.25f, forward, out RaycastHit hit, reach,
+                    LayerMask.GetMask("Harita"), QueryTriggerInteraction.Ignore))
+                reach = Mathf.Max(0f, hit.distance - 0.1f);
+
+            MoveHeld(origin + forward * reach + Vector3.up * 0.3f, owner.rotation);
         }
         carrierNetId = 0;
         heldOffsets = null;

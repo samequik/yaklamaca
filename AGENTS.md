@@ -3743,6 +3743,29 @@ sahada kalması gerekiyor.
 **Taşımak için KAÇAN olmak şart** (`Corpse.LivingRunner`), yani test ederken
 [2] ile kaçan olarak başla. [1] ile canavar olursan cesedi alamazsın.
 
+### Taşıma ve ağırlık ayarları (2026-09-08, oynanış geri bildirimi)
+
+Dört şikâyet, dördü de düzeltildi:
+
+- **Ceset fazla kaygan ve hafifti** — bir kez itilen gövde koridorda kayıp
+  gidiyordu. Üç ayar birden değişti: collider'lara yüksek sürtünmeli bir fizik
+  materyali (`RagdollFactory.Surface`, `frictionCombine = Maximum` — zemin ne
+  olursa olsun yüksek olan kazanıyor), doğrusal sönümleme 0.1 → 0.9, açısal
+  sönümleme 1.5 → 3. İtme gücü 0.6 → 0.3 ve hız tavanı 20 → 6 m/s.
+- **Taşınan ceset görünmüyordu.** Taşıyanın ekranında gizleniyordu (yüzünü
+  kapatmasın diye), ama o zaman elinde bir şey olduğu hiç belli olmuyor ve
+  kabine yerleştirmek körlemesine oluyordu. Gizleme kaldırıldı; gövde bunun
+  yerine kameranın ALTINA, 0.95 m öne alındı (`Corpse.CarryOffset`).
+- **Bırakma yönü.** Ceset artık ayağının dibine değil, **baktığın yöne**
+  bırakılıyor (`DropForward` 0.9 m). Duvara dayanmışken gövdeyi duvarın içine
+  sokmamak için mesafe küre ışınıyla kısaltılıyor — kameranın duvar payıyla
+  (bölüm 5) aynı fikir.
+- **Kabin ekranı** terminal ve çıkış kilidi panellerinin görsel diline
+  çekildi: koyu gövde, ince çerçeve, köşe ayraçları, tek renk ailesi
+  (kabinin turkuaz ışığı). Kilitliyken bütün panel kırmızıya dönüyor, kilit
+  dizilimi hücrelerde gösteriliyor ve sıradaki hücre dolu renkte — göz
+  sıradakini aramak zorunda kalmıyor (bölüm 18'deki desen).
+
 ### Bu oturumda düzeltilen iki kusur
 
 - **Kabin sıfırlanınca ceset donuyordu.** `ResetStation` yalnızca `corpseId`'yi
