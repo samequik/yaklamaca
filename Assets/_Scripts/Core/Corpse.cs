@@ -50,6 +50,31 @@ public class Corpse : NetworkBehaviour
     /// </summary>
     [SyncVar] private uint victimNetId;
 
+    /// <summary>
+    /// Sunucu tarafında hız tavanı — güvenlik payı. Ceset canavarın TAM
+    /// üstünde doğuyor (bölüm 17: kill animasyonu ikisini iç içe varsayıyor);
+    /// `RoundManager.ServerSpawnCorpse` doğar doğmaz oradaki oyuncu
+    /// collider'larıyla çarpışmayı geçici kapatıyor, ama beklenmedik bir
+    /// çakışma (ör. duvara çok yakın bir ölüm) yine de tek karelik bir
+    /// patlama üretebilir. Sprintin (~7.6 m/s) belirgin üstünde bir tavan,
+    /// normal itmeleri hiç etkilemeden bu uç durumu kırpıyor.
+    /// </summary>
+    [SerializeField] private float maxSpeed = 8f;
+
+    private Rigidbody body;
+
+    private void Awake() => body = GetComponent<Rigidbody>();
+
+    /// <summary>Yalnızca sunucu — kinematik (istemci) kopyalarda velocity zaten anlamsız.</summary>
+    private void FixedUpdate()
+    {
+        if (!isServer || body.isKinematic)
+            return;
+
+        if (body.velocity.sqrMagnitude > maxSpeed * maxSpeed)
+            body.velocity = body.velocity.normalized * maxSpeed;
+    }
+
     /// <summary>Yalnızca sunucu çağırır, spawn'dan önce.</summary>
     [Server]
     public void ServerInit(uint victim) => victimNetId = victim;
