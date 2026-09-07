@@ -29,7 +29,12 @@ canavar modeli, animasyonları ve ışıkları (bölüm 14) · katman düzeni
 (bölüm 16) · kaçan modeli ve yakalanma animasyonu (bölüm 17) · çıkış görünümü
 ve kilit paneli (bölüm 18) · lightmap + occlusion · **EOS relay'i** ·
 **kısa lobi kodu ve oda listesi** (bölüm 13) · **sesli sohbet, mikrofon
-göstergesi ve TAB paneli** (bölüm 19) · **gerçek UI** (bölüm 20) · git.
+göstergesi ve TAB paneli** (bölüm 19) · **gerçek UI** (bölüm 20) ·
+**fizik motorlu ceset/ragdoll** (bölüm 21) · git.
+
+**Sıradaki büyük iş belli: diriltme.** Ceset artık haritada duruyor ve
+itilebiliyor; amaç onu oyuna geri sokmak. Akış ve cevaplanmamış tasarım
+soruları **bölüm 21.2**'de yazılı.
 
 ---
 
@@ -234,6 +239,63 @@ açıldığında bütün HUD'ı kalıcı söndürüyormuş. Terminal sadece ilk 
 
 ---
 
+### 2026-09-07 oturumunda yapılanlar
+
+Oturumun tamamı tek bir hedefe gitti: **ceset artık haritada kalan, itilebilen
+bir gövde** (bölüm 21.1). Yanında hareketle ilgili birkaç ayar ve test
+altyapısı geldi.
+
+#### 1. Zıplama: havada kalma süresi kısaldı
+
+Yerçekimi 600 → **900**, zıplama gücü 268.3 → **328.6**. İkisi BİRLİKTE
+büyütüldü ki zıplama yüksekliği aynı kalsın (hâlâ ~60 unit / 1.14 m — iniş
+sesi eşiği ve iz sistemi bu sayıya bağlı). Sabit yükseklikte havada geçen süre
+`t = 2·√(2h/g)`, yani g büyüdükçe kısalıyor: **0.894 → 0.730 sn (%18 daha az).**
+
+#### 2. Minecraft usulü sprint sıçraması
+
+Koşarken zıplarsan gidiş yönüne bir seferlik **+60 u/s** ek itki biniyor
+(`PlayerController.sprintJumpLunge`). Yalnızca zıplama anında, bir kez —
+havada airstrafe ile kazanılan hızdan (bölüm 1, `airSpeedCap`) tamamen ayrı.
+
+#### 3. Ceset ve ragdoll — oturumun asıl işi
+
+Ayrıntı **bölüm 21.1**'de: `Corpse`, `RagdollFactory`, `RagdollSync` ve
+`Ceset Sistemini Kur`. Yedi ayrı tuzağa düşüldü ve hepsi orada tablo hâlinde
+yazılı — özellikle "kapalı `Animator`'da `GetBoneTransform` null döner" ve
+"eklem projeksiyonu zinciri yerinde çiviler" maddeleri tekrar düşülmeye çok
+müsait.
+
+#### 4. Test botu artık insan modeli taşıyor
+
+Bölüm 17'deki "botta model yok, kapsül yer tutucu" sınırı kapandı:
+`RunnerSetup.AttachToSceneObject` kaçan modelini ve animasyonlarını bota da
+bağlıyor (`Test Botu Ekle` çalıştırılınca). Bot yalnızca yürüme/koşma/zıplama
+gösteriyor; ölüm koreografisi hâlâ yok ve `TestRunnerBot` zaten kendini
+elendirmiyor.
+
+Botun mavi işaret ışığı da elenince sönüyor artık — sönmezken ortada gövdesiz
+bir parıltı kalıyordu.
+
+#### 5. Test için tur bitişini kapatma
+
+`RoundManager.disableRoundEndForTesting` — **varsayılan kapalı.** Açıkken tur,
+kaçan kalmayınca bitmiyor. Tek bot kaçan olduğu turda onu öldürmek normalde
+turu anında kapatıyor ve ceset/animasyon denemek için sürekli tur yeniden
+başlatmak gerekiyordu. **İşin bitince kapat**: gerçek oynanışta bölüm 11.1'in
+kuralı hep geçerli kalmalı.
+
+#### Bu oturumun dersi
+
+> **Fizikte bir belirtiyi tek başına okumak yanıltıyor.** "Ceset havada
+> duruyor" cümlesi üç bambaşka sebebe uyuyordu: gövde kinematik kalmış,
+> ragdoll hiç kurulamamış, ya da bir kısıt zinciri çivilemiş. Tahminle tek tek
+> denemek dört tur sürdü; çözümü getiren şey **teşhis logu** oldu — parça
+> sayısı, simülasyonun hangi tarafta olduğu, kalçanın kinematic/gravity/uyku
+> durumu. Fizik hatalarında ölçmek, denemekten ucuz.
+
+---
+
 ### Sıradaki adımlar
 
 #### Önce: bekleyen araç çalıştırması
@@ -244,10 +306,14 @@ Yakalamaca > Menü Kur
 
 Skor tablosu satırlarındaki açıklama etiketi (`Not`) sahnede henüz yok. Onsuz
 kendi satırında ve botta boş bir alan kalıyor ve "bozuk" gibi duruyor.
+2026-09-06'dan beri bekliyor.
 
 > Bir sahne değişikliğinin gerçekten uygulanıp uygulanmadığını **sahne
 > dosyasından** doğrulayabilirsin, tahmin etmeden:
 > `grep -c "m_Name: Not$" Assets/_Scenes/SampleScene.unity`
+
+Ceset sisteminin araçları (`Ceset Sistemini Kur`, `Test Botu Ekle`) 2026-09-07'de
+çalıştırıldı ve sahneden doğrulandı; onlar için bekleyen bir şey yok.
 
 #### Sonra: iki doğrulama, ikisi de oynayarak
 
@@ -261,15 +327,30 @@ göndermiyor) · karşı taraf 18 m içinde mi · elenen biri konuşabiliyor mu
 (konuşmamalı) · TAB panelinde karşı tarafın satırında kaydırıcı ve SUSTUR
 çıkıyor mu.
 
-**2. Denge ölçümü.** Bütün sayılar hâlâ tahmin. Özellikle **direksiyon cezası**
+**2. Cesedi iki makinede dene** — sesli sohbetle **aynı sınıftan bir boşluk.**
+Ceset host'ta çalışıyor, ama host'ta `RagdollSync.Update` ilk satırda
+`isServer` görüp çıkıyor: yani **senkron yolunun istemci tarafı bugüne kadar
+bir kez bile çalışmadı.** Ragdoll'un tamamı orada kinematik ve pozu ağdan
+alıyor; sınanmamış varsayım az değil (paketin çözülmesi, kemik indekslerinin
+iki tarafta tutması, yumuşatma).
+
+Bakılacaklar: ceset karşı tarafta da aynı pozda mı · biri iterken öbürü
+hareketi görüyor mu · ceset oturunca iki ekranda aynı yerde mi duruyor.
+
+**3. Denge ölçümü.** Bütün sayılar hâlâ tahmin. Özellikle **direksiyon cezası**
 (bölüm 1) yepyeni ve hiç ölçülmedi: canavar artık hem %5 yavaş başlıyor hem
 köşelerde pay kaybediyor, fazla zayıflamış olabilir. Profiller Play modunda
 değiştirilince kalıcı.
+
+Zıplama da bu oturumda değişti (yerçekimi 900, sprint sıçraması +60 u/s):
+koşarken zıplamak artık gözle görülür bir mesafe kazandırıyor, kaçanın canavara
+karşı yeni bir aracı. Ölçülmedi.
 
 #### Kalan işler
 
 | # | İş | Not |
 |---|---|---|
+| 0 | **DİRİLTME SİSTEMİ** | Sıradaki büyük iş. Ceset taşıma + haritada 2 diriltme makinesi + 15 sn'lik beceri sınavı. Akış, hazır altyapı ve **uygulamadan önce karara bağlanacak 6 soru** bölüm 21.2'de |
 | 1 | **Yakınlık sesi (kalp atışı)** | Ses dosyası **oyuncudan gelecek**, sentezlenmeyecek. `Assets/_Audio/KalpAtisi.*`. **2B olmalı** — yönü belli olursa gerilim radara döner (bölüm 12) |
 | 2 | **Bıçak sesleri** (teknik borç 1) | Hâlâ sentetik yer tutucu, üstelik bıçak kaldırıldı; elle saldırıya göre yeniden seçilmeli |
 | 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
@@ -902,7 +983,8 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Hareket Profillerini Sıfırla | Kaçan = Source, canavar = araba modeli (bkz. bölüm 1) |
 | Katmanları Kur | Dört katman tanımlar, sahneye ve prefaba atar, maskeleri daraltır (bkz. bölüm 16) |
 | Işığı Pişir (lightmap) | Lightmap UV'si üretir, ışıkları Baked yapar, probe kurar, pişirir |
-| Test Botu Ekle/Kaldır | Tek başına test için sahte kaçan |
+| Ceset Sistemini Kur | Ceset prefabı (ragdoll) + NetworkManager ve RoundManager bağlantısı (bkz. bölüm 21) |
+| Test Botu Ekle/Kaldır | Tek başına test için sahte kaçan — kaçan modeli ve animasyonlarıyla |
 | Hataları Temizle (Sahne Onarımı) | Eksik NetworkIdentity ekler, ağ öncesi artıkları söker |
 
 > ### Editörde çalışan her API build'de yok
@@ -3393,3 +3475,152 @@ Yakalamaca > Menü Kur
 
 Menü canvas'ı sıfırdan kurulduğu için oyun HUD'ı, terminal ve kilit ekranları
 hep birlikte geliyor.
+
+---
+
+## 21. Ceset ve diriltme
+
+### 21.1 Ceset: kurulan sistem (2026-09-07)
+
+Yakalanan kaçanın bedeni artık yok olmuyor: **fizik motorlu bir ragdoll olarak
+haritada kalıyor.** Kendi ağırlığıyla yığılıyor, üstünden geçen oyuncu onu
+itiyor, bir sonraki tur başında temizleniyor.
+
+| Parça | İşi |
+|---|---|
+| `Core/Corpse.cs` | Cesedin kendisi: kurbanın gövdesinden kopya alıyor, ragdoll'u kuruyor, itmeyi uyguluyor |
+| `Core/RagdollFactory.cs` | Humanoid iskeletin 11 ana kemiğine Rigidbody + Collider + `CharacterJoint` |
+| `Core/RagdollSync.cs` | Ragdoll pozunu sunucudan istemcilere taşıyor |
+| `Editor/CorpseSetup.cs` | `Yakalamaca > Ceset Sistemini Kur` — prefabı kurup NetworkManager ve RoundManager'a bağlıyor |
+
+**Ceset ayrı bir obje, oyuncunun kendi gövdesi DEĞİL.** Oyuncu objesi bir
+sonraki turda yeniden kullanılıyor; gövdesini kalıcı olarak fiziğe bağlamak o
+modeli geri alamamak demekti. Onun yerine `RoundParticipant.DeathHold` ölüm
+klibi bitince gövdenin o anki pozundan bağımsız bir KOPYA alıyor.
+
+**Fizik yalnızca sunucuda.** 11 Rigidbody'lik bir zincir her makinede farklı
+oturuyor; her istemci kendi simülasyonunu yürütseydi yan yana duran iki oyuncu
+cesedi farklı yerde görürdü. İstemcilerdeki gövdeler kinematik, pozu
+`RagdollSync`'ten alıyor — bölüm 4'ün "his istemcide, karar sunucuda"
+kuralının fizik karşılığı. Paket 56 bayt (kalça konumu + sıkıştırılmış kemik
+dönüşleri) ve yalnızca gövde hareket ederken gidiyor; ceset oturunca trafik
+tamamen kesiliyor.
+
+**Katman `Sus`** (bölüm 16): gövdeyi durdurur ama canavarın vuruş ışınını
+kesmez. Koridorda yatan bir cesedin arkasına saklanmak kalkan olmamalı.
+
+**İtme sunucuda hesaplanıyor** (`Corpse.ShoveFromPlayers`): oyuncu hızı
+pozisyon farkından çıkarılıyor — animatörlerin ve `FootstepAudio`'nun yaptığının
+aynısı, çünkü sunucuda uzak oyuncuların `PlayerController`'ı kapalı. İtki
+parçanın KÜTLESİYLE ölçekleniyor, böylece `pushStrength` doğrudan "oyuncunun
+hızının yüzde kaçı aktarılıyor" anlamına geliyor.
+
+#### Bu sistemi kurarken düşülen yedi tuzak
+
+Hepsi oynanırken bulundu ve hepsi aynı aileden: **fizik kısıtları birbiriyle
+kavga edince "hiç hareket etmiyor" ile "paramparça oluyor" aynı sebebin iki
+ucu oluyor.**
+
+| Belirti | Gerçek sebep |
+|---|---|
+| Beden görünmez ama dokunuluyor | Elenince `PlayerController` kapanıyordu ama altındaki **`CharacterController` hiç kapanmıyordu** — görünmez, katı bir engel koridorda kalıyordu |
+| Ceset haritanın dışına fırlıyor | `deathForwardOffset = 0` cesedi canavarın TAM üstünde doğuruyor (bölüm 17); PhysX bu derin çakışmayı patlatıyordu. Çözüm elle çarpışma kapatmak değil, `maxDepenetrationVelocity` |
+| Ceset hiç görünmüyor | `Corpse` görselini `OnStartClient`'ta alıyor, `DeathHold` ise aynı karede kaynağı gizliyordu. **Kapalı kaynaktan `Instantiate` kapalı kopya üretiyor** |
+| Parçalar birbirinden kopuyor | Gövde ile uyluk eklemle bağlı **değil** (ikisi de kalçaya bağlı, birbirine değil); kapsülleri kalçada iç içe geçip her karede itişiyorlardı |
+| Ceset havada donuyor | Eklem projeksiyonu (`enableProjection`) kinematik bir işlem: zinciri yerinde çiviliyordu |
+| Ragdoll hiç kurulmuyor | **Kapalı bir `Animator`'da `GetBoneTransform` null dönüyor.** Kemikler artık kurbanın CANLI animatöründen çözülüp klona yol üzerinden eşleniyor |
+| Ceset itilemiyor | İtki ~4.5 N·s idi; eklemler 11 parçayı tek bir ~70 kg gövde gibi davrandırıyor, yani 6 cm/s. Ayrıca itme `OnControllerColliderHit`'e bağlıydı ve o geri çağrı sunucuda uzak oyuncular için hiç çalışmıyor |
+
+> **Ders:** ragdoll'da bir belirtiyi tek başına okumak yanıltıyor. "Havada
+> duruyor" hem kinematik kalmış olabilir, hem kurulamamış olabilir, hem de bir
+> kısıt tarafından çivilenmiş olabilir. Üçünü ayırmanın tek ucuz yolu
+> **teşhis logu**: parça sayısı, simülasyonun hangi tarafta olduğu, kalçanın
+> kinematic/gravity/uyku durumu. Bu oturumda çözümü getiren şey buydu.
+
+---
+
+### 21.2 Diriltme — SPESİFİKASYON (henüz yazılmadı)
+
+Ceset artık haritada durduğuna göre asıl amaç şu: **onu oyuna geri sokmak.**
+Aşağıdaki akış 2026-09-07'de kullanıcı tarafından tarif edildi.
+
+```
+Kaçan elenir  →  cesedi yerde kalır (21.1)
+                      ↓
+        başka bir kaçan cesedi ALIP TAŞIR
+                      ↓
+        haritadaki İKİ diriltme makinesinden birine koyar
+                      ↓
+        15 saniyelik işlem başlar — terminaldeki gibi BECERİ SINAVI var
+                      ↓
+   hata → kilit + ilerleme SIFIR        hatasız 15 sn → oyuncu DİRİLİR
+   (baştan başlanacak)
+```
+
+**Sabitler:**
+
+| | Değer |
+|---|---|
+| Haritadaki diriltme yeri | **2 adet** |
+| İşlem süresi | **15 saniye** |
+| Hata cezası | Kilit + **ilerleme 0'a döner**, baştan |
+
+**Terminalden bilinçli olarak farklı.** Bölüm 11.2 terminal için "ilerleme
+**kalıcı**: yarıda bırakılan terminal sıfırlanmaz, başkası devam eder" diyor.
+Diriltmede tersi isteniyor: hata ilerlemeyi siliyor. İkisi aynı görünüp farklı
+davrandığı için kodda da ayrı tutulmalı — `Terminal`'e bir bayrak eklemek iki
+mekaniği tek yerde birbirine karıştırır.
+
+**Hazır olan altyapı:**
+
+- `Corpse.victimNetId` cesedin kime ait olduğunu **zaten taşıyor** — makine
+  kimi dirilteceğini biliyor, yeni bir eşleme gerekmiyor.
+- `Terminal`'in sınav sistemi (bölüm 11.3) olduğu gibi kullanılabilir: yön
+  işareti, `promptWindow`, tuş atamalarından okuma, ağ gecikmesi payı.
+- `RoundParticipant.ServerSetAlive(true)` + `ServerPlaceAt` diriltmenin son
+  adımı; ikisi de yazılı ve çalışıyor.
+- `RoundManager.ServerClearCorpses` cesetleri tur başında temizliyor.
+
+#### Uygulamadan ÖNCE karara bağlanacak sorular
+
+Bunlar tasarım kararı, kod sorusu değil — cevaplanmadan yazılırsa yanlış yere
+çakılır.
+
+1. **`requiredTerminals` geri artacak mı?** Bugün bir kaçan ölünce gereken
+   terminal sayısı 1 azalıyor (bölüm 11.1, "kartopunu bu dengeliyor").
+   Dirilme onu geri artırırsa **diriltmek cezalandırılmış** olur; artırmazsa
+   ölmek kalıcı bir indirim hâline gelir ve ölmek işe yarayabilir.
+
+2. **Bilgi sızıntısı.** Bölüm 5: elenen oyuncu izleyiciye geçiyor ve
+   **canavarı asla izleyemiyor** — çünkü sesli konuşulan bir oyunda bu
+   doğrudan hile. Dirilen oyuncu ölüyken gördüğü her şeyi yanında geri
+   getiriyor. Ölü kaçanın kamerası kendi cesedine kilitlensin mi?
+
+3. **Canavarın karşı hamlesi ne?** Canavar terminali kilitleyebiliyor
+   (bölüm 11.4). Diriltme makinesini de kilitleyebilmeli mi? Taşınan cesedi
+   düşürtebilmeli mi? Karşı hamle yoksa diriltme tek taraflı bir kazanç olur
+   ve turu uzatır.
+
+4. **Taşımanın bedeli.** Ceset taşıyan yavaşlıyor mu? Taşırken fener ve
+   saldırı kullanılabiliyor mu? Canavar ceset taşıyabiliyor mu (diriltmeyi
+   engellemek için cesedi uzağa götürmek)?
+
+5. **Makineler haritaya nasıl konacak?** Harita **elle düzenleniyor** ve onu
+   silen araçlar yasak (bölüm 0). İki makine ya elle konulacak ya da
+   `Terminal ve Çıkış Kur` gibi "var olana dokunmayan" bir araçla.
+
+6. **Kaç kez dirilebilir?** Sınır yoksa dolu kadroda tur bitmeyebilir —
+   bölüm 11.1'in "süre sınırı yok" kuralıyla birleşince sonsuz tur riski var.
+
+#### Teknik not: ceset taşınırken fizik
+
+Ragdoll sunucu otoriteli (21.1). Taşımanın iki yolu var:
+
+- Ragdoll'u kinematik yapıp taşıyıcıya bağlamak — poz korunur, ama 11 gövdeyi
+  taşırken senkronlamak gerekir.
+- Cesedi gizleyip taşıyıcının omzunda **ayrı bir görsel** göstermek — çok daha
+  ucuz, oyunların çoğunun yaptığı. Ceset makineye konunca gerçek ragdoll geri
+  doğuruluyor.
+
+İkincisi tercih edilmeli; `Corpse` zaten "gövdeyi çalışma anında klonla"
+desenini kullanıyor, aynı desen omuz görseli için de işler.
