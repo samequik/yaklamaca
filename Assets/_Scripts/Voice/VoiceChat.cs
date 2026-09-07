@@ -48,12 +48,14 @@ public class VoiceChat : NetworkBehaviour
 
     [SerializeField] private VoicePlayback playback;
     [SerializeField] private VoiceCapture capture;
+    private RoundParticipant participant;
 
     /// <summary>Bu oyuncunun sesini yerel olarak kısmak için (lobi listesi).</summary>
     public VoicePlayback Playback => playback;
 
     private void Awake()
     {
+        participant = GetComponent<RoundParticipant>();
         if (playback == null)
             playback = GetComponent<VoicePlayback>();
 
@@ -79,10 +81,35 @@ public class VoiceChat : NetworkBehaviour
     /// <summary>Ayarlar ekranı sesli sohbeti açıp kapatınca.</summary>
     public void ApplyEnabled()
     {
-        if (capture == null || !isOwned)
+        if (capture != null && isOwned)
+            capture.enabled = VoiceSettings.Enabled;
+
+        RefreshPlaybackContext();
+    }
+
+    private void Update()
+    {
+        if (isClient)
+            RefreshPlaybackContext();
+    }
+
+    private void RefreshPlaybackContext()
+    {
+        if (playback == null)
             return;
 
-        capture.enabled = VoiceSettings.Enabled;
+        RoundParticipant listener = NetworkClient.localPlayer != null
+            ? NetworkClient.localPlayer.GetComponent<RoundParticipant>() : null;
+        bool playing = RoundManager.Instance != null
+            && RoundManager.Instance.Phase == RoundPhase.Playing;
+        bool speakerOnField = OnField(participant);
+        bool listenerOnField = OnField(listener);
+        bool allowed = listener != null && participant != null && listener != participant
+            && (!playing || speakerOnField == listenerOnField);
+
+        // Routing remains server-authoritative. This also drops buffered speech
+        // when the local player dies, escapes, revives or returns to the lobby.
+        playback.SetContext(allowed, playing && speakerOnField && listenerOnField, hearingRange);
     }
 
     // ---------- Gönderim ----------
@@ -90,7 +117,7 @@ public class VoiceChat : NetworkBehaviour
     /// <summary><see cref="VoiceCapture"/> her çerçevede çağırıyor.</summary>
     public void SendFrame(byte[] frame)
     {
-        if (!isOwned || frame == null)
+        if (!isOwned || !VoiceSettings.Enabled || frame == null)
             return;
 
         CmdVoice(frame);
@@ -164,6 +191,9 @@ public class VoiceChat : NetworkBehaviour
     private void TargetVoice(NetworkConnectionToClient target, byte[] frame)
     {
         if (playback != null)
+        {
+            RefreshPlaybackContext();
             playback.Push(frame);
+        }
     }
 }

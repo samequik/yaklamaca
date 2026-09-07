@@ -61,6 +61,33 @@ public class VoicePlayback : MonoBehaviour
     private bool primed;
 
     private int startSamples;
+    private bool contextAllowed;
+    private bool spatialPlayback;
+    private volatile bool audible;
+    private volatile int bufferVersion;
+    private int audioBufferVersion;
+
+    // Only the audio thread advances readIndex, including when discarding
+    // speech buffered before a mute or a living/spectator channel change.
+    public void SetContext(bool allowed, bool spatial, float hearingRange)
+    {
+        if (contextAllowed != allowed || spatialPlayback != spatial)
+        {
+            contextAllowed = allowed;
+            spatialPlayback = spatial;
+            bufferVersion++;
+            LastFrameTime = -999f;
+        }
+
+        if (source != null)
+        {
+            source.spatialBlend = spatial ? 1f : 0f;
+            source.bypassReverbZones = !spatial;
+            source.maxDistance = Mathf.Max(hearingRange, source.minDistance + 0.01f);
+        }
+
+        ApplyVolume();
+    }
 
     /// <summary>Bu oyuncunun sesi kısılmış mı (yerel tercih, ağa gitmiyor).</summary>
     public bool Muted { get; private set; }
@@ -71,7 +98,7 @@ public class VoicePlayback : MonoBehaviour
     /// <summary>Son çerçevenin geldiği an — "şu anda konuşuyor" göstergesi için.</summary>
     public float LastFrameTime { get; private set; } = -999f;
 
-    public bool IsSpeaking => Time.unscaledTime - LastFrameTime < 0.35f;
+    public bool IsSpeaking => audible && Time.unscaledTime - LastFrameTime < 0.35f;
 
     private void Awake()
     {
@@ -113,7 +140,7 @@ public class VoicePlayback : MonoBehaviour
     /// <summary>Bir çerçeveyi tampona yazar. Ana thread'den çağrılıyor.</summary>
     public void Push(byte[] frame)
     {
-        if (frame == null || frame.Length == 0 || ring == null)
+        if (!audible || frame == null || frame.Length == 0 || ring == null)
             return;
 
         LastFrameTime = Time.unscaledTime;
@@ -149,8 +176,18 @@ public class VoicePlayback : MonoBehaviour
             return;
         }
 
+        int version = bufferVersion;
         int read = readIndex;
         int write = writeIndex;
+        if (!audible || audioBufferVersion != version)
+        {
+            readIndex = write;
+            audioBufferVersion = version;
+            primed = false;
+            System.Array.Clear(data, 0, data.Length);
+            return;
+        }
+
         int used = write >= read ? write - read : ring.Length - read + write;
 
         if (!primed)
@@ -201,6 +238,14 @@ public class VoicePlayback : MonoBehaviour
         if (source == null)
             return;
 
-        source.volume = Muted ? 0f : PersonalVolume * VoiceSettings.OutputVolume;
+        bool enabled = contextAllowed && VoiceSettings.Enabled && !Muted;
+        if (audible != enabled)
+        {
+            audible = enabled;
+            bufferVersion++;
+            LastFrameTime = -999f;
+        }
+
+        source.volume = enabled ? PersonalVolume * VoiceSettings.OutputVolume : 0f;
     }
 }
