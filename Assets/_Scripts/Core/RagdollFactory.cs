@@ -231,11 +231,24 @@ public static class RagdollFactory
         if (length < 0.01f)
             length = 0.1f;
 
-        CapsuleCollider capsule = bone.gameObject.AddComponent<CapsuleCollider>();
-        capsule.direction = DominantAxis(local);
+        // Collider AYRI bir çocuk objede duruyor ve kemiğin yönüne tam
+        // hizalanıyor. Doğrudan kemiğe koyulunca kapsül yalnızca X/Y/Z'den
+        // birine yaslanabiliyordu; çapraz duran bir kemikte çarpışma hacmi
+        // görünen uzuvdan belirgin şekilde taşıyor ve oyuncu "gövdenin
+        // içinde görünmez bir şey var" diye hissediyordu.
+        GameObject holder = new GameObject("RagdollCollider");
+        holder.transform.SetParent(bone, false);
+        holder.transform.localPosition = Vector3.zero;
+        holder.transform.localRotation = Quaternion.FromToRotation(Vector3.up, local.normalized);
+
+        if (layer >= 0)
+            holder.layer = layer;
+
+        CapsuleCollider capsule = holder.AddComponent<CapsuleCollider>();
+        capsule.direction = 1; // hizalandığı için daima Y
         capsule.height = length;
         capsule.radius = Mathf.Max(length * RadiusRatio, 0.02f);
-        capsule.center = local * 0.5f;
+        capsule.center = new Vector3(0f, length * 0.5f, 0f);
 
         return Finish(parts, bone, capsule, mass, layer);
     }
@@ -318,13 +331,4 @@ public static class RagdollFactory
         joint.swing2Limit = new SoftJointLimit { limit = swing };
     }
 
-    private static int DominantAxis(Vector3 v)
-    {
-        Vector3 abs = new Vector3(Mathf.Abs(v.x), Mathf.Abs(v.y), Mathf.Abs(v.z));
-
-        if (abs.x >= abs.y && abs.x >= abs.z)
-            return 0;
-
-        return abs.y >= abs.z ? 1 : 2;
-    }
 }

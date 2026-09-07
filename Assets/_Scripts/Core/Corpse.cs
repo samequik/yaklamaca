@@ -200,7 +200,18 @@ public class Corpse : NetworkBehaviour
         // birebir kopyalıyor, yani objeyi açmak tek başına yetmiyor.
         Renderer[] renderers = clone.GetComponentsInChildren<Renderer>(true);
         for (int i = 0; i < renderers.Length; i++)
+        {
             renderers[i].enabled = true;
+
+            // Ragdoll'un bilinen tuzağı: `SkinnedMeshRenderer` görünürlük
+            // kutusunu bind pozundan hesaplıyor. Kemikler ragdoll ile o
+            // kutunun dışına çıkınca Unity mesh'i "ekranda değil" sayıp
+            // çizmeyi bırakıyor — gövde kaybolur, çarpışma kutuları yerinde
+            // kalır. `updateWhenOffscreen` kutuyu her kare kemiklerden
+            // yeniden hesaplatıyor.
+            if (renderers[i] is SkinnedMeshRenderer skinned)
+                skinned.updateWhenOffscreen = true;
+        }
 
         // Kemikler KURBANIN CANLI animatöründen çözülüyor, klonunkinden DEĞİL.
         //
@@ -247,6 +258,37 @@ public class Corpse : NetworkBehaviour
             return null;
 
         return path.Length == 0 ? cloneRoot : cloneRoot.Find(path);
+    }
+
+    /// <summary>
+    /// Cesedin doğduğu noktada, cesede AİT OLMAYAN açık collider var mı diye
+    /// bakıp konsola yazar — "gövdenin içinde görünmez bir şey var" şikâyetini
+    /// tahminle değil isimle çözmek için.
+    ///
+    /// Haritanın kendisi (zemin, duvar) elenmiyor; ceset zaten yerde duruyor,
+    /// zemini görmek normal. Beklenmeyen bir isim çıkarsa aranan şey odur.
+    /// </summary>
+    private void ReportGhostColliders()
+    {
+        Collider[] nearby = Physics.OverlapSphere(transform.position, 1.2f, ~0,
+            QueryTriggerInteraction.Collide);
+
+        List<string> names = new List<string>();
+
+        for (int i = 0; i < nearby.Length; i++)
+        {
+            Collider other = nearby[i];
+
+            if (other == null || other.transform.IsChildOf(transform))
+                continue;
+
+            names.Add($"{other.name} ({LayerMask.LayerToName(other.gameObject.layer)}" +
+                $"{(other.isTrigger ? ", trigger" : string.Empty)})");
+        }
+
+        Debug.Log($"Corpse: ragdoll {ragdoll.Count} parça | çevredeki yabancı " +
+            $"collider sayısı {names.Count}" +
+            (names.Count > 0 ? " → " + string.Join(", ", names) : string.Empty));
     }
 
     /// <summary>Bir çocuğun köke göre "a/b/c" yolu. Kökün altında değilse null.</summary>
@@ -307,13 +349,8 @@ public class Corpse : NetworkBehaviour
 
         RagdollFactory.DisableSelfCollision(ragdoll);
 
-        // Teşhis: ceset yine kımıldamazsa ilk bakılacak yer bu satır.
-        Rigidbody hips = ragdoll[0].Body;
-
-        Debug.Log($"Corpse: ragdoll {ragdoll.Count} parça | " +
-            $"simülasyon={(isServer ? "SUNUCU" : "istemci/kinematik")} | " +
-            $"kalça kinematic={hips.isKinematic} gravity={hips.useGravity} " +
-            $"uyuyor={hips.IsSleeping()}");
+        if (isServer)
+            ReportGhostColliders();
     }
 
     /// <summary>

@@ -87,6 +87,14 @@ public static class TestBotSetup
         SerializedObject serialized = new SerializedObject(participant);
         serialized.FindProperty("isBot").boolValue = true;
         serialized.FindProperty("bodyRenderer").objectReferenceValue = body.GetComponent<Renderer>();
+
+        // İşaret ışığı elenince sönmeli. Sönmezse gövde gizlendikten sonra
+        // ortada gövdesiz bir mavi parıltı kalıyor — "orada görünmez bir şey
+        // duruyor" izlenimi tam olarak bundan doğuyor.
+        SerializedProperty disableList = serialized.FindProperty("disableWhenEliminated");
+        disableList.arraySize = 1;
+        disableList.GetArrayElementAtIndex(0).objectReferenceValue = marker;
+
         serialized.ApplyModifiedProperties();
 
         // Kaçan modeli (Banana Man) — CLAUDE.md bölüm 17'deki "botta model
