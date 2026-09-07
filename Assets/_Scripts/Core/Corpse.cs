@@ -102,12 +102,14 @@ public class Corpse : NetworkBehaviour
     {
         base.OnStartServer();
         EnsureBuilt();
+        ApplyAuthority();
     }
 
     public override void OnStartClient()
     {
         base.OnStartClient();
         EnsureBuilt();
+        ApplyAuthority();
     }
 
     private void EnsureBuilt()
@@ -117,6 +119,40 @@ public class Corpse : NetworkBehaviour
 
         built = true;
         BuildVisual();
+    }
+
+    /// <summary>
+    /// Fiziği kimin yürüteceğini yazar: sunucuda gerçek simülasyon, istemcide
+    /// kinematik + `RagdollSync`'ten gelen poz.
+    ///
+    /// **İki geri çağrının İKİSİNDEN DE çağrılıyor, bilerek.** Host'ta
+    /// `OnStartServer` ve `OnStartClient` arka arkaya geliyor; hangisi önce
+    /// çalışırsa çalışsın sonuç aynı olmalı. Tek bir yerde, kurulum anındaki
+    /// `isServer` değerine bakmak sıraya bağımlı bir hata bırakıyordu —
+    /// yanlış tarafa düşerse ceset kinematik kalır, yani havada asılı durur
+    /// ve itilemez.
+    /// </summary>
+    private void ApplyAuthority()
+    {
+        if (ragdoll == null)
+            return;
+
+        bool simulate = isServer;
+
+        for (int i = 0; i < ragdoll.Count; i++)
+        {
+            Rigidbody part = ragdoll[i].Body;
+
+            if (part == null)
+                continue;
+
+            part.isKinematic = !simulate;
+
+            // Uyuyan bir gövde yerçekimini biriktirmiyor: doğduğu anda uyanık
+            // olduğundan emin oluyoruz, yoksa havada kalabilir.
+            if (simulate)
+                part.WakeUp();
+        }
     }
 
     /// <summary>
@@ -157,21 +193,6 @@ public class Corpse : NetworkBehaviour
         // hull'a oranlanarak hesaplanıyor. Poz öncesi değeri kurbandan alıyoruz.
         clone.transform.localScale = victim.CorpseSourceScale;
 
-        // Animator KAPATILMALI, yoksa bir sonraki karede kendi varsayılan
-        // durumuna (Locomotion/idle) döner ve az önce kopyaladığımız ölüm
-        // pozu kaybolur. Aynı satırda, Instantiate'tan hemen sonra: Animator
-        // hiç Update çalıştırmadan donduruluyor.
-        Animator animator = clone.GetComponentInChildren<Animator>(true);
-        if (animator != null)
-            animator.enabled = false;
-
-        // Kaynak birinci-şahıs kurallarına göre kafa kemiğini/gölge modunu
-        // ayarlamış olabilir (PlayerBodyVisual.ApplyHead) — kopya artık
-        // kimsenin "birinci şahsı" değil, sahnede duran sabit bir ceset.
-        // Kemik ölçeği kopyalandığı için (Instantiate her şeyi taşır) kafa
-        // sıfıra küçülmüş kalabilir; düzeltiyoruz.
-        ResetHeadBone(animator);
-
         // `SetActive(true)` yalnızca OBJENİN kendisini açıyor — kaynak o an
         // gizliyken `PlayerBodyVisual.ApplyMode` her `Renderer`'ı AYRICA
         // `enabled = false` yapmıştı (bölüm 14: gölge düşsün diye SetActive
@@ -181,7 +202,26 @@ public class Corpse : NetworkBehaviour
         for (int i = 0; i < renderers.Length; i++)
             renderers[i].enabled = true;
 
+        Animator animator = clone.GetComponentInChildren<Animator>(true);
+
+        // ---- SIRA KRİTİK ----
+        //
+        // Kemik sorguları animatör KAPATILMADAN ÖNCE yapılmalı.
+        // `Animator.GetBoneTransform` humanoid eşlemesini çözebilmek için
+        // animatörün bağlı ve etkin olmasını istiyor; kapalı bir animatörde
+        // **null dönüyor.** Bu sırayı ters yapmak ragdoll'un sessizce hiç
+        // kurulmamasına yol açıyordu: ceset öylece havada asılı kalıyor,
+        // ne yere düşüyor ne itilebiliyordu — hiçbir yerde hata da yok,
+        // çünkü eksik kemik "humanoid değil" gibi görünüyor.
+        ResetHeadBone(animator);
         BuildRagdoll(animator);
+
+        // Animator artık KAPATILABİLİR: açık kalırsa bir sonraki karede kendi
+        // varsayılan durumuna dönüp hem kopyaladığımız pozu siler hem de
+        // kemikleri her karede yeniden yazarak fiziği ezerdi. Aradan bir kare
+        // geçmediği için (hepsi tek metotta) poz bozulmuyor.
+        if (animator != null)
+            animator.enabled = false;
     }
 
     /// <summary>
@@ -212,13 +252,12 @@ public class Corpse : NetworkBehaviour
 
         if (ragdoll.Count == 0)
         {
-            Debug.LogWarning("Corpse: ragdoll kurulamadı (humanoid rig değil), " +
-                "ceset hareketsiz kalacak.");
+            Debug.LogWarning("Corpse: ragdoll kurulamadı, ceset hareketsiz kalacak. " +
+                "Sebep genelde animatörün kemik eşlemesini verememesi olur.");
             return;
         }
 
-        for (int i = 0; i < ragdoll.Count; i++)
-            ragdoll[i].Body.isKinematic = !isServer;
+        ApplyAuthority();
 
         if (sync != null)
             sync.Bind(ragdoll);

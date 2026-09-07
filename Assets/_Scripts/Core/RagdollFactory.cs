@@ -79,8 +79,19 @@ public static class RagdollFactory
     {
         List<Part> parts = new List<Part>();
 
-        if (animator == null || !animator.isHuman)
+        if (animator == null)
             return parts;
+
+        // Animatör KAPALI olmamalı: `GetBoneTransform` humanoid eşlemesini
+        // ancak bağlıyken çözüyor, kapalıyken null döndürüyor ve ragdoll
+        // sessizce hiç kurulmuyor. Çağıran (Corpse.BuildVisual) bu yüzden
+        // kemikleri okumayı animatörü kapatmadan ÖNCE yapıyor.
+        if (!animator.isHuman)
+        {
+            Debug.LogWarning($"RagdollFactory: {animator.name} humanoid değil " +
+                "(ya da avatar çözülemedi), ragdoll kurulmadı.");
+            return parts;
+        }
 
         Transform hips = animator.GetBoneTransform(HumanBodyBones.Hips);
         Transform spine = animator.GetBoneTransform(HumanBodyBones.Spine);
@@ -107,7 +118,13 @@ public static class RagdollFactory
 
         // Kalça ve gövde olmadan ragdoll kurulamaz; gerisi eksik olabilir.
         if (hips == null || torso == null)
+        {
+            Debug.LogWarning($"RagdollFactory: {animator.name} üzerinde kalça " +
+                $"(hips={hips != null}) ya da gövde (torso={torso != null}) kemiği " +
+                "çözülemedi, ragdoll kurulmadı. Animatör kemik sorgusu sırasında " +
+                "AÇIK olmalı.");
             return parts;
+        }
 
         Part hipsPart = AddCapsule(parts, hips, torso.position, HipsShare * totalMass, layer);
         Part torsoPart = AddCapsule(parts, torso,
@@ -255,6 +272,7 @@ public static class RagdollFactory
 
         Rigidbody body = bone.gameObject.AddComponent<Rigidbody>();
         body.mass = Mathf.Max(mass, 0.1f);
+        body.useGravity = true; // varsayılan zaten böyle; ceset "havada kaldı" hatasından sonra açıkça yazılıyor
         // Doğrusal sürtünme düşük (ceset itilince kaymalı), AÇISAL sürtünme
         // yüksek: gerçek bir uzuv dönerek savrulmaz, hemen sönümlenir. Düşük
         // tutmak parçaları birbirinin etrafında fır fır döndürüyordu.

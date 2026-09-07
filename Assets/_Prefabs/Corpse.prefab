@@ -86,4 +86,4 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   ragdollMass: 70
-  maxSpeed: 8
+  maxSpeed: 20
