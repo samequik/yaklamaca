@@ -57,9 +57,11 @@ public class Corpse : NetworkBehaviour
         "oranlarında dağıtılıyor — bkz. RagdollFactory.")]
     [SerializeField] private float ragdollMass = 70f;
 
-    [Tooltip("Sunucudaki hız tavanı (m/s). Beklenmedik bir çakışma tek " +
-        "karelik bir patlama üretirse kırpıyor; normal itmelerin çok üstünde.")]
-    [SerializeField] private float maxSpeed = 8f;
+    [Tooltip("Sunucudaki hız tavanı (m/s). Yalnızca acil fren: bu değere " +
+        "normal oturma ve itilme sırasında ASLA yaklaşılmamalı. Düşük tutmak " +
+        "eklem çözücüsüyle kavga edip titremeye yol açıyor — asıl patlama " +
+        "koruması RagdollFactory'deki maxDepenetrationVelocity.")]
+    [SerializeField] private float maxSpeed = 20f;
 
     private RagdollSync sync;
     private List<RagdollFactory.Part> ragdoll;

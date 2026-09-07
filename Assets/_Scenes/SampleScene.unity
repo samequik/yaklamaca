@@ -73887,6 +73887,7 @@ MonoBehaviour:
   startAsRunnerKey: 50
   selfEliminateKey: 51
   summonBotsKey: 52
+  disableRoundEndForTesting: 0
 --- !u!4 &1113204831
 Transform:
   m_ObjectHideFlags: 0

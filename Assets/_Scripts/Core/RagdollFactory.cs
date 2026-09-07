@@ -31,6 +31,7 @@ public static class RagdollFactory
     {
         public Transform Bone;
         public Rigidbody Body;
+        public Collider Collider;
     }
 
     /// <summary>
@@ -47,13 +48,25 @@ public static class RagdollFactory
     private const float LowerLegShare = 0.06f;
 
     /// <summary>Kemik uzunluğuna oranla collider yarıçapı.</summary>
-    private const float RadiusRatio = 0.22f;
+    private const float RadiusRatio = 0.18f;
 
     /// <summary>
     /// Ayrılma hızı tavanı (m/s). Doğduğu anda bir oyuncunun içinde kalan
     /// gövdenin fırlamasını engelleyen asıl ayar — yukarıdaki kutuya bak.
     /// </summary>
-    private const float MaxDepenetration = 3f;
+    private const float MaxDepenetration = 2f;
+
+    /// <summary>
+    /// Eklem kopmasına karşı projeksiyon: bağlı iki gövde bu mesafeden fazla
+    /// ayrılırsa PhysX onları zorla geri çekiyor.
+    ///
+    /// **Bu, uzuvların uçup gitmesine karşı asıl emniyet kemeri.** Eklem
+    /// normalde yumuşak bir kısıt: yeterince güçlü bir kuvvet altında esniyor
+    /// ve zincir "kopmuş" gibi görünüyor. Projeksiyon bunu geometrik olarak
+    /// düzeltiyor, kuvvet hesabına hiç girmeden.
+    /// </summary>
+    private const float ProjectionDistance = 0.05f;
+    private const float ProjectionAngle = 15f;
 
     /// <summary>
     /// Ragdoll'u kurar. Kemikler eksikse (humanoid olmayan rig) boş liste
@@ -126,7 +139,43 @@ public static class RagdollFactory
         AddLimb(parts, hipsPart, rightUpperLeg, rightLowerLeg, rightFoot,
             UpperLegShare * totalMass, LowerLegShare * totalMass, layer);
 
+        DisableSelfCollision(parts);
+
         return parts;
+    }
+
+    /// <summary>
+    /// Aynı ragdoll'un parçalarını birbirine çarpmaz yapar.
+    ///
+    /// ### Bunu atlamak cesedi paramparça ediyordu
+    ///
+    /// Kemikten üretilen kapsüller eklem yerlerinde **kaçınılmaz olarak iç içe
+    /// geçiyor**: gövde kapsülü ile iki uyluk kalçada üst üste biniyor, iki
+    /// uyluk da kasıkta birbirine giriyor. Eklemle bağlı çiftler zaten
+    /// çarpışmıyor (`CharacterJoint` varsayılanı), ama **gövde ile uyluk
+    /// eklemle bağlı DEĞİL** — ikisi de kalçaya bağlı, birbirine değil. PhysX
+    /// bu çakışmayı her karede ayırmaya çalışıyor, eklemler geri çekiyor,
+    /// ortaya sonu gelmeyen bir itiş kakış çıkıyor: gövde yerinde durmuyor,
+    /// parçalar birbirinin etrafında dönüyor ve sonunda zincir esneyip kopmuş
+    /// gibi görünüyor.
+    ///
+    /// Bedeli: uzuvlar birbirinin içinden geçebiliyor. Yerde yatan bir ceset
+    /// için görünmez bir kusur; karşılığında gövde sakin sakin oturup uykuya
+    /// geçiyor. Oyunların çoğu ragdoll'da tam olarak bu takası yapıyor.
+    /// </summary>
+    private static void DisableSelfCollision(List<Part> parts)
+    {
+        for (int i = 0; i < parts.Count; i++)
+        {
+            if (parts[i].Collider == null)
+                continue;
+
+            for (int j = i + 1; j < parts.Count; j++)
+            {
+                if (parts[j].Collider != null)
+                    Physics.IgnoreCollision(parts[i].Collider, parts[j].Collider, true);
+            }
+        }
     }
 
     /// <summary>Gövde kapsülünün uzayacağı nokta: kafa varsa kafa, yoksa boyun.</summary>
@@ -186,7 +235,7 @@ public static class RagdollFactory
         capsule.radius = Mathf.Max(length * RadiusRatio, 0.02f);
         capsule.center = local * 0.5f;
 
-        return Finish(parts, bone, mass, layer);
+        return Finish(parts, bone, capsule, mass, layer);
     }
 
     private static Part AddSphere(List<Part> parts, Transform bone, float radius,
@@ -195,32 +244,42 @@ public static class RagdollFactory
         SphereCollider sphere = bone.gameObject.AddComponent<SphereCollider>();
         sphere.radius = Mathf.Max(radius, 0.03f);
 
-        return Finish(parts, bone, mass, layer);
+        return Finish(parts, bone, sphere, mass, layer);
     }
 
-    private static Part Finish(List<Part> parts, Transform bone, float mass, int layer)
+    private static Part Finish(List<Part> parts, Transform bone, Collider collider,
+        float mass, int layer)
     {
         if (layer >= 0)
             bone.gameObject.layer = layer;
 
         Rigidbody body = bone.gameObject.AddComponent<Rigidbody>();
         body.mass = Mathf.Max(mass, 0.1f);
+        // Doğrusal sürtünme düşük (ceset itilince kaymalı), AÇISAL sürtünme
+        // yüksek: gerçek bir uzuv dönerek savrulmaz, hemen sönümlenir. Düşük
+        // tutmak parçaları birbirinin etrafında fır fır döndürüyordu.
         body.drag = 0.1f;
-        body.angularDrag = 0.5f;
+        body.angularDrag = 1.5f;
 
         // Eklemler varsayılan çözücü adımıyla yaylanıp titriyor; ragdoll için
-        // biraz yükseltmek oturmayı belirgin şekilde sakinleştiriyor.
-        body.solverIterations = 12;
-        body.solverVelocityIterations = 4;
+        // yükseltmek oturmayı belirgin şekilde sakinleştiriyor.
+        body.solverIterations = 16;
+        body.solverVelocityIterations = 8;
 
         // Doğuş anındaki çakışmanın patlamaya dönmesini engelleyen ayar —
         // sınıf açıklamasındaki kutuya bak.
         body.maxDepenetrationVelocity = MaxDepenetration;
 
         body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-        body.interpolation = RigidbodyInterpolation.Interpolate;
 
-        Part part = new Part { Bone = bone, Body = body };
+        // **Interpolate KAPALI, bilerek.** Ragdoll kemikleri birbirinin ÇOCUĞU;
+        // interpolasyon her gövdeyi dünya uzayında ayrı ayrı yumuşatıyor ve
+        // çocuk, ebeveyninin yumuşatılmış konumundan kendi yerelini yeniden
+        // hesaplıyor. Hata zincir boyunca birikiyor ve model gözle görülür
+        // şekilde dağılmış gibi görünüyor.
+        body.interpolation = RigidbodyInterpolation.None;
+
+        Part part = new Part { Bone = bone, Body = body, Collider = collider };
         parts.Add(part);
         return part;
     }
@@ -241,6 +300,12 @@ public static class RagdollFactory
         CharacterJoint joint = child.Bone.gameObject.AddComponent<CharacterJoint>();
         joint.connectedBody = parent.Body;
         joint.enablePreprocessing = false;
+
+        // Uzuv kopmasına karşı: kısıt esnerse PhysX gövdeleri geometrik olarak
+        // geri çekiyor (bkz. ProjectionDistance).
+        joint.enableProjection = true;
+        joint.projectionDistance = ProjectionDistance;
+        joint.projectionAngle = ProjectionAngle;
 
         joint.lowTwistLimit = new SoftJointLimit { limit = -twistLow };
         joint.highTwistLimit = new SoftJointLimit { limit = twistHigh };
