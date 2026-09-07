@@ -85,5 +85,96 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
+  bodyPrefab: {fileID: 2960958213075006786, guid: 720e317bbbb2ba2409d367d1899c7dca, type: 3}
+  bonePaths:
+  - Armature/Hips
+  - Armature/Hips/Left Thigh
+  - Armature/Hips/Right Thigh
+  - Armature/Hips/Left Thigh/Left Leg
+  - Armature/Hips/Right Thigh/Right Leg
+  - Armature/Hips/Left Thigh/Left Leg/Left Foot
+  - Armature/Hips/Right Thigh/Right Leg/Right Foot
+  - Armature/Hips/Spine 1
+  - Armature/Hips/Spine 1/Spine 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Neck
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Neck/Head
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand
+  - Armature/Hips/Left Thigh/Left Leg/Left Foot/Left Toes
+  - Armature/Hips/Right Thigh/Right Leg/Right Foot/Right Toes
+  - 
+  - 
+  - 
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Thumb 1
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Thumb 1/Left Hand Thumb 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Thumb 1/Left Hand Thumb 2/Left Hand Thumb 3
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Index 1
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Index 1/Left Hand Index 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Index 1/Left Hand Index 2/Left Hand Index 3
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Middle 1
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Middle 1/Left Hand Middle 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Middle 1/Left Hand Middle 2/Left Hand Middle 3
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Ring 1
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Ring 1/Left Hand Ring 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Ring 1/Left Hand Ring 2/Left Hand Ring 3
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Pinky 1
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Pinky 1/Left Hand Pinky 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+    Hand/Left Hand Pinky 1/Left Hand Pinky 2/Left Hand Pinky 3
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Thumb 1
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Thumb 1/Right Hand Thumb 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Thumb 1/Right Hand Thumb 2/Right Hand Thumb 3
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Index 1
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Index 1/Right Hand Index 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Index 1/Right Hand Index 2/Right Hand Index 3
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Middle 1
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Middle 1/Right Hand Middle 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Middle 1/Right Hand Middle 2/Right Hand Middle 3
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Ring 1
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Ring 1/Right Hand Ring 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Ring 1/Right Hand Ring 2/Right Hand Ring 3
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Pinky 1
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Pinky 1/Right Hand Pinky 2
+  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+    Hand/Right Hand Pinky 1/Right Hand Pinky 2/Right Hand Pinky 3
+  - Armature/Hips/Spine 1/Spine 2/Spine 3
   ragdollMass: 70
   maxSpeed: 20
+  pushStrength: 0.6
+  pushReach: 0.25

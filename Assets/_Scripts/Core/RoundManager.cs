@@ -55,6 +55,7 @@ public class RoundManager : NetworkBehaviour
     // Sunucuda tutulan, bir sonraki turda temizlenecek cesetler. İstemcide
     // boş kalır — spawn/destroy kararı yalnızca sunucudan gidiyor.
     private readonly List<GameObject> spawnedCorpses = new List<GameObject>();
+    private readonly HashSet<uint> terminalDiscountedVictims = new HashSet<uint>();
 
     [Header("Test (lobi arayüzü bağlanınca kaldırılacak)")]
     [Tooltip("Sunucuda tur başlatır.")]
@@ -531,6 +532,7 @@ public class RoundManager : NetworkBehaviour
         // başlarken, harita ve roller sıfırlanırken onunla birlikte gidiyor.
         // Aksi hâlde her oyun oturumu boyunca ceset sayısı sınırsız birikir.
         ServerClearCorpses();
+        terminalDiscountedVictims.Clear();
 
         AssignRoles();
 
@@ -616,6 +618,31 @@ public class RoundManager : NetworkBehaviour
         }
 
         spawnedCorpses.Clear();
+    }
+
+    /// <summary>Kabindeki cesedi tüketip oyuncuyu tekrar sahaya alır. İstemci sayaç yazamaz.</summary>
+    [Server]
+    public bool ServerRevive(Corpse corpse, Transform destination)
+    {
+        if (phase != RoundPhase.Playing || corpse == null || destination == null || corpse.StationNetId == 0)
+            return false;
+        RoundParticipant victim = Corpse.Resolve(corpse.VictimNetId);
+        if (victim == null || victim.IsAlive || victim.IsEscaped || victim.Role != RoundRole.Runner
+            || !participants.Contains(victim)) return false;
+        // Doğum kapsülü oyuncu veya harita içine girmemeli; alan boşalınca işlem tamamlanır.
+        int mask = LayerMask.GetMask("Harita", "Oyuncu");
+        Vector3 position = destination.position;
+        if (Physics.CheckCapsule(position - Vector3.up * 0.38f,
+                position + Vector3.up * 0.38f, 0.28f, mask, QueryTriggerInteraction.Ignore)) return false;
+        victim.ServerSetKiller(null);
+        victim.ServerSetSpectating(false);
+        victim.ServerPlaceAt(position, destination.rotation);
+        victim.ServerSetAlive(true);
+        aliveRunnerCount++;
+        spawnedCorpses.Remove(corpse.gameObject);
+        NetworkServer.Destroy(corpse.gameObject);
+        Debug.Log($"{victim.DisplayName} dirildi. Sahada {aliveRunnerCount} kaçan var.");
+        return true;
     }
 
     // ---------- Doğum yerleşimi ----------
@@ -774,7 +801,8 @@ public class RoundManager : NetworkBehaviour
 
         // Ölüm, kalanlara iş yükü bindirmesin: gereken sayı da bir azalıyor.
         // Kaçmakta bu indirim yok — sadece ölümde (bkz. CLAUDE.md 11.1).
-        requiredTerminals = Mathf.Max(1, requiredTerminals - 1);
+        if (terminalDiscountedVictims.Add(victim.netId))
+            requiredTerminals = Mathf.Max(1, requiredTerminals - 1);
 
         Debug.Log($"{victim.DisplayName} yakalandı. Sahada {aliveRunnerCount} kaçan kaldı, " +
             $"gereken terminal {requiredTerminals}.");

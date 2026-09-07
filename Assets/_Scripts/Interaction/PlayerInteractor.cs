@@ -52,6 +52,19 @@ public class PlayerInteractor : MonoBehaviour
 
         FindTarget();
 
+        Corpse carried = Corpse.CarriedBy(GetComponent<RoundParticipant>());
+        if (carried != null)
+        {
+            bool atStation = currentTarget is RevivalStation;
+            currentPrompt = atStation ? currentPrompt : "Ceset taşınıyor — bırak";
+            if (KeyBindings.Pressed(GameAction.Interact))
+            {
+                if (atStation) currentTarget.Interact(gameObject);
+                else carried.Drop();
+            }
+            return;
+        }
+
         if (currentTarget != null && KeyBindings.Pressed(GameAction.Interact))
             currentTarget.Interact(gameObject);
     }

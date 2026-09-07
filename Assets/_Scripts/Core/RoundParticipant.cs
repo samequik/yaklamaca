@@ -529,7 +529,10 @@ public class RoundParticipant : NetworkBehaviour
         if (justDied)
             BeginDeathHold();
         else if (value)
+        {
             CancelDeathHold();
+            if (bodyVisual != null) bodyVisual.SetFirstPerson(isLocalPlayer);
+        }
 
         RefreshBodyState();
     }

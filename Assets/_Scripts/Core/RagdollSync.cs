@@ -2,182 +2,73 @@ using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 
-/// <summary>
-/// Ragdoll pozunu sunucudan istemcilere taşır.
-///
-/// ### Neden gerekli
-///
-/// Ragdoll 11 ayrı Rigidbody demek ve PhysX makineler arasında birebir aynı
-/// sonucu vermiyor. Her istemci kendi başına simüle etseydi, birinin ittiği
-/// ceset yalnızca onun ekranında kayardı — yan yana duran iki oyuncu cesedi
-/// FARKLI yerde görürdü. Sesli sohbetle oynanan bir oyunda bu anında fark
-/// edilir. Bu yüzden **fizik yalnızca sunucuda** çalışıyor, istemcilerdeki
-/// gövdeler kinematik ve buradan gelen pozu uyguluyor — CLAUDE.md bölüm 4'ün
-/// "his istemcide, karar sunucuda" kuralının fizik karşılığı.
-///
-/// ### Ne gönderiliyor
-///
-/// Kalçanın YEREL konumu + her kemiğin YEREL dönüşü. Humanoid bir iskelette
-/// hareketin tamamı budur: kemikler dönüyor, yer değiştiren tek şey kök.
-/// Kemik hiyerarşisi her istemcide birebir aynı olduğu için (aynı model,
-/// aynı sırayla kuruluyor) indeksler tutuyor ve isim/eşleme göndermek
-/// gerekmiyor.
-///
-/// Dönüşler `Compression.CompressQuaternion` ile 4 bayta iniyor: 11 kemikte
-/// paket 12 + 44 = **56 bayt**. Üstelik yalnızca gövde HAREKET EDERKEN
-/// gönderiliyor; ceset oturunca (bütün Rigidbody'ler uykuya geçince) trafik
-/// tamamen kesiliyor.
-///
-/// ### Neden SyncVar, ClientRpc değil
-///
-/// SyncVar'ın ilk durumu spawn mesajına giriyor, yani **sonradan bağlanan**
-/// oyuncu da cesedi doğru pozda görüyor. ClientRpc yalnızca o an bağlı
-/// olanlara gider ve geç gelen, çoktan yere yığılmış bir cesedi hâlâ diz
-/// çökmüş hâlde görürdü.
-/// </summary>
+/// <summary>Sunucudaki kemik pozları: taşıma ve geç katılmada da aynı beden.</summary>
 public class RagdollSync : NetworkBehaviour
 {
-    [Tooltip("Saniyede kaç kez poz gönderilecek (yalnızca gövde hareket ederken).")]
     [SerializeField] private float sendRate = 12f;
-
-    [Tooltip("İstemcide gelen poza yumuşak geçiş hızı. Paketler seyrek geldiği " +
-        "için ham atama kesik kesik görünüyor.")]
     [SerializeField] private float smoothing = 18f;
-
-    [SyncVar(hook = nameof(OnPoseChanged))]
-    private byte[] pose;
-
-    private Transform[] bones;
-    private Rigidbody[] bodies;
-
-    private Vector3 targetRootPosition;
-    private Quaternion[] targetRotations;
-    private bool hasTarget;
-
+    [SyncVar(hook = nameof(OnPoseChanged))] private byte[] pose;
+    private List<RagdollFactory.Part> parts;
+    private Vector3[] positions;
+    private Quaternion[] rotations;
+    private bool hasTarget, sentAsleep;
     private float nextSend;
-    private bool sentWhileAsleep;
+    public bool Continuous { get; set; }
 
-    /// <summary>
-    /// `Corpse` ragdoll'u kurduktan sonra çağırıyor. İlk parça kalça olmalı
-    /// (bkz. RagdollFactory.Build).
-    /// </summary>
-    public void Bind(List<RagdollFactory.Part> parts)
+    public void Bind(List<RagdollFactory.Part> value)
     {
-        if (parts == null || parts.Count == 0)
-            return;
-
-        bones = new Transform[parts.Count];
-        bodies = new Rigidbody[parts.Count];
-
-        for (int i = 0; i < parts.Count; i++)
-        {
-            bones[i] = parts[i].Bone;
-            bodies[i] = parts[i].Body;
-        }
-
-        targetRotations = new Quaternion[parts.Count];
-
-        // Bağlanmadan önce gelmiş bir poz varsa (spawn mesajıyla birlikte
-        // gelen ilk durum, `Bind`'dan ÖNCE işlenmiş olabilir) şimdi uygula.
-        if (!isServer && pose != null && pose.Length > 0)
-            Unpack(pose);
+        parts = value;
+        positions = new Vector3[value.Count];
+        rotations = new Quaternion[value.Count];
+        if (!isServer) Unpack(pose);
     }
-
     private void FixedUpdate()
     {
-        if (!isServer || bones == null || Time.time < nextSend)
-            return;
-
-        bool asleep = AllAsleep();
-
-        // Uykudayken susuyoruz — ama uykuya daldıktan SONRA bir kez daha
-        // gönderiyoruz ki son duruş herkese ulaşsın. Bunu atlarsak ceset
-        // istemcilerde "neredeyse oturmuş" hâlde donup kalır.
-        if (asleep && sentWhileAsleep)
-            return;
-
-        nextSend = Time.time + 1f / Mathf.Max(sendRate, 1f);
-        sentWhileAsleep = asleep;
-
-        pose = Pack();
+        if (!isServer || parts == null || parts.Count == 0 || Time.time < nextSend) return;
+        bool asleep = !Continuous;
+        foreach (var part in parts)
+            if (!part.Body.IsSleeping()) asleep = false;
+        if (asleep && sentAsleep) return;
+        sentAsleep = asleep;
+        nextSend = Time.time + 1f / Mathf.Max(1f, sendRate);
+        Publish();
     }
-
-    private void Update()
+    [Server]
+    public void Publish()
     {
-        // Sunucuda (host dahil) gerçek fizik zaten çalışıyor; poz uygulamak
-        // onu ezerdi.
-        if (isServer || bones == null || !hasTarget)
-            return;
-
-        float t = 1f - Mathf.Exp(-smoothing * Time.deltaTime);
-
-        bones[0].localPosition = Vector3.Lerp(bones[0].localPosition, targetRootPosition, t);
-
-        for (int i = 0; i < bones.Length; i++)
-        {
-            if (bones[i] != null)
-                bones[i].localRotation = Quaternion.Slerp(bones[i].localRotation, targetRotations[i], t);
-        }
-    }
-
-    private bool AllAsleep()
-    {
-        for (int i = 0; i < bodies.Length; i++)
-        {
-            if (bodies[i] != null && !bodies[i].IsSleeping())
-                return false;
-        }
-
-        return true;
-    }
-
-    private byte[] Pack()
-    {
+        if (parts == null || parts.Count == 0) return;
         using (NetworkWriterPooled writer = NetworkWriterPool.Get())
         {
-            writer.WriteVector3(bones[0].localPosition);
-
-            for (int i = 0; i < bones.Length; i++)
-                writer.WriteUInt(Compression.CompressQuaternion(bones[i].localRotation));
-
-            return writer.ToArray();
+            // Dünya pozları, yerel ölüm animasyonunun hangi karede olduğundan bağımsız.
+            foreach (var part in parts)
+            {
+                writer.WriteVector3(part.Bone.position);
+                writer.WriteUInt(Compression.CompressQuaternion(part.Bone.rotation));
+            }
+            pose = writer.ToArray();
         }
     }
-
-    private void OnPoseChanged(byte[] oldValue, byte[] newValue) => Unpack(newValue);
-
+    private void Update()
+    {
+        if (isServer || !hasTarget || parts == null) return;
+        float t = 1f - Mathf.Exp(-smoothing * Time.deltaTime);
+        for (int i = 0; i < parts.Count; i++)
+            parts[i].Bone.SetPositionAndRotation(Vector3.Lerp(parts[i].Bone.position, positions[i], t),
+                Quaternion.Slerp(parts[i].Bone.rotation, rotations[i], t));
+    }
+    private void OnPoseChanged(byte[] previous, byte[] current) => Unpack(current);
     private void Unpack(byte[] data)
     {
-        // `Bind`'dan önce gelen paket saklanmıyor: SyncVar değeri duruyor,
-        // Bind sonunda bir kez daha okunuyor.
-        if (data == null || data.Length == 0 || bones == null)
-            return;
-
+        if (parts == null || data == null || data.Length != parts.Count * 16) return;
         using (NetworkReaderPooled reader = NetworkReaderPool.Get(data))
-        {
-            targetRootPosition = reader.ReadVector3();
-
-            for (int i = 0; i < bones.Length; i++)
+            for (int i = 0; i < parts.Count; i++)
             {
-                if (reader.Remaining < 4)
-                    return;
-
-                targetRotations[i] = Compression.DecompressQuaternion(reader.ReadUInt());
+                positions[i] = reader.ReadVector3();
+                rotations[i] = Compression.DecompressQuaternion(reader.ReadUInt());
             }
-        }
-
-        // İlk pakette yumuşatmaya gerek yok: ceset zaten oraya "ait", araya
-        // geçiş koymak onu havada süzülür gibi gösterirdi.
         if (!hasTarget)
-        {
-            hasTarget = true;
-            bones[0].localPosition = targetRootPosition;
-
-            for (int i = 0; i < bones.Length; i++)
-            {
-                if (bones[i] != null)
-                    bones[i].localRotation = targetRotations[i];
-            }
-        }
+            for (int i = 0; i < parts.Count; i++)
+                parts[i].Bone.SetPositionAndRotation(positions[i], rotations[i]);
+        hasTarget = true;
     }
 }

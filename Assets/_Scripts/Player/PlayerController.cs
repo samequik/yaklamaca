@@ -805,7 +805,7 @@ public class PlayerController : MonoBehaviour
         // kullanılması da yanlış olurdu.
         float uprightSpeed = intent.sprint ? sprintSpeed + boostSpeed * boost : walkSpeed;
         float targetSpeed = Mathf.Lerp(uprightSpeed, walkSpeed * crouchSpeedMultiplier, duckFraction)
-            * SpeedMultiplier;
+            * SpeedMultiplier * (Corpse.CarriedBy(GetComponent<RoundParticipant>()) != null ? 0.7f : 1f);
 
         wishDirection = wishVelocity.normalized;
         wishSpeed = Mathf.Min(wishVelocity.magnitude, 1f) * targetSpeed;
@@ -924,7 +924,8 @@ public class PlayerController : MonoBehaviour
         // (bkz. airSpeedCap) TAMAMEN AYRI: o zaten mevcut hızın ÜSTÜNE
         // çıkmıyor (bkz. Accelerate'in addSpeed<=0 çıkışı), yani bu itkiyi
         // aynı karede geri almıyor.
-        if (intent.sprint && wishDirection.sqrMagnitude > 0.01f)
+        if (intent.sprint && wishDirection.sqrMagnitude > 0.01f
+            && Corpse.CarriedBy(GetComponent<RoundParticipant>()) == null)
             velocity += wishDirection * sprintJumpLunge;
 
         Jumped?.Invoke();

@@ -332,7 +332,7 @@ değiştirilince kalıcı.
 
 | # | İş | Not |
 |---|---|---|
-| 0 | **DİRİLTME SİSTEMİ** | Sıradaki büyük iş. Ceset taşıma + haritada 2 diriltme makinesi + 15 sn'lik beceri sınavı. Akış, hazır altyapı ve **uygulamadan önce karara bağlanacak 6 soru** bölüm 21.2'de |
+| 0 | ~~**Diriltme sistemi**~~ | **YAPILDI** (2026-09-08, bölüm 23). Açık kalan tasarım soruları: canavarın karşı hamlesi, bilgi sızıntısı, diriltme sayısı sınırı |
 | 1 | **Yakınlık sesi (kalp atışı)** | Ses dosyası **oyuncudan gelecek**, sentezlenmeyecek. `Assets/_Audio/KalpAtisi.*`. **2B olmalı** — yönü belli olursa gerilim radara döner (bölüm 12) |
 | 2 | **Bıçak sesleri** (teknik borç 1) | Hâlâ sentetik yer tutucu, üstelik bıçak kaldırıldı; elle saldırıya göre yeniden seçilmeli |
 | 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
@@ -3520,7 +3520,7 @@ ucu oluyor.**
 
 ---
 
-### 21.2 Diriltme — SPESİFİKASYON (henüz yazılmadı)
+### 21.2 Diriltme — spesifikasyon (UYGULANDI, bkz. bölüm 23)
 
 Ceset artık haritada durduğuna göre asıl amaç şu: **onu oyuna geri sokmak.**
 Aşağıdaki akış 2026-09-07'de kullanıcı tarafından tarif edildi.
@@ -3605,3 +3605,127 @@ Ragdoll sunucu otoriteli (21.1). Taşımanın iki yolu var:
 
 İkincisi tercih edilmeli; `Corpse` zaten "gövdeyi çalışma anında klonla"
 desenini kullanıyor, aynı desen omuz görseli için de işler.
+
+---
+
+## 22. Codex: sesli sohbet düzeltmesi (2026-09-07)
+
+**Uygulandı:** `VoiceChat` yerel dinleyici ve konuşmacının tur durumuna göre
+`VoicePlayback.SetContext` çağırıyor. Lobide/tur sonunda ve sahada olmayanların
+kendi arasında konuşma 2B, mesafesiz ve reverb bölgesinden bağımsız oynatılıyor.
+Sahadaki oyuncuların konuşması 3B kalıyor; AudioSource menzili VoiceChat'in
+`hearingRange` değeriyle eşleniyor. Kimin ses paketini alacağına yine sunucu
+karar veriyor; yaşayanlarla elenen/kurtulan/izleyiciler ayrı gruplarda.
+
+**Sesli sohbet kapalı:** hem yerel mikrofon hem gelen konuşmalar kapanıyor.
+Kişisel ses seviyesi ve susturma tercihleri korunuyor. Oynatma tamponu,
+susturma/açma ve grup değişimlerinde eski sesi tekrar çalmıyor. Ana thread
+okuma indeksine dokunmuyor; temizliği ses thread'i sürüm sayacıyla yapıyor.
+
+**Doğrulama:** Unity 2022.3.62f3 ile gelen Roslyn ve mevcut Bee referanslarıyla
+runtime C# derlemesi geçti; çıktılar TEMP altında, Unity'nin derleme dosyaları
+üzerine yazılmadı. Gerçek VoicePlayback ve VoiceCodec kodlarıyla, Unity ses
+motorunu taklit eden bağımsız testte 10 davranış kontrolü geçti. Bu kontrol
+Mirror bağlantısını, Unity ses motorunu veya mikrofon donanımını sınamaz.
+İki makinede lobi konuşması, 18 m yakınlık, ölüm/kaçış sonrası grup ayrımı ve
+sesli sohbeti kapatıp açma hâlâ oynanarak doğrulanmalı. Menü/Ağ Kurulumu
+araçlarını tekrar çalıştırmak gerekmiyor; değişiklik çalışma anında uygulanıyor.
+
+**Sırada:** ceset görselini mevcut kurban objesine bağımlılıktan kurtarmak
+(ayrılan kurban / geç katılan istemci), ardından bölüm 21.2'deki taşıma ve
+diriltme. Bu düzeltme paketinde ceset veya diriltme kodu değiştirilmedi.
+
+---
+
+## 23. Diriltme sistemi: kurulan hâli (2026-09-08)
+
+Bölüm 21.2'deki spesifikasyon **uygulandı**. Akış tarif edildiği gibi çalışıyor:
+ceset taşınıyor, haritanın iki ucundaki kabinlerden birine konuyor, yanındaki
+terminalde 15 saniyelik iyileştirme işletiliyor, hatasız biterse kaçan orada
+diriliyor.
+
+### Parçalar
+
+| Dosya | İşi |
+|---|---|
+| `Core/Corpse.cs` | Taşınma, kabine yerleştirme, itilme. `carrierNetId` / `stationNetId` SyncVar'ları |
+| `Interaction/RevivalStation.cs` | Kabin terminali: ceset kabulü, operatör kilidi, sınavlar, diriltme kararı |
+| `UI/RevivalScreen.cs` | Terminal ekranı (kendi Canvas'ını kuruyor) |
+| `Editor/RevivalSetup.cs` | `Yakalamaca > Diriltme Sistemini Kur` — ceset gövde prefabı + iki kabin |
+| `RoundManager.ServerRevive` | Cesedi tüketip oyuncuyu sahaya geri alan tek sunucu işlemi |
+
+### Ceset görseli artık kurbandan bağımsız
+
+Eskiden `Corpse` görselini kurbanın canlı gövdesinden klonluyordu. Kurban
+ayrılırsa ya da istemci sonradan katılırsa ortada kopyalanacak bir şey
+kalmıyordu. Artık `Diriltme Sistemini Kur` kaçan modelinden ayrı bir
+`CorpseBody.prefab` üretiyor ve kemik yollarını (`bonePaths`) Corpse prefabına
+yazıyor; istemci kurban objesine hiç ihtiyaç duymuyor.
+
+Sunucu yine ölüm klibinin son pozunu kurbandan kopyalıyor (`CopyPose`), ama bu
+yalnızca sunucuda; istemciler pozu `RagdollSync`'ten alıyor. `OnStartServer`
+içinde `sync.Publish()` çağrılması bunun için: SyncVar spawn mesajına giriyor,
+yani ceset istemcide daha ilk karede doğru pozda beliriyor.
+
+### Taşıma
+
+`E` ile alınıyor (2.6 m ve görüş hattı şartı, sunucuda doğrulanıyor). Taşınırken
+ragdoll kinematik ve collider'ları kapalı; gövde taşıyıcının omzuna
+sabitleniyor. Taşıyan kişi cesedi kendi ekranında görmüyor (yüzünü kapatırdı),
+başkaları görüyor.
+
+Taşıyan ölür, kaçar ya da bir terminale bağlanırsa ceset düşüyor. `E`
+taşırken bırakma tuşu; kabine bakıyorsan yerleştirme tuşu.
+
+### Terminal
+
+15 saniye, arada **üç beceri sınavı** (3., 7. ve 11. saniyelerde). Sınav
+ekrandayken ilerleme duruyor — bölüm 11.3'teki terminalle aynı mantık.
+
+**Terminalden bilinçli farkı:** hata **ilerlemeyi sıfırlıyor.** Bölüm 11.2'de
+terminal ilerlemesi kalıcı ("yarıda bırakılan terminal sıfırlanmaz"); burada
+tersi isteniyordu. Hata ayrıca kabini kilitliyor ve dört adımlık bir yön
+dizilimi girilene kadar açılmıyor; alarm 20 saniye ötüyor.
+
+Kabini bırakmak da (E) ilerlemeyi sıfırlıyor ve ekranda böyle yazıyor.
+
+### Diriltme anı
+
+`RoundManager.ServerRevive` tek sunucu işlemi olarak: doğum noktasının boş
+olduğunu sınıyor (`Harita` + `Oyuncu` maskesiyle kapsül testi), kurbanı
+canlandırıp oraya yerleştiriyor, sayacı artırıyor ve cesedi yok ediyor.
+
+Nokta doluysa işlem **başarısız olmuyor, bekliyor**: `elapsed` tavanda kalıyor
+ve alan boşalınca kendiliğinden tamamlanıyor. Oyuncuya bunu söyleyen bir yazı
+YOK — bilinen eksik.
+
+### 21.2'deki altı sorudan hangileri cevaplandı
+
+| Soru | Durum |
+|---|---|
+| 1. `requiredTerminals` geri artacak mı | **Cevaplandı:** artmıyor. Ayrıca indirim kurban başına BİR KEZ uygulanıyor (`terminalDiscountedVictims`), yani ölüp dirilip tekrar ölmek sayıyı ikinci kez düşürmüyor |
+| 5. Kabinler haritaya nasıl konacak | **Cevaplandı:** `RevivalSetup` zemin ızgarasında boş hücre arayıp birbirine EN UZAK ikisini seçiyor (en az 25 m). Haritaya dokunmuyor, yalnızca yeni kök ekliyor |
+| 2. Bilgi sızıntısı | **AÇIK.** Ölü oyuncu hâlâ serbestçe izliyor ve dirilince gördüklerini yanında getiriyor (bölüm 5'in gerekçesi hâlâ geçerli) |
+| 3. Canavarın karşı hamlesi | **AÇIK.** Canavar kabini kilitleyemiyor, cesedi taşıyamıyor, diriltmeyi kesintiye uğratamıyor. Diriltme şu an tek taraflı bir kazanç |
+| 4. Taşımanın bedeli | **KISMEN.** Taşırken yavaşlama yok; ama terminal kullanılamıyor ve odaklanınca ceset düşüyor |
+| 6. Kaç kez dirilebilir | **AÇIK.** Sınır yok |
+
+### Bu oturumda düzeltilen iki kusur
+
+- **Kabin sıfırlanınca ceset donuyordu.** `ResetStation` yalnızca `corpseId`'yi
+  siliyor, ceset `stationNetId`'yi taşımaya devam ediyordu: `IsHeld` sonsuza
+  kadar doğru, gövde kinematik ve collider'ları kapalı kalıyordu — alınamayan,
+  itilemeyen, düşmeyen bir beden. `Corpse.ServerReleaseFromStation` eklendi.
+- **Nişan yazısı yalan söylüyordu.** Elinde ceset varken dolu bir kabine
+  bakınca "Diriltmeyi başlat" yazıyordu ama `CmdUse` reddediyordu; oyuncu E'ye
+  basıp hiçbir şey olmadığını görüyordu. Yazı artık "Kabin dolu — taşıdığın
+  cesedi önce bırak" diyor.
+
+### Kurulum
+
+```
+Yakalamaca > Diriltme Sistemini Kur
+```
+
+Var olan kabinleri yeniden üretmiyor, haritaya ve terminallere dokunmuyor.
+Sahnede ikiden farklı sayıda kabin bulursa durup uyarıyor.
