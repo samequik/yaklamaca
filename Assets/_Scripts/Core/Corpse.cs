@@ -63,11 +63,35 @@ public class Corpse : NetworkBehaviour
         "koruması RagdollFactory'deki maxDepenetrationVelocity.")]
     [SerializeField] private float maxSpeed = 20f;
 
+    [Tooltip("Üstünden geçen oyuncunun hızının ne kadarının cesede aktarılacağı. " +
+        "0.6 = yürüyerek geçmek gövdeyi belirgin şekilde kaydırıyor, koşarak " +
+        "dalmak savuruyor. 0 = itme kapalı.")]
+    [SerializeField] private float pushStrength = 0.6f;
+
+    [Tooltip("Oyuncunun çarpışma kutusu bir parçaya bu kadar yaklaşınca itme " +
+        "uygulanıyor (metre).")]
+    [SerializeField] private float pushReach = 0.25f;
+
+    // Oyuncu hızı POZİSYON FARKINDAN çıkarılıyor. Sunucuda uzak oyuncuların
+    // `PlayerController`'ı kapalı, yani hızını ondan okumak mümkün değil —
+    // animatörlerin ve FootstepAudio'nun yaptığının aynısı (bölüm 4, 14, 17).
+    private readonly Dictionary<Transform, Vector3> lastPlayerPositions =
+        new Dictionary<Transform, Vector3>();
+
+    private int playerMask;
+    private bool loggedShove;
+
     private RagdollSync sync;
     private List<RagdollFactory.Part> ragdoll;
     private bool built;
 
-    private void Awake() => sync = GetComponent<RagdollSync>();
+    private void Awake()
+    {
+        sync = GetComponent<RagdollSync>();
+
+        int layer = LayerMask.NameToLayer("Oyuncu");
+        playerMask = layer >= 0 ? 1 << layer : 0;
+    }
 
     /// <summary>
     /// Ragdoll fiziği yalnızca SUNUCUDA çalışıyor (bkz. RagdollSync), o yüzden
@@ -86,6 +110,108 @@ public class Corpse : NetworkBehaviour
 
             if (part != null && !part.isKinematic && part.velocity.sqrMagnitude > limitSqr)
                 part.velocity = part.velocity.normalized * maxSpeed;
+        }
+
+        ShoveFromPlayers();
+    }
+
+    /// <summary>
+    /// Üstünden geçen oyuncular cesedi itiyor.
+    ///
+    /// ### Neden `OnControllerColliderHit` yetmiyor
+    ///
+    /// İlk deneme itmeyi `PlayerController`'ın çarpışma geri çağrısına
+    /// bağlamıştı. İki sorunu vardı:
+    ///
+    /// - O geri çağrı yalnızca `CharacterController.Move()` ÇAĞIRAN tarafta
+    ///   çalışıyor. Sunucuda uzak oyuncular `NetworkTransform` ile taşınıyor,
+    ///   `Move` çağrılmıyor — yani uzaktaki hiç kimse cesedi itemiyordu.
+    /// - Fizik sunucu otoriteli olduğu için istemcideki itme zaten kinematik
+    ///   bir kopyaya uygulanıyordu, hiçbir etkisi yoktu.
+    ///
+    /// Burada ise sunucu, oyuncuların KENDİ gördüğü konumlarından hızı
+    /// çıkarıp itmeyi kendisi uyguluyor: host da uzak oyuncu da aynı yoldan
+    /// geçiyor.
+    ///
+    /// ### Neden kütleyle ölçekleniyor
+    ///
+    /// Eklemler 11 parçayı tek bir ~70 kg'lık gövde gibi davrandırıyor. Sabit
+    /// bir itki (ilk denemede ~4.5 N·s) bu kütlede santimetre/saniye hız
+    /// üretiyor, yani gözle görülmüyordu. Kütleyle çarpınca `pushStrength`
+    /// doğrudan "hızının yüzde kaçı aktarılıyor" anlamına geliyor ve hangi
+    /// uzva denk gelirse gelsin sonuç tutarlı oluyor.
+    /// </summary>
+    [Server]
+    private void ShoveFromPlayers()
+    {
+        if (pushStrength <= 0f || playerMask == 0)
+            return;
+
+        Transform hips = ragdoll[0].Bone;
+
+        if (hips == null)
+            return;
+
+        Collider[] players = Physics.OverlapSphere(hips.position, 2.5f, playerMask,
+            QueryTriggerInteraction.Ignore);
+
+        if (players.Length == 0)
+        {
+            // Kimse yakında değilse takip sözlüğü şişmesin.
+            if (lastPlayerPositions.Count > 0)
+                lastPlayerPositions.Clear();
+
+            return;
+        }
+
+        for (int i = 0; i < players.Length; i++)
+        {
+            Collider player = players[i];
+
+            if (player == null)
+                continue;
+
+            Transform owner = player.transform;
+            Vector3 current = owner.position;
+
+            bool known = lastPlayerPositions.TryGetValue(owner, out Vector3 previous);
+            lastPlayerPositions[owner] = current;
+
+            if (!known)
+                continue; // ilk kare: hız bilinmiyor
+
+            Vector3 step = current - previous;
+            Vector3 horizontal = new Vector3(step.x, 0f, step.z);
+            float speed = horizontal.magnitude / Mathf.Max(Time.fixedDeltaTime, 0.0001f);
+
+            // Durup üstünde beklemek itmemeli; yalnızca gerçekten yürümek.
+            if (speed < 0.5f)
+                continue;
+
+            Vector3 direction = horizontal.normalized;
+            Bounds reach = player.bounds;
+            reach.Expand(pushReach * 2f);
+
+            for (int p = 0; p < ragdoll.Count; p++)
+            {
+                Collider part = ragdoll[p].Collider;
+                Rigidbody body = ragdoll[p].Body;
+
+                if (part == null || body == null || body.isKinematic)
+                    continue;
+
+                if (!reach.Intersects(part.bounds))
+                    continue;
+
+                body.WakeUp();
+                body.AddForce(direction * pushStrength * speed * body.mass, ForceMode.Impulse);
+
+                if (!loggedShove)
+                {
+                    loggedShove = true;
+                    Debug.Log($"Corpse: ilk itme uygulandı — oyuncu hızı {speed:0.0} m/s.");
+                }
+            }
         }
     }
 

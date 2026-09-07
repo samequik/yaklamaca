@@ -72,10 +72,6 @@ public class PlayerController : MonoBehaviour
     [Tooltip("Kapalıysa zıplanamaz. Canavarda kapalı — bkz. MovementProfile.canJump.")]
     [SerializeField] private bool canJump = true;
 
-    [Tooltip("Çarpılan fizikli cisimlere (ceset/ragdoll, prop) uygulanan itme. " +
-        "Hızla ölçekleniyor: yürürken hafif, koşarak dalınca sert. 0 = kapalı. " +
-        "CharacterController kendiliğinden cisim itmiyor, bu yüzden elle veriliyor.")]
-    [SerializeField] private float pushForce = 1.2f;
 
     [Header("Hız birikimi (canavar)")]
     [Tooltip("Kesintisiz koşunca en yüksek hıza eklenen pay (u/s). 0 = kapalı.")]
@@ -1053,8 +1049,6 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     private void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        PushRigidbody(hit);
-
         float intoSurface = Vector3.Dot(velocity, hit.normal);
         if (intoSurface >= 0f)
             return; // yüzeyden uzaklaşıyoruz, dokunma
@@ -1063,51 +1057,6 @@ public class PlayerController : MonoBehaviour
             return;
 
         velocity -= hit.normal * intoSurface;
-    }
-
-    /// <summary>
-    /// Çarpılan cismi iter — cesetler (ragdoll) ve fizikli prop'lar için.
-    ///
-    /// ### Neden elle yazmak gerekiyor
-    ///
-    /// `CharacterController` bir Rigidbody DEĞİL: dokunduğu cisimlere kendi
-    /// başına kuvvet uygulamıyor. Motorun tek yaptığı, üst üste binmiş iki
-    /// gövdeyi ayırmak (depenetration) — bu da cesedi ancak yavaşça kenara
-    /// kaydırıyor. "Üstünden geçince savrulsun" için itmenin burada, elle
-    /// verilmesi gerekiyor. Unity'nin belgelediği yol da bu.
-    ///
-    /// **Aşağı yöndeki temaslar atlanıyor:** cesedin üstüne basmak onu yere
-    /// gömmemeli, sadece yanlardan itmek anlamlı.
-    ///
-    /// Yalnızca `.Move()` çağıran tarafta çalışıyor, yani sahibinin
-    /// makinesinde. İstemcideki ceset kinematik olduğu için (fizik sunucuda,
-    /// bkz. RagdollSync) orada erken çıkılıyor; uzaktaki bir oyuncunun itmesi
-    /// sunucuya depenetration üzerinden yansıyor.
-    /// </summary>
-    private void PushRigidbody(ControllerColliderHit hit)
-    {
-        if (pushForce <= 0f)
-            return;
-
-        Rigidbody body = hit.rigidbody;
-
-        if (body == null || body.isKinematic)
-            return;
-
-        if (hit.moveDirection.y < -0.3f)
-            return;
-
-        Vector3 direction = new Vector3(hit.moveDirection.x, 0f, hit.moveDirection.z);
-
-        if (direction.sqrMagnitude < 0.0001f)
-            return;
-
-        // Kuvvet hızla ölçekleniyor: yürürken hafifçe kenara itiliyor,
-        // koşarak dalınca gerçekten savruluyor.
-        float speed = HorizontalSpeed * UnitsToMeters;
-
-        body.AddForceAtPosition(direction.normalized * pushForce * speed,
-            hit.point, ForceMode.Impulse);
     }
 
     /// <summary>

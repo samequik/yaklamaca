@@ -314,6 +314,7 @@ MonoBehaviour:
   sprintJumpLunge: 60
   autoBunnyHop: 0
   canJump: 1
+  pushForce: 1.2
   boostSpeed: 0
   boostBuildTime: 3.5
   boostDecayTime: 1.2
