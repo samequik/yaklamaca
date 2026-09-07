@@ -247,7 +247,7 @@ Transform:
   - {fileID: 5235436667121320145}
   - {fileID: 6401221076117558371}
   - {fileID: 8265294890328332374}
-  - {fileID: 5444618327846273607}
+  - {fileID: 5423565089535965266}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!143 &5031002237734987312
@@ -309,8 +309,9 @@ MonoBehaviour:
   accelerate: 14
   airAccelerate: 100
   airSpeedCap: 30
-  gravity: 600
-  jumpPower: 268.3
+  gravity: 900
+  jumpPower: 328.6
+  sprintJumpLunge: 60
   autoBunnyHop: 0
   canJump: 1
   boostSpeed: 0
@@ -694,7 +695,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sceneId: 0
-  _assetId: 2289527961
+  _assetId: 0
   serverOnly: 0
   visibility: 0
   hasSpawned: 0
@@ -920,11 +921,11 @@ MonoBehaviour:
   headRenderers:
   - {fileID: 2994461950835202911}
   - {fileID: 1298511925979134866}
-  runnerRoot: {fileID: 4667131267952384253}
+  runnerRoot: {fileID: 4616065485592617704}
   runnerRenderers:
-  - {fileID: 6531395507239024894}
-  - {fileID: 6295885294394773746}
-  runnerHeadBone: {fileID: 1093135306483082745}
+  - {fileID: 6516525767714374379}
+  - {fileID: 6310684794033957607}
+  runnerHeadBone: {fileID: 1144174846801305580}
   runnerHeadRenderers: []
   deathScaleMatch: 1.3
 --- !u!114 &4832612743937724075
@@ -960,7 +961,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8930deea5aad1f94ca55d3a2ec6dd2f4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  animator: {fileID: 2120921995022833725}
+  animator: {fileID: 2135958988955443752}
   controller: {fileID: 4105344977788894856}
   clipRunSpeed: 4
   playbackScaleRange: {x: 0.7, y: 1.6}
@@ -1296,7 +1297,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!1001 &5477946118944236972
+--- !u!1001 &5534614755072630713
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
@@ -1665,35 +1666,35 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 81bb9eea30387e442899949a80011e55, type: 3}
---- !u!4 &1093135306483082745 stripped
+--- !u!4 &1144174846801305580 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -4382554126983495595, guid: 81bb9eea30387e442899949a80011e55, type: 3}
-  m_PrefabInstance: {fileID: 5477946118944236972}
+  m_PrefabInstance: {fileID: 5534614755072630713}
   m_PrefabAsset: {fileID: 0}
---- !u!95 &2120921995022833725 stripped
+--- !u!95 &2135958988955443752 stripped
 Animator:
   m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: 81bb9eea30387e442899949a80011e55, type: 3}
-  m_PrefabInstance: {fileID: 5477946118944236972}
+  m_PrefabInstance: {fileID: 5534614755072630713}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &4667131267952384253 stripped
+--- !u!1 &4616065485592617704 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 81bb9eea30387e442899949a80011e55, type: 3}
-  m_PrefabInstance: {fileID: 5477946118944236972}
+  m_PrefabInstance: {fileID: 5534614755072630713}
   m_PrefabAsset: {fileID: 0}
---- !u!4 &5444618327846273607 stripped
+--- !u!4 &5423565089535965266 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 81bb9eea30387e442899949a80011e55, type: 3}
-  m_PrefabInstance: {fileID: 5477946118944236972}
+  m_PrefabInstance: {fileID: 5534614755072630713}
   m_PrefabAsset: {fileID: 0}
---- !u!137 &6295885294394773746 stripped
+--- !u!137 &6310684794033957607 stripped
 SkinnedMeshRenderer:
   m_CorrespondingSourceObject: {fileID: -7252228434403314338, guid: 81bb9eea30387e442899949a80011e55, type: 3}
-  m_PrefabInstance: {fileID: 5477946118944236972}
+  m_PrefabInstance: {fileID: 5534614755072630713}
   m_PrefabAsset: {fileID: 0}
---- !u!137 &6531395507239024894 stripped
+--- !u!137 &6516525767714374379 stripped
 SkinnedMeshRenderer:
   m_CorrespondingSourceObject: {fileID: 1630794972795428178, guid: 81bb9eea30387e442899949a80011e55, type: 3}
-  m_PrefabInstance: {fileID: 5477946118944236972}
+  m_PrefabInstance: {fileID: 5534614755072630713}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &8448331324999237565
 PrefabInstance:

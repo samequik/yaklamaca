@@ -47,9 +47,24 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float airAccelerate = 100f;  // sv_airaccelerate
     [SerializeField] private float airSpeedCap = 30f;     // havada eklenebilen hız tavanı — airstrafe'in sebebi
 
+    // 2026-09-07: yerçekimi 600 -> 900 (havada asılı kalma şikayeti üzerine).
+    // jumpPower da BİRLİKTE büyütüldü ki zıplama YÜKSEKLİĞİ aynı kalsın (hâlâ
+    // ~60 unit / 1.14 m — iniş sesi eşiği ve iz sistemi bu sayıya bağlı,
+    // bkz. CLAUDE.md bölüm 1). Sabit yükseklikte havada geçen süre
+    // t = 2*sqrt(2h/g) — g büyüdükçe KISALIYOR, yani aynı zıplama aynı
+    // yükseğe çıkıyor ama tepeye daha çabuk varıp daha çabuk iniyor
+    // (0.894 sn -> 0.730 sn, yaklaşık %18 daha kısa havada kalma).
     [Header("Zıplama")]
-    [SerializeField] private float gravity = 600f;      // sv_gravity
-    [SerializeField] private float jumpPower = 268.3f;  // ~60 unit zıplama yüksekliği
+    [SerializeField] private float gravity = 900f;      // sv_gravity
+    [SerializeField] private float jumpPower = 328.6f;  // ~60 unit zıplama yüksekliği (aynı, bkz. yukarı)
+
+    [Tooltip("Minecraft usulü sprint sıçraması: koşarken zıplarsan gidiş yönüne " +
+        "bir seferlik bu kadar ek hız ekleniyor (u/s). Sprint hızının üstüne " +
+        "biniyor, yani 400 + 60 = 460'a fırlıyorsun. Yalnızca ZIPLAMA ANINDA " +
+        "bir kez uygulanıyor — havada airstrafe ile kazanılan hızdan (bkz. " +
+        "AccelerateInAir/airSpeedCap) ayrı, ona hiç dokunmuyor. 0 = kapalı.")]
+    [SerializeField] private float sprintJumpLunge = 60f;
+
     // Koridorda kapalı: bhop yaparken zemin sürtünmesi hiç uygulanmaz, dönebilmek
     // için tek şansın 30 u/s'lik airstrafe olur — dar alanda kontrolü tamamen kaybedersin.
     [SerializeField] private bool autoBunnyHop = false; // space basılı tutmak zıplamayı tekrarlar
@@ -899,6 +914,17 @@ public class PlayerController : MonoBehaviour
 
         velocity.y = jumpPower;
         isGrounded = false; // bu kare sürtünme uygulanmasın
+
+        // MC usulü sprint sıçraması: koşarken zıplarsan gidiş yönüne bir
+        // seferlik ek itki. `intent.sprint` yalnızca tuşun basılı olduğunu
+        // söylüyor, fiilen bir yöne basılmıyorsa (`wishDirection` sıfır)
+        // "ileri atılmak" diye bir şey yok — olduğu yerde zıplamak bundan
+        // muaf. `AccelerateInAir`'in az aşağıda ekleyeceği airstrafe hızından
+        // (bkz. airSpeedCap) TAMAMEN AYRI: o zaten mevcut hızın ÜSTÜNE
+        // çıkmıyor (bkz. Accelerate'in addSpeed<=0 çıkışı), yani bu itkiyi
+        // aynı karede geri almıyor.
+        if (intent.sprint && wishDirection.sqrMagnitude > 0.01f)
+            velocity += wishDirection * sprintJumpLunge;
 
         Jumped?.Invoke();
     }

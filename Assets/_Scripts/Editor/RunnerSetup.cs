@@ -685,6 +685,68 @@ public static class RunnerSetup
         }
     }
 
+    /// <summary>
+    /// Kaçan modelini oyuncu prefabı DIŞINDA, verilen bir sahne objesine bağlar
+    /// — `AttachToPlayerPrefab`'ın prefab olmayan hâli. `TestBotSetup` botun
+    /// görsel eksikliğini gidermek için kullanıyor (CLAUDE.md bölüm 17'deki
+    /// "test botu ölüm animasyonunu gösteremiyor, botta model yok" sınırı).
+    ///
+    /// **Animasyonları ve Animator Controller'ı yeniden KURMUYOR** — bu araç
+    /// yalnızca `Kaçan Modelini Kur`'un önceden ürettiği `Kacan.controller`
+    /// varlığını olduğu gibi kullanıyor. O yüzden en az bir kez `Kaçan
+    /// Modelini Kur` çalıştırılmış olmalı; değilse anlaşılır bir uyarıyla
+    /// çıkıyor, sessizce yarım kalmıyor.
+    ///
+    /// `WireComponents`'e boş bir klip sözlüğü geçiyor: `deathHoldDuration` bu
+    /// yüzden GÜNCELLENMİYOR (metod `hold > 0f` değilse alana dokunmuyor) —
+    /// bilerek, çünkü bot ölüm koreografisini zaten göstermiyor
+    /// (`PlayerBodyVisual.ApplyDeathPose` çağrılmıyor, `BeginDeathHold` sadece
+    /// `runnerAnimator` null değilse çalışıyor ve o artık dolu olacak, ama
+    /// koreografi hâlâ canavarla eşleşmeyecek). Botun kazandığı şey yalnızca
+    /// LOKOMOSYON: yürüme/koşma/zıplama — asıl istenen de bu, hareket
+    /// mekaniklerini gerçek bir modelde izleyebilmek.
+    /// </summary>
+    internal static string AttachToSceneObject(GameObject root)
+    {
+        AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath);
+        if (controller == null)
+            return $"UYARI: {ControllerPath} yok — önce Yakalamaca > Kaçan Modelini Kur çalıştır.";
+
+        GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(ModelPath);
+        if (model == null)
+            return $"UYARI: {ModelPath} bulunamadı.";
+
+        CharacterController capsule = root.GetComponent<CharacterController>();
+        if (capsule == null)
+            return "UYARI: objede CharacterController yok, model bağlanmadı.";
+
+        Transform existing = root.transform.Find(RunnerRootName);
+        if (existing != null)
+            Object.DestroyImmediate(existing.gameObject);
+
+        GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(model, root.transform);
+        instance.name = RunnerRootName;
+
+        float scale = ResolveScale(instance, capsule.height) * ExtraScale;
+        instance.transform.localScale = Vector3.one * scale;
+        instance.transform.localPosition = capsule.center + Vector3.down * (capsule.height / 2f);
+        instance.transform.localRotation = Quaternion.identity;
+
+        Animator animator = instance.GetComponentInChildren<Animator>();
+        if (animator == null)
+            animator = instance.AddComponent<Animator>();
+
+        animator.runtimeAnimatorController = controller;
+        animator.applyRootMotion = false;
+        animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+
+        WireComponents(root, instance, animator, new Dictionary<string, AnimationClip>(), 0f);
+
+        LayerSetup.Apply(instance, LayerSetup.Oyuncu);
+
+        return $"Model bağlandı (ölçek {scale:0.###}).";
+    }
+
     private static float ResolveScale(GameObject instance, float targetHeight)
     {
         Renderer[] renderers = instance.GetComponentsInChildren<Renderer>();

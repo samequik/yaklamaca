@@ -89,13 +89,33 @@ public static class TestBotSetup
         serialized.FindProperty("bodyRenderer").objectReferenceValue = body.GetComponent<Renderer>();
         serialized.ApplyModifiedProperties();
 
+        // Kaçan modeli (Banana Man) — CLAUDE.md bölüm 17'deki "botta model
+        // yok, kapsül yer tutucu" sınırının kapatılması: hareket testleri artık
+        // gerçek bir animasyonlu karakterde izlenebiliyor. `RunnerSetup`'ın
+        // `Kaçan Modelini Kur`'la önceden ürettiği Animator Controller'ı
+        // olduğu gibi kullanıyor, yeniden kurmuyor.
+        string modelReport = RunnerSetup.AttachToSceneObject(bot);
+
+        // Model bağlandıysa kapsülü PlayerBodyVisual'a fallback olarak veriyoruz
+        // — runnerRoot doluyken zaten gösterilmiyor, ama model bir gün
+        // kaldırılırsa (ya da bu araç Kaçan Modelini Kur'dan önce çalıştırılırsa)
+        // kimse görünmez olmasın diye.
+        PlayerBodyVisual visual = bot.GetComponent<PlayerBodyVisual>();
+        if (visual != null)
+        {
+            SerializedObject serializedVisual = new SerializedObject(visual);
+            serializedVisual.FindProperty("capsuleRenderer").objectReferenceValue = body.GetComponent<Renderer>();
+            serializedVisual.ApplyModifiedProperties();
+        }
+
         Selection.activeGameObject = bot;
 
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         EditorSceneManager.SaveOpenScenes();
 
         Debug.Log(
-            "Test botu eklendi ve sahne kaydedildi.\n\n" +
+            "Test botu eklendi ve sahne kaydedildi.\n" +
+            $"Model: {modelReport}\n\n" +
             "TEK BAŞINA İZLEYİCİ TESTİ (host penceresinde):\n" +
             "  [2] Turu KAÇAN olarak başlat — canavar botlardan seçilmediği için, " +
             "[1] ile başlatsaydın canavar sen olurdun ve elenemezdin.\n" +
@@ -103,6 +123,9 @@ public static class TestBotSetup
             "  Sol tık ile hayattaki kaçanlar arasında gezinirsin. Canavar listede yok, bilerek.\n\n" +
             "BIÇAK TESTİ: [1] ile turu başlat (canavar sen olursun), sonra [4] ile botu " +
             "önüne ışınla. Botu labirentte aramana gerek yok; mavi işaret ışığından da tanırsın.\n\n" +
+            "NOT: Bot yalnızca YÜRÜME/KOŞMA/ZIPLAMA animasyonlarını gösteriyor — " +
+            "ölüm/yakalanma koreografisi hâlâ yok (bilinen sınır, CLAUDE.md bölüm 17), " +
+            "TestRunnerBot AI'ı zaten kendini elendirmiyor.\n\n" +
             "Botu kaldırmak: Yakalamaca > Test Botu Kaldır (ya da objeyi sil).");
     }
 

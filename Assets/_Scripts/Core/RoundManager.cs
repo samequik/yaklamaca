@@ -47,6 +47,15 @@ public class RoundManager : NetworkBehaviour
         "yine 'canavar dibimde doğdu' olarak geri döner.")]
     [SerializeField] private float minimumSpawnSeparation = 25f;
 
+    [Header("Ceset")]
+    [Tooltip("RoundParticipant.DeathHold bitince doğurulan fizik gövdesi. " +
+        "Yakalamaca > Ceset Sistemini Kur kurup buraya bağlıyor.")]
+    [SerializeField] private GameObject corpsePrefab;
+
+    // Sunucuda tutulan, bir sonraki turda temizlenecek cesetler. İstemcide
+    // boş kalır — spawn/destroy kararı yalnızca sunucudan gidiyor.
+    private readonly List<GameObject> spawnedCorpses = new List<GameObject>();
+
     [Header("Test (lobi arayüzü bağlanınca kaldırılacak)")]
     [Tooltip("Sunucuda tur başlatır.")]
     [SerializeField] private KeyCode startRoundKey = KeyCode.Alpha1;
@@ -62,6 +71,14 @@ public class RoundManager : NetworkBehaviour
     [Tooltip("Test botlarını önüne ışınlar. 54 metrelik zifiri labirentte botu " +
         "aramak testi şansa bırakıyordu.")]
     [SerializeField] private KeyCode summonBotsKey = KeyCode.Alpha4;
+
+    [Tooltip("AÇIKSA tur, kaçan kalmayınca BİTMEZ — yalnızca test için. Tek bot " +
+        "kaçan olduğu bir turda onu öldürmek/kaçırmak normalde turu anında " +
+        "kapatıyor; bu, bot üstünde hareket/animasyon/ceset denerken sürekli " +
+        "tur yeniden başlatmak zorunda kalmamak içindir. Varsayılan KAPALI: " +
+        "gerçek oynanışta 'kimse kaçamadan hepsi elendi/kaçtı' kuralı hep " +
+        "geçerli kalmalı (bölüm 11.1). İşin bitince kapatmayı unutma.")]
+    [SerializeField] private bool disableRoundEndForTesting;
 
     // StartRoundAsRunner sırasında dolu: rol dağıtımı bu katılımcıyı canavar
     // adaylarından çıkarıyor.
@@ -508,6 +525,13 @@ public class RoundManager : NetworkBehaviour
             return;
         }
 
+        // Önceki turdan kalan cesetler temizleniyor. Bilerek TUR BAŞINDA,
+        // ölümde değil: kullanıcı "haritada kalsın" istedi, yani bir turun
+        // SÜRESİ boyunca ceset kalıcı olmalı — yalnızca bir sonraki tur
+        // başlarken, harita ve roller sıfırlanırken onunla birlikte gidiyor.
+        // Aksi hâlde her oyun oturumu boyunca ceset sayısı sınırsız birikir.
+        ServerClearCorpses();
+
         AssignRoles();
 
         // Roller belli olduktan SONRA yerleştiriliyor: kim canavar, tur
@@ -528,6 +552,63 @@ public class RoundManager : NetworkBehaviour
 
         Debug.Log($"Tur başladı. {aliveRunnerCount} kaçan, {requiredTerminals} terminal gerekiyor. " +
             "Süre sınırı yok: tur herkes ölene ya da kaçana kadar sürüyor.");
+    }
+
+    // ---------- Ceset ----------
+
+    /// <summary>
+    /// `RoundParticipant.DeathHold` bitince (ölüm klibi bittiğinde) çağrılır.
+    /// Kaçanın o anki gövde pozundan bağımsız, fizik motorlu kalıcı bir ceset
+    /// doğurur — CLAUDE.md'deki "haritada kalsın, dümdüz kalmasın, biri
+    /// yürüyerek ittirebilsin" isteği.
+    ///
+    /// `corpsePrefab` boşsa (kurulum aracı hiç çalıştırılmamışsa) sessizce
+    /// hiçbir şey yapmıyor: eski davranış (beden gizlenir) korunuyor, oyun
+    /// kırılmıyor.
+    /// </summary>
+    [Server]
+    public void ServerSpawnCorpse(RoundParticipant victim)
+    {
+        if (corpsePrefab == null || victim == null)
+            return;
+
+        Transform body = victim.CorpseSourceBody;
+        if (body == null)
+            return;
+
+        GameObject instance = Instantiate(corpsePrefab, body.position, body.rotation);
+        Corpse corpse = instance.GetComponent<Corpse>();
+
+        if (corpse == null)
+        {
+            Debug.LogWarning("corpsePrefab üstünde Corpse bileşeni yok, yakılıyor.");
+            Destroy(instance);
+            return;
+        }
+
+        // ÖNCE victimNetId, SONRA Spawn: Mirror ilk durumu spawn mesajına
+        // gömüyor, yani her istemci OnStartClient'ta bunu zaten dolu buluyor.
+        corpse.ServerInit(victim.netId);
+        NetworkServer.Spawn(instance);
+
+        spawnedCorpses.Add(instance);
+    }
+
+    /// <summary>
+    /// Önceki turdan kalan cesetleri siler. `StartRound`'un başında çağrılır
+    /// (yukarıda) — bir turun SÜRESİ boyunca ceset kalıcı kalsın, ama oyun
+    /// oturumu boyunca sınırsız birikmesin.
+    /// </summary>
+    [Server]
+    private void ServerClearCorpses()
+    {
+        for (int i = 0; i < spawnedCorpses.Count; i++)
+        {
+            if (spawnedCorpses[i] != null)
+                NetworkServer.Destroy(spawnedCorpses[i]);
+        }
+
+        spawnedCorpses.Clear();
     }
 
     // ---------- Doğum yerleşimi ----------
@@ -734,6 +815,13 @@ public class RoundManager : NetworkBehaviour
     {
         if (phase != RoundPhase.Playing || aliveRunnerCount > 0)
             return;
+
+        if (disableRoundEndForTesting)
+        {
+            Debug.Log("Tur normalde burada biterdi ama 'disableRoundEndForTesting' " +
+                "açık — RoundManager'da kapatmayı unutma.");
+            return;
+        }
 
         EndRound(escapedRunnerCount > 0 ? RoundResult.RunnersWin : RoundResult.MonsterWins);
     }

@@ -191,6 +191,23 @@ public class PlayerBodyVisual : MonoBehaviour
         return runnerRoot != null ? runnerRoot.transform : null;
     }
 
+    /// <summary>
+    /// Ceset sistemi için: kaçanın şu an gösterilen gövdesi (Banana Man kökü,
+    /// model kurulu değilse kapsül). Yalnızca kaçanlar ölüyor, canavar hiç
+    /// sorulmuyor — bu yüzden <see cref="ActiveBody"/>'nin rol dallanmasını
+    /// tekrarlamıyor.
+    ///
+    /// `Corpse` bunu ölüm klibinin TAM BİTTİĞİ anda (deathHoldDuration
+    /// sonunda, `ClearDeathPose` çağrılmadan hemen ÖNCE) okuyor: o anda
+    /// `ApplyDeathPose`'un konumlandırdığı, canavarın önünde diz çökmüş hâl
+    /// hâlâ duruyor. `Instantiate` bu transform'un o anki DÜNYA
+    /// pozisyonunu/rotasyonunu kopyalıyor — ayrı bir kemik/poz taşıma kodu
+    /// gerekmiyor.
+    /// </summary>
+    public Transform RunnerBodyForCorpse =>
+        runnerRoot != null ? runnerRoot.transform
+        : (capsuleRenderer != null ? capsuleRenderer.transform : null);
+
     private void Refresh()
     {
         bool monster = role == RoundRole.Monster;

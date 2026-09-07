@@ -157,6 +157,20 @@ public class RoundParticipant : NetworkBehaviour
 
     private PlayerController playerController;
 
+    /// <summary>
+    /// Kaçanın çarpışma kapsülü. `disableWhenEliminated` bunu KAPSAMIYOR —
+    /// `CharacterController` bir `Collider`, `Behaviour` değil, yani o diziye
+    /// eklenemiyor. Ayrı tutulup `SetControlActive`'te elle kapatılıyor.
+    ///
+    /// **Düzeltme (2026-09-07).** Eskiden bu hiç kapanmıyordu: `PlayerController`
+    /// (girdi/hareket) elenince kapanıyordu ama altındaki gerçek çarpışma
+    /// kutusu açık kalıyordu. Sonuç, "beden yok oluyor ama öldüğü noktada
+    /// bişiler görünmez oluyor ama dokunuluyor" diye bildirilen hayalet
+    /// duvardı — görsel gövde gizlenmişti, çarpışma kutusu koridoru tıkamaya
+    /// devam ediyordu.
+    /// </summary>
+    private CharacterController characterController;
+
     // Ölüm sesi yalnızca canlı→ölü geçişinde çalmalı. Host'ta ApplyAlive hem
     // sunucu tarafından hem SyncVar hook'undan çağrılabiliyor; bayrak olmasa
     // ses üst üste binerdi.
@@ -200,6 +214,7 @@ public class RoundParticipant : NetworkBehaviour
     private void Awake()
     {
         playerController = GetComponent<PlayerController>();
+        characterController = GetComponent<CharacterController>();
 
         // Doğum yerleştirmesi için: bot mu, ağ transformu var mı. İkisi de
         // olmayabilir (bot oyuncu değil, oyuncu bot değil), o yüzden null
@@ -570,6 +585,17 @@ public class RoundParticipant : NetworkBehaviour
 
         yield return new WaitForSeconds(deathHoldDuration);
 
+        // Gövde kalıcı bir cesede dönüşüyor — TAM BURADA, ClearDeathPose'dan
+        // ÖNCE: `ApplyDeathPose`'un konumlandırdığı poz (canavarın önünde diz
+        // çökmüş) hâlâ duruyor, `Corpse` onu bu anda kopyalıyor. Sıra
+        // değişirse ceset, gövde kendi orijinal yerine dönmüş hâlde doğar.
+        //
+        // Yalnızca SUNUCU yaratıyor (`NetworkServer.Spawn` sunucu dışında
+        // çağrılamaz) ama bu korutin her istemcide çalışıyor (SyncVar hook'u
+        // tetikliyor, bölüm 4) — o yüzden `isServer` ile süzülüyor.
+        if (isServer && RoundManager.Instance != null)
+            RoundManager.Instance.ServerSpawnCorpse(this);
+
         dying = false;
         deathRoutine = null;
 
@@ -578,6 +604,14 @@ public class RoundParticipant : NetworkBehaviour
 
         RefreshBodyState();
     }
+
+    /// <summary>
+    /// Ceset sistemi için: kaçanın şu an gösterilen gövdesi. `Corpse` bunu
+    /// yalnızca `victimNetId` üzerinden, kendi `OnStartClient`'ında okuyor —
+    /// her istemci kendi yerel kopyasından bağımsız olarak aynı sonucu üretiyor
+    /// (bölüm 4: aynı bilgiyi ikinci kez ağdan göndermeye gerek yok).
+    /// </summary>
+    public Transform CorpseSourceBody => bodyVisual != null ? bodyVisual.RunnerBodyForCorpse : null;
 
     /// <summary>
     /// Bedeni canavarın önüne oturtur. Öldüren bilinmiyorsa (test tuşuyla
@@ -677,6 +711,12 @@ public class RoundParticipant : NetworkBehaviour
     /// <summary>Hareket ve etkileşim. Ölende anında kapanıyor.</summary>
     private void SetControlActive(bool value)
     {
+        // Çarpışma kutusu ayrı: Behaviour[] dizisine giremiyor (yukarıdaki
+        // alan yorumu). Elenince kapanmazsa görünmez ama katı bir engel
+        // olarak koridorda kalır.
+        if (characterController != null)
+            characterController.enabled = value;
+
         if (disableWhenEliminated == null)
             return;
 
