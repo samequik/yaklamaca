@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
@@ -587,18 +586,12 @@ public class RoundManager : NetworkBehaviour
             return;
         }
 
-        // Ceset TAM canavarın üstünde doğuyor — `deathForwardOffset` bilerek 0
-        // (bölüm 17: kill animasyonu ikisinin iç içe geçmesini varsayıyor).
-        // Görsel poz için sorun değil ama fizik motoru bunu "derin çakışma"
-        // sayıp cesedi doğduğu anda fırlatıyordu — haritanın dışına uçan
-        // "canavar" ve arkasından hiç görünmeyen ceset şikâyeti buradan
-        // geliyordu (aslında fırlayan canavar değil, cesetti). Doğan anda
-        // üstüne binen oyuncu collider'larıyla çarpışmayı geçici olarak
-        // görmezden geliyoruz; ikisi ayrışınca (ya da en fazla 5 sn sonra)
-        // kendiliğinden geri açılıyor.
-        Collider corpseCollider = instance.GetComponentInChildren<Collider>();
-        if (corpseCollider != null)
-            IgnoreOverlappingPlayersTemporarily(corpseCollider, body.position);
+        // Ceset TAM canavarın üstünde doğuyor (`deathForwardOffset` bilerek 0,
+        // bölüm 17) ve bu derin çakışma bir ara cesedi fırlatıyordu. Buradaki
+        // elle "çarpışmayı geçici kapat" çözümü KALDIRILDI: ragdoll'a geçişle
+        // birlikte her parçaya `maxDepenetrationVelocity` konuyor
+        // (RagdollFactory), yani ayrılma motor seviyesinde sınırlı. Doğru
+        // katmanda doğru ayar, elle collider gezmekten hem basit hem sağlam.
 
         // ÖNCE victimNetId, SONRA Spawn: Mirror ilk durumu spawn mesajına
         // gömüyor, yani her istemci OnStartClient'ta bunu zaten dolu buluyor.
@@ -606,98 +599,6 @@ public class RoundManager : NetworkBehaviour
         NetworkServer.Spawn(instance);
 
         spawnedCorpses.Add(instance);
-    }
-
-    /// <summary>
-    /// Doğduğu noktada üstüne binen oyuncu collider'larıyla (`Oyuncu` katmanı
-    /// — canavar, kaçanlar, botlar) çarpışmayı geçici olarak kapatır.
-    ///
-    /// **Yalnızca `Oyuncu` katmanı, `~0` DEĞİL.** Zemin de doğum noktasının
-    /// hemen altında ve `OverlapSphere` onu da yakalardı — zeminle çarpışmayı
-    /// kapatsaydık ceset o birkaç saniye boyunca serbestçe düşüp yerin altına
-    /// gömülürdü. Katman filtresi bu riski baştan eliyor.
-    ///
-    /// **Katman adı burada elle yazılı, `LayerSetup.Oyuncu`'ya atıfla değil**:
-    /// `LayerSetup` `Assets/_Scripts/Editor/` altında, yani yalnızca editör
-    /// derlemesinde var — çalışma anındaki bu sınıf ona hiç ulaşamıyor
-    /// (build'de derlemesi bile projeye girmiyor). Bölüm 16'daki dört katman
-    /// adı sabit ve `Katmanları Kur` tarafından tanımlanıyor.
-    /// </summary>
-    [Server]
-    private void IgnoreOverlappingPlayersTemporarily(Collider corpseCollider, Vector3 spawnPosition)
-    {
-        int playerLayer = LayerMask.NameToLayer("Oyuncu");
-
-        // Katman hiç tanımlanmamışsa (Katmanları Kur çalıştırılmamış) maskeyi
-        // ~0'a düşürmüyoruz — o zaman zemini de yakalayıp yukarıdaki gömülme
-        // riskini geri getirirdi. Bu durumda cesedin doğduğu anda bir kez
-        // sarsılması, üstüne düşülen bir riskten iyi.
-        if (playerLayer < 0)
-            return;
-
-        int playerMask = 1 << playerLayer;
-
-        // 1 m: hull yarıçapının (~0.3 m) birkaç katı — aynı noktada duran
-        // canavarı ve yakındaki kaçanları rahatça kapsıyor.
-        Collider[] nearby = Physics.OverlapSphere(spawnPosition, 1f, playerMask, QueryTriggerInteraction.Ignore);
-
-        List<Collider> ignored = new List<Collider>();
-        for (int i = 0; i < nearby.Length; i++)
-        {
-            if (nearby[i] == corpseCollider)
-                continue;
-
-            Physics.IgnoreCollision(corpseCollider, nearby[i], true);
-            ignored.Add(nearby[i]);
-        }
-
-        if (ignored.Count > 0)
-            StartCoroutine(RestoreCollisionsWhenClear(corpseCollider, ignored));
-    }
-
-    /// <summary>
-    /// Yok sayılan çiftler gerçekten ayrışınca (ya da en fazla 5 sn sonra,
-    /// güvenlik payı olarak) çarpışmayı geri açar. Sabit bir süre yerine
-    /// mesafeye bakmak, biri kasıtlı olarak orada beklerse (test sırasında
-    /// olduğu gibi) aynı patlamanın gecikmeli tekrarlanmasını önlüyor.
-    /// </summary>
-    private IEnumerator RestoreCollisionsWhenClear(Collider corpseCollider, List<Collider> others)
-    {
-        const float clearDistance = 1.2f;
-        const float maxWait = 5f;
-        float elapsed = 0f;
-
-        while (elapsed < maxWait && corpseCollider != null)
-        {
-            bool allClear = true;
-
-            for (int i = 0; i < others.Count; i++)
-            {
-                if (others[i] == null)
-                    continue;
-
-                if (Vector3.Distance(others[i].transform.position, corpseCollider.transform.position) < clearDistance)
-                {
-                    allClear = false;
-                    break;
-                }
-            }
-
-            if (allClear)
-                break;
-
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        if (corpseCollider == null)
-            yield break;
-
-        for (int i = 0; i < others.Count; i++)
-        {
-            if (others[i] != null)
-                Physics.IgnoreCollision(corpseCollider, others[i], false);
-        }
     }
 
     /// <summary>

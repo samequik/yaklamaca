@@ -61,10 +61,16 @@ public static class CorpseSetup
     }
 
     /// <summary>
-    /// Boş bir kapsül gövdesi: Rigidbody + Collider + ağ kimliği + sunucu
-    /// otoriteli konum senkronu + `Corpse` bileşeni. Görsel gövde YOK —
-    /// `Corpse.OnStartClient` onu kurbanın o anki modelinden ÇALIŞMA ANINDA
-    /// klonluyor, prefab'a gömülü bir mesh gerekmiyor.
+    /// Kökte yalnızca ağ kimliği, `RagdollSync` ve `Corpse` var — **Rigidbody
+    /// ya da Collider YOK.**
+    ///
+    /// Fizik gövdenin KENDİSİNDE: `Corpse` çalışma anında kurbanın modelini
+    /// klonlayıp `RagdollFactory` ile iskeletin her kemiğine Rigidbody +
+    /// Collider + `CharacterJoint` kuruyor. Kökte ikinci bir Rigidbody olsaydı
+    /// ragdoll'la yarışırdı.
+    ///
+    /// İlk sürümde kökte tek bir kapsül vardı; ceset donmuş bir heykel gibi
+    /// duruyordu ve istenen "üstünden geçince savrulsun" davranışı çıkmıyordu.
     /// </summary>
     private static GameObject BuildCorpsePrefab()
     {
@@ -73,32 +79,13 @@ public static class CorpseSetup
 
         GameObject root = new GameObject("Corpse");
 
-        // Kabaca diz çökmüş/yığılmış bir gövdeyi kapsayan tek parça collider.
-        // Tam silüet önemli değil — itilebilir bir "kütle" olması yetiyor.
-        CapsuleCollider collider = root.AddComponent<CapsuleCollider>();
-        collider.radius = 0.35f;
-        collider.height = 1.2f;
-        collider.center = new Vector3(0f, 0.6f, 0f);
-        collider.direction = 1; // Y ekseni
-
-        Rigidbody rb = root.AddComponent<Rigidbody>();
-        rb.mass = 70f;
-        rb.drag = 0.5f;        // Unity 2022.3'te alan adı bu — linearDamping ancak Unity 6'da geldi
-        rb.angularDrag = 0.8f;
-        rb.useGravity = true;
-        rb.isKinematic = false; // gerçek doğası bu; ağ otoritesi olmayanlarda NetworkRigidbodyReliable çalışma anında kapatıyor
-        // Dönüş KASITLI OLARAK kilitlenmedi: "dümdüz kalmasın" isteği tam
-        // olarak bu — sert bir itme cesedi yan yatırıp devirebilmeli.
-
         root.AddComponent<NetworkIdentity>();
-
-        NetworkRigidbodyReliable netRb = root.AddComponent<NetworkRigidbodyReliable>();
-        netRb.target = root.transform;
-        netRb.syncDirection = SyncDirection.ServerToClient;
-        netRb.updateMethod = UpdateMethod.FixedUpdate; // fizik gövdesi, kareyle değil fizik adımıyla örnekleniyor
-
+        root.AddComponent<RagdollSync>();
         root.AddComponent<Corpse>();
 
+        // Kökün kendi collider'ı yok, ama katman yine de doğru olsun:
+        // `RagdollFactory` kemiklere de aynı katmanı yazıyor (Sus — gövdeyi
+        // durdurur, canavarın vuruş ışınını kesmez, bölüm 16).
         LayerSetup.Apply(root, LayerSetup.Sus);
 
         GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);

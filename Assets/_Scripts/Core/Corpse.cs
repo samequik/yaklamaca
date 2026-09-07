@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 
@@ -15,16 +16,18 @@ using UnityEngine;
 /// geri alamayacak şekilde elden çıkarmak demek olurdu. Onun yerine gövdenin
 /// o anki DÜNYA pozundan bağımsız bir KOPYASI alınıyor.
 ///
-/// ### Fizik: yalnızca SUNUCU simüle ediyor
+/// ### Fizik: gerçek ragdoll, yalnızca SUNUCUDA simüle ediliyor
 ///
-/// Prefabtaki `NetworkRigidbodyReliable`, `syncDirection = ServerToClient`
-/// ile kuruluyor (Editor > CorpseSetup). Bu, Mirror'ın kendi mekanizması:
-/// sunucuda (host'ta) Rigidbody gerçekten simüle ediliyor, her istemcide
-/// `isKinematic = true` yapılıp yalnızca gelen pozisyon uygulanıyor. Aksi
-/// hâlde her istemci kendi başına fizik yürütür ve birkaç itme sonra herkes
-/// cesedi FARKLI yerde görürdü — bu oyunun "his istemcide, karar sunucuda"
-/// kuralının (CLAUDE.md bölüm 4) fizik karşılığı: kim nereye düştü kararını
-/// tek yer veriyor.
+/// İlk sürüm tek bir kapsül + Rigidbody kullanıyordu ve ceset donmuş bir
+/// heykel gibi duruyordu. Artık `RagdollFactory` iskeletin her ana kemiğine
+/// Rigidbody + Collider + `CharacterJoint` kuruyor: gövde kendi ağırlığıyla
+/// yığılıyor, üstünden geçince kolu bacağı savruluyor.
+///
+/// Simülasyon yalnızca sunucuda çalışıyor; istemcilerdeki gövdeler kinematik
+/// ve pozu `RagdollSync`'ten alıyor. Aksi hâlde 11 Rigidbody'lik bir zincir
+/// her makinede farklı otururdu ve yan yana duran iki oyuncu cesedi FARKLI
+/// yerde görürdü — bu oyunun "his istemcide, karar sunucuda" kuralının
+/// (CLAUDE.md bölüm 4) fizik karşılığı.
 ///
 /// Sonucu: itme, Source/HL2'deki fizik prop'ları gibi küçük bir ağ
 /// gecikmesiyle görünür. Bu oyunun zaten Source hareketinden esinlenmesiyle
@@ -40,7 +43,7 @@ using UnityEngine;
 /// yerine, herkes zaten sahip olduğu veriden aynı sonucu üretiyor; animatör
 /// hızının pozisyon farkından çıkarılmasıyla aynı desen).
 /// </summary>
-[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(RagdollSync))]
 public class Corpse : NetworkBehaviour
 {
     /// <summary>
@@ -50,38 +53,67 @@ public class Corpse : NetworkBehaviour
     /// </summary>
     [SyncVar] private uint victimNetId;
 
-    /// <summary>
-    /// Sunucu tarafında hız tavanı — güvenlik payı. Ceset canavarın TAM
-    /// üstünde doğuyor (bölüm 17: kill animasyonu ikisini iç içe varsayıyor);
-    /// `RoundManager.ServerSpawnCorpse` doğar doğmaz oradaki oyuncu
-    /// collider'larıyla çarpışmayı geçici kapatıyor, ama beklenmedik bir
-    /// çakışma (ör. duvara çok yakın bir ölüm) yine de tek karelik bir
-    /// patlama üretebilir. Sprintin (~7.6 m/s) belirgin üstünde bir tavan,
-    /// normal itmeleri hiç etkilemeden bu uç durumu kırpıyor.
-    /// </summary>
+    [Tooltip("Ragdoll'un toplam kütlesi (kg). Parçalara insan vücudu " +
+        "oranlarında dağıtılıyor — bkz. RagdollFactory.")]
+    [SerializeField] private float ragdollMass = 70f;
+
+    [Tooltip("Sunucudaki hız tavanı (m/s). Beklenmedik bir çakışma tek " +
+        "karelik bir patlama üretirse kırpıyor; normal itmelerin çok üstünde.")]
     [SerializeField] private float maxSpeed = 8f;
 
-    private Rigidbody body;
+    private RagdollSync sync;
+    private List<RagdollFactory.Part> ragdoll;
+    private bool built;
 
-    private void Awake() => body = GetComponent<Rigidbody>();
+    private void Awake() => sync = GetComponent<RagdollSync>();
 
-    /// <summary>Yalnızca sunucu — kinematik (istemci) kopyalarda velocity zaten anlamsız.</summary>
+    /// <summary>
+    /// Ragdoll fiziği yalnızca SUNUCUDA çalışıyor (bkz. RagdollSync), o yüzden
+    /// hız tavanı da yalnızca orada anlamlı.
+    /// </summary>
     private void FixedUpdate()
     {
-        if (!isServer || body.isKinematic)
+        if (!isServer || ragdoll == null)
             return;
 
-        if (body.velocity.sqrMagnitude > maxSpeed * maxSpeed)
-            body.velocity = body.velocity.normalized * maxSpeed;
+        float limitSqr = maxSpeed * maxSpeed;
+
+        for (int i = 0; i < ragdoll.Count; i++)
+        {
+            Rigidbody part = ragdoll[i].Body;
+
+            if (part != null && !part.isKinematic && part.velocity.sqrMagnitude > limitSqr)
+                part.velocity = part.velocity.normalized * maxSpeed;
+        }
     }
 
     /// <summary>Yalnızca sunucu çağırır, spawn'dan önce.</summary>
     [Server]
     public void ServerInit(uint victim) => victimNetId = victim;
 
+    /// <summary>
+    /// Hem sunucuda hem istemcide kuruluyor — ikisi de iskelete ihtiyaç
+    /// duyuyor: sunucu simüle etmek, istemci gelen pozu uygulamak için.
+    /// Host'ta ikisi de tetikleniyor, `built` bayrağı ikinci çağrıyı yutuyor.
+    /// </summary>
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        EnsureBuilt();
+    }
+
     public override void OnStartClient()
     {
         base.OnStartClient();
+        EnsureBuilt();
+    }
+
+    private void EnsureBuilt()
+    {
+        if (built)
+            return;
+
+        built = true;
         BuildVisual();
     }
 
@@ -95,7 +127,9 @@ public class Corpse : NetworkBehaviour
     /// </summary>
     private void BuildVisual()
     {
-        Transform source = ResolveVictimBody();
+        RoundParticipant victim = ResolveParticipant(victimNetId);
+        Transform source = victim != null ? victim.CorpseSourceBody : null;
+
         if (source == null)
         {
             Debug.LogWarning("Corpse: kurbanın gövdesi bulunamadı, ceset görselsiz kalacak.");
@@ -117,8 +151,9 @@ public class Corpse : NetworkBehaviour
         // Ölüm klibi sırasında canavarla ölçek eşitlemesi olabilir
         // (PlayerBodyVisual.deathScaleMatch, bölüm 10) — o yalnızca kill
         // animasyonu boyunca geçerli bir görsel numara, kalıcı cesede
-        // taşınmamalı.
-        clone.transform.localScale = Vector3.one;
+        // taşınmamalı. `1` yazmak da yanlış olurdu: modelin kendi ölçeği
+        // hull'a oranlanarak hesaplanıyor. Poz öncesi değeri kurbandan alıyoruz.
+        clone.transform.localScale = victim.CorpseSourceScale;
 
         // Animator KAPATILMALI, yoksa bir sonraki karede kendi varsayılan
         // durumuna (Locomotion/idle) döner ve az önce kopyaladığımız ölüm
@@ -143,6 +178,48 @@ public class Corpse : NetworkBehaviour
         Renderer[] renderers = clone.GetComponentsInChildren<Renderer>(true);
         for (int i = 0; i < renderers.Length; i++)
             renderers[i].enabled = true;
+
+        BuildRagdoll(animator);
+    }
+
+    /// <summary>
+    /// İskelete gerçek fizik kurar: ceset artık tek parça bir heykel değil,
+    /// üstünden geçince kolu bacağı savrulan bir gövde.
+    ///
+    /// **Katman `Sus`.** Varil ve kasayla aynı gerekçe (CLAUDE.md bölüm 16):
+    /// gövdeyi durdurur ama canavarın vuruş ışınını KESMEZ — koridorda yatan
+    /// bir cesedin arkasına saklanmak kalkan olmamalı.
+    ///
+    /// **Fizik yalnızca sunucuda.** İstemcilerdeki gövdeler kinematik ve pozu
+    /// `RagdollSync`'ten alıyor; yoksa herkes cesedi farklı yerde görürdü.
+    ///
+    /// Kurulamazsa (humanoid olmayan bir rig) görsel öylece duruyor: hareketsiz
+    /// bir ceset, hiç olmayandan iyi.
+    /// </summary>
+    private void BuildRagdoll(Animator animator)
+    {
+        if (animator == null)
+            return;
+
+        // Katman adı elle yazılı: `LayerSetup` editör derlemesinde, çalışma
+        // anındaki bu sınıf ona ulaşamıyor (aynı gerekçe RoundManager'da da
+        // yazılı). -1 = katman tanımlı değil, o zaman dokunulmuyor.
+        int layer = LayerMask.NameToLayer("Sus");
+
+        ragdoll = RagdollFactory.Build(animator, ragdollMass, layer);
+
+        if (ragdoll.Count == 0)
+        {
+            Debug.LogWarning("Corpse: ragdoll kurulamadı (humanoid rig değil), " +
+                "ceset hareketsiz kalacak.");
+            return;
+        }
+
+        for (int i = 0; i < ragdoll.Count; i++)
+            ragdoll[i].Body.isKinematic = !isServer;
+
+        if (sync != null)
+            sync.Bind(ragdoll);
     }
 
     /// <summary>
@@ -162,17 +239,10 @@ public class Corpse : NetworkBehaviour
     }
 
     /// <summary>
-    /// `victimNetId`'den kurbanın şu anki gövde transform'unu çözer.
-    /// İstemcide ve sunucuda (host) ayrı sözlükler var; host ikisine de
-    /// sahip, adanmış sunucuda yalnızca ikincisi dolu (bölüm 17'deki
-    /// `ResolveKiller`'la aynı desen).
+    /// `victimNetId`'den kurbanın katılımcısını çözer. İstemcide ve sunucuda
+    /// (host) ayrı sözlükler var; host ikisine de sahip, adanmış sunucuda
+    /// yalnızca ikincisi dolu (bölüm 17'deki `ResolveKiller`'la aynı desen).
     /// </summary>
-    private Transform ResolveVictimBody()
-    {
-        RoundParticipant victim = ResolveParticipant(victimNetId);
-        return victim != null ? victim.CorpseSourceBody : null;
-    }
-
     private static RoundParticipant ResolveParticipant(uint netId)
     {
         if (NetworkClient.spawned.TryGetValue(netId, out NetworkIdentity identity) && identity != null)

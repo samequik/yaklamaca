@@ -628,6 +628,13 @@ public class RoundParticipant : NetworkBehaviour
     public Transform CorpseSourceBody => bodyVisual != null ? bodyVisual.RunnerBodyForCorpse : null;
 
     /// <summary>
+    /// Cesedin alması gereken yerel ölçek — ölüm pozunun şişirmesi olmadan.
+    /// Bkz. PlayerBodyVisual.RunnerBodyRestScale.
+    /// </summary>
+    public Vector3 CorpseSourceScale =>
+        bodyVisual != null ? bodyVisual.RunnerBodyRestScale : Vector3.one;
+
+    /// <summary>
     /// Bedeni canavarın önüne oturtur. Öldüren bilinmiyorsa (test tuşuyla
     /// eleme) hiçbir şey yapmıyor: beden olduğu yerde yatıyor.
     /// </summary>

@@ -208,6 +208,29 @@ public class PlayerBodyVisual : MonoBehaviour
         runnerRoot != null ? runnerRoot.transform
         : (capsuleRenderer != null ? capsuleRenderer.transform : null);
 
+    /// <summary>
+    /// Ceset için: gövdenin ölüm pozundan ÖNCEKİ yerel ölçeği.
+    ///
+    /// `ApplyDeathPose` ölüm klibi boyunca gövdeyi `deathScaleMatch` ile
+    /// şişiriyor (canavarın koreografisiyle örtüşsün diye, bölüm 10). Ceset
+    /// klonu tam o pencerede alınıyor, yani şişmiş hâli kopyalanır. Kalıcı
+    /// ceset normal boyunda olmalı: `1` yazmak da yanlış olurdu, çünkü modelin
+    /// kendi ölçeği hull'a oranlanarak hesaplanıyor (`RunnerSetup.ResolveScale`,
+    /// Banana Man'de ~0.9). Doğru cevap, poz uygulanmadan önce saklanan değer.
+    /// </summary>
+    public Vector3 RunnerBodyRestScale
+    {
+        get
+        {
+            Transform body = RunnerBodyForCorpse;
+
+            if (body == null)
+                return Vector3.one;
+
+            return posedBody == body ? posedLocalScale : body.localScale;
+        }
+    }
+
     private void Refresh()
     {
         bool monster = role == RoundRole.Monster;
