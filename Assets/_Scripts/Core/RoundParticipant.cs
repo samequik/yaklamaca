@@ -596,6 +596,20 @@ public class RoundParticipant : NetworkBehaviour
         if (isServer && RoundManager.Instance != null)
             RoundManager.Instance.ServerSpawnCorpse(this);
 
+        // BURADA BİR YARIŞ VARDI: `Corpse` görsel kopyasını kendi
+        // `OnStartClient`'ında (ağ spawn mesajı işlenince) alıyor — bu, ağ
+        // gecikmesi yüzünden BİR SONRAKİ satırdan (RefreshBodyState, hemen
+        // aşağıda) SONRA gerçekleşebiliyordu. O satır `runnerRoot`'u
+        // `SetActive(false)` yapıyor; `Instantiate` KAPALI bir kaynaktan
+        // KAPALI bir kopya üretiyor ve kopya hiç görünmüyordu — çarpışma
+        // kutusu (Corpse'un kendi Rigidbody'si) yine de doğru yerde
+        // durduğu için "görünmez ama dokunuluyor" tam buradan geliyordu.
+        //
+        // Kısa bir bekleme, spawn mesajının makul bir gecikmede her
+        // istemciye ulaşmasına yetiyor — `Corpse.BuildVisual` ayrıca
+        // kopyasını koşulsuz `SetActive(true)` yapıyor (ikinci bir güvenlik).
+        yield return new WaitForSeconds(0.5f);
+
         dying = false;
         deathRoutine = null;
 

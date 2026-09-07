@@ -104,6 +104,16 @@ public class Corpse : NetworkBehaviour
 
         GameObject clone = Instantiate(source.gameObject, source.position, source.rotation, transform);
 
+        // KOŞULSUZ aktif: `RoundParticipant.DeathHold` bu kopyayı ClearDeathPose/
+        // RefreshBodyState'ten ÖNCE almaya çalışıyor (bkz. oradaki yorum), ama
+        // ağ gecikmesi payı ne kadar cömert olursa olsun sıfır garanti değil.
+        // Kaynak o an kapalıysa `Instantiate` de kapalı bir kopya üretir —
+        // Unity aktiflik durumunu birebir taşır. Burada zorlamak, zamanlamaya
+        // bakılmaksızın cesedin GÖRÜNMESİNİ garanti ediyor: çarpışma kutusu
+        // (Rigidbody, ayrı bir obje) doğru yerde duruyordu, eksik olan hep
+        // buydu.
+        clone.SetActive(true);
+
         // Ölüm klibi sırasında canavarla ölçek eşitlemesi olabilir
         // (PlayerBodyVisual.deathScaleMatch, bölüm 10) — o yalnızca kill
         // animasyonu boyunca geçerli bir görsel numara, kalıcı cesede
@@ -124,6 +134,15 @@ public class Corpse : NetworkBehaviour
         // Kemik ölçeği kopyalandığı için (Instantiate her şeyi taşır) kafa
         // sıfıra küçülmüş kalabilir; düzeltiyoruz.
         ResetHeadBone(animator);
+
+        // `SetActive(true)` yalnızca OBJENİN kendisini açıyor — kaynak o an
+        // gizliyken `PlayerBodyVisual.ApplyMode` her `Renderer`'ı AYRICA
+        // `enabled = false` yapmıştı (bölüm 14: gölge düşsün diye SetActive
+        // değil renderer.enabled kullanılıyor). Instantiate bu durumu da
+        // birebir kopyalıyor, yani objeyi açmak tek başına yetmiyor.
+        Renderer[] renderers = clone.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+            renderers[i].enabled = true;
     }
 
     /// <summary>
