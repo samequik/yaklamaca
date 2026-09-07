@@ -58,7 +58,8 @@ public class RevivalScreen : MonoBehaviour
         bool visible = station != null && GameHud.Visible;
         GameHud.SetVisible(group, visible);
         if (!visible) return;
-        title.text = "DİRİLTME • " + (station.Body != null ? station.Body.VictimName : "Kaçan");
+        title.text = "DİRİLTME • " + (station.Body != null ? station.Body.VictimName : "Kaçan")
+            + "   (kalan hak: " + station.ChargesLeft + ")";
         status.text = station.Locked ? "İŞLEM SIFIRLANDI — KİLİDİ AÇ" : $"İyileştirme: {station.Remaining:0.0} saniye kaldı";
         if (station.Locked)
         {

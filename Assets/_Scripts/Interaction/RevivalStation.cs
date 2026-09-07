@@ -11,6 +11,14 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     [SerializeField] private AudioClip warningClip;
     [SerializeField] private float duration = 15f;
     [SerializeField] private float useDistance = 2.8f;
+
+    [Tooltip("Bu kabinin bir TURDA kaç diriltme yapabileceği. Sınırsız " +
+        "diriltme turu bitmez hâle getiriyordu (bölüm 11.1: tur ancak sahada " +
+        "kaçan kalmayınca bitiyor). Hak her tur başında yenileniyor. " +
+        "İki kabin var, yani tur başına toplam hak bunun iki katı.")]
+    [SerializeField] private int charges = 1;
+
+    [SyncVar] private int chargesUsed;
     [SyncVar] private uint corpseId;
     [SyncVar] private uint operatorId;
     [SyncVar] private float elapsed;
@@ -38,6 +46,12 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     public int UnlockCode => unlockCode;
     public int UnlockEntered => unlockEntered;
     public bool IsLocalOperator => NetworkClient.localPlayer != null && operatorId == NetworkClient.localPlayer.netId;
+
+    /// <summary>Bu turda bu kabinde diriltme hakkı kaldı mı.</summary>
+    public bool HasCharge => chargesUsed < charges;
+
+    /// <summary>Kalan hak — ekran ve nişan yazısı gösteriyor.</summary>
+    public int ChargesLeft => Mathf.Max(0, charges - chargesUsed);
     public Corpse Body => FindCorpse(corpseId);
 
     private void Awake()
@@ -113,6 +127,11 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     {
         var local = NetworkClient.localPlayer != null ? NetworkClient.localPlayer.GetComponent<RoundParticipant>() : null;
         if (!Corpse.LivingRunner(local)) return null;
+
+        // Hak bitmişse hiçbir şey yapılamıyor; ceset boşuna taşınmasın diye
+        // bunu ilk satırda söylüyoruz.
+        if (!HasCharge) return "Bu kabinin diriltme hakkı bu turda bitti";
+
         if (operatorId != 0) return "Diriltme terminali kullanımda";
 
         bool carrying = Corpse.CarriedBy(local) != null;
@@ -139,7 +158,7 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     private void CmdUse(NetworkConnectionToClient sender = null)
     {
         var player = Validate(sender);
-        if (player == null || operatorId != 0) return;
+        if (player == null || operatorId != 0 || !HasCharge) return;
         if (player.GetComponent<PlayerController>()?.IsFocused == true) return;
         Corpse carried = Corpse.CarriedBy(player);
         if (corpseId == 0)
@@ -183,6 +202,10 @@ public class RevivalStation : NetworkBehaviour, IInteractable
         if (RoundManager.Instance == null || RoundManager.Instance.Phase != RoundPhase.Playing)
         {
             if (corpseId != 0 || operatorId != 0 || locked) ResetStation();
+            // Hak TUR BAŞINA yenileniyor, kabin sıfırlandıkça değil: sıfırlama
+            // başarılı bir diriltmeden sonra da çalışıyor, orada yenilemek
+            // sınırı tamamen anlamsız kılardı.
+            if (chargesUsed != 0) chargesUsed = 0;
             return;
         }
         if (corpseId != 0)
@@ -208,7 +231,10 @@ public class RevivalStation : NetworkBehaviour, IInteractable
         if (elapsed < duration || checksPassed < 3) return;
         // Sayaç güncellemesi ve cesedin tüketilmesi tek sunucu işlemi.
         if (RoundManager.Instance.ServerRevive(Body, revivePoint != null ? revivePoint : BodyAnchor))
+        {
+            chargesUsed++;
             ResetStation();
+        }
     }
     [Server] private void Fail()
     {

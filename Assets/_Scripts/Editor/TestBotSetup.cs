@@ -22,19 +22,36 @@ using UnityEngine.SceneManagement;
 public static class TestBotSetup
 {
     private const string BotName = "TestBot";
+    private const string DeadBotName = "TestBotOlu";
     private const float AreaHalfSize = 24f;
 
     [MenuItem("Yakalamaca/Test Botu Ekle (kaçan)", true)]
     private static bool CanBuild() => !EditorApplication.isPlayingOrWillChangePlaymode;
 
     [MenuItem("Yakalamaca/Test Botu Ekle (kaçan)")]
-    private static void Build()
+    private static void Build() => Build(BotName, false);
+
+    /// <summary>
+    /// Tur başlar başlamaz elenen ikinci bot: taşıma ve diriltmeyi denemek için
+    /// hazır bir ceset. Önce birini öldürmek gerekmiyor.
+    ///
+    /// Ayrı bir bot, çünkü canlı botun da sahada kalması gerekiyor: tur
+    /// `minimumPlayers` = 2 ile başlıyor ve sahada oynayan kaçan kalmayınca
+    /// bitiyor (bölüm 11.1). Tek bot ölü doğsaydı tur anında kapanırdı.
+    /// </summary>
+    [MenuItem("Yakalamaca/Test Botu Ekle (ölü — ceset testi)", true)]
+    private static bool CanBuildDead() => !EditorApplication.isPlayingOrWillChangePlaymode;
+
+    [MenuItem("Yakalamaca/Test Botu Ekle (ölü — ceset testi)")]
+    private static void BuildDead() => Build(DeadBotName, true);
+
+    private static void Build(string botName, bool startEliminated)
     {
-        GameObject existing = GameObject.Find(BotName);
+        GameObject existing = GameObject.Find(botName);
         if (existing != null)
             Undo.DestroyObjectImmediate(existing);
 
-        GameObject bot = new GameObject(BotName);
+        GameObject bot = new GameObject(botName);
         Undo.RegisterCreatedObjectUndo(bot, "Test Botu");
 
         // Ölçüler oyuncunun hull'uyla aynı: bıçağın isabet kontrolü ve izleyici
@@ -86,6 +103,8 @@ public static class TestBotSetup
 
         SerializedObject serialized = new SerializedObject(participant);
         serialized.FindProperty("isBot").boolValue = true;
+        serialized.FindProperty("startEliminated").boolValue = startEliminated;
+        serialized.FindProperty("botName").stringValue = startEliminated ? "Ölü Test Botu" : "Test Botu";
         serialized.FindProperty("bodyRenderer").objectReferenceValue = body.GetComponent<Renderer>();
 
         // İşaret ışığı elenince sönmeli. Sönmezse gövde gizlendikten sonra
@@ -139,21 +158,33 @@ public static class TestBotSetup
 
     [MenuItem("Yakalamaca/Test Botu Kaldır", true)]
     private static bool CanRemove()
-        => !EditorApplication.isPlayingOrWillChangePlaymode && GameObject.Find(BotName) != null;
+        => !EditorApplication.isPlayingOrWillChangePlaymode
+            && (GameObject.Find(BotName) != null || GameObject.Find(DeadBotName) != null);
 
+    /// <summary>İkisini birden kaldırıyor: canlı bot ve ölü ceset botu.</summary>
     [MenuItem("Yakalamaca/Test Botu Kaldır")]
     private static void Remove()
     {
-        GameObject existing = GameObject.Find(BotName);
-        if (existing == null)
-            return;
+        int removed = 0;
 
-        Undo.DestroyObjectImmediate(existing);
+        foreach (string name in new[] { BotName, DeadBotName })
+        {
+            GameObject existing = GameObject.Find(name);
+
+            if (existing == null)
+                continue;
+
+            Undo.DestroyObjectImmediate(existing);
+            removed++;
+        }
+
+        if (removed == 0)
+            return;
 
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         EditorSceneManager.SaveOpenScenes();
 
-        Debug.Log("Test botu kaldırıldı ve sahne kaydedildi.");
+        Debug.Log($"{removed} test botu kaldırıldı ve sahne kaydedildi.");
     }
 
     /// <summary>

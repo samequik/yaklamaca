@@ -985,6 +985,8 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Işığı Pişir (lightmap) | Lightmap UV'si üretir, ışıkları Baked yapar, probe kurar, pişirir |
 | Ceset Sistemini Kur | Ceset prefabı (ragdoll) + NetworkManager ve RoundManager bağlantısı (bkz. bölüm 21) |
 | Test Botu Ekle/Kaldır | Tek başına test için sahte kaçan — kaçan modeli ve animasyonlarıyla |
+| Test Botu Ekle (ölü) | Tur başında elenen ikinci bot: taşıma/diriltme testi için hazır ceset (bkz. bölüm 23) |
+| Diriltme Sistemini Kur | Ceset gövde prefabı + haritanın iki ucuna diriltme kabini (bkz. bölüm 23) |
 | Hataları Temizle (Sahne Onarımı) | Eksik NetworkIdentity ekler, ağ öncesi artıkları söker |
 
 > ### Editörde çalışan her API build'de yok
@@ -3724,10 +3726,43 @@ YOK — bilinen eksik.
 |---|---|
 | 1. `requiredTerminals` geri artacak mı | **Cevaplandı:** artmıyor. Ayrıca indirim kurban başına BİR KEZ uygulanıyor (`terminalDiscountedVictims`), yani ölüp dirilip tekrar ölmek sayıyı ikinci kez düşürmüyor |
 | 5. Kabinler haritaya nasıl konacak | **Cevaplandı:** `RevivalSetup` zemin ızgarasında boş hücre arayıp birbirine EN UZAK ikisini seçiyor (en az 25 m). Haritaya dokunmuyor, yalnızca yeni kök ekliyor |
-| 2. Bilgi sızıntısı | **AÇIK.** Ölü oyuncu hâlâ serbestçe izliyor ve dirilince gördüklerini yanında getiriyor (bölüm 5'in gerekçesi hâlâ geçerli) |
+| 2. Bilgi sızıntısı | **Cevaplandı (2026-09-08).** İzleyici zaten YALNIZCA hayattaki kaçanları izleyebiliyor, canavarı asla (`SpectatorController.RefreshTargets` — bölüm 5'ten beri böyle). Kullanıcı bunu yeterli buldu, ek kısıt getirilmedi |
 | 3. Canavarın karşı hamlesi | **AÇIK.** Canavar kabini kilitleyemiyor, cesedi taşıyamıyor, diriltmeyi kesintiye uğratamıyor. Diriltme şu an tek taraflı bir kazanç |
 | 4. Taşımanın bedeli | **KISMEN.** Taşırken yavaşlama yok; ama terminal kullanılamıyor ve odaklanınca ceset düşüyor |
-| 6. Kaç kez dirilebilir | **AÇIK.** Sınır yok |
+| 6. Kaç kez dirilebilir | **Cevaplandı (2026-09-08).** Kabin başına hak: `RevivalStation.charges`, varsayılan **1**, her tur başında yenileniyor. İki kabin olduğu için tur başına toplam 2 diriltme. Sayı oynanarak ayarlanacak |
+
+### Diriltme hakkı (2026-09-08)
+
+Sınırsız diriltme turu bitmez hâle getiriyordu: bölüm 11.1'e göre tur ancak
+sahada oynayan kaçan kalmayınca bitiyor, dolu kadroda her ölen geri
+gelebiliyorsa o an hiç gelmiyor.
+
+`RevivalStation.charges` (varsayılan **1**) kabinin bir TURDA kaç diriltme
+yapabileceğini söylüyor. Hak **tur başında yenileniyor**, kabin her
+sıfırlandığında değil — sıfırlama başarılı bir diriltmeden sonra da çalışıyor,
+orada yenilemek sınırı tamamen anlamsız kılardı.
+
+Hakkı biten kabin ceset kabul etmiyor ve nişan yazısı bunu ilk satırda
+söylüyor ("Bu kabinin diriltme hakkı bu turda bitti") — ceset boşuna
+taşınmasın diye. Kalan hak terminal ekranının başlığında da yazıyor.
+
+### Ölü test botu (2026-09-08)
+
+Taşıma ve diriltmeyi denemek için önce birini öldürmek gerekiyordu.
+`Yakalamaca > Test Botu Ekle (ölü — ceset testi)` ikinci bir bot koyuyor;
+`RoundParticipant.startEliminated` işaretli olduğu için tur başlar başlamaz
+eleniyor ve ~3 saniye sonra doğum halkasında hazır bir ceset bırakıyor.
+
+Eleme **normal yoldan** (`RoundManager.ReportCaught`) yapılıyor: ölüm
+animasyonu, ceset doğumu ve sayaçlar gerçek turdaki gibi işliyor, yani test
+edilen şey gerçekten oyunun kendisi oluyor.
+
+**Neden ayrı bir bot:** tur `minimumPlayers` = 2 ile başlıyor ve sahada kaçan
+kalmayınca bitiyor. Tek bot ölü doğsaydı tur anında kapanırdı; canlı botun
+sahada kalması gerekiyor.
+
+**Taşımak için KAÇAN olmak şart** (`Corpse.LivingRunner`), yani test ederken
+[2] ile kaçan olarak başla. [1] ile canavar olursan cesedi alamazsın.
 
 ### Bu oturumda düzeltilen iki kusur
 

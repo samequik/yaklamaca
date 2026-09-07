@@ -40,6 +40,13 @@ public class RoundParticipant : NetworkBehaviour
     [Tooltip("Botun arayüzde görünecek adı. Gerçek oyuncular adını kendi istemcisinden bildiriyor.")]
     [SerializeField] private string botName = "Test Botu";
 
+    [Tooltip("TEST: tur başlar başlamaz elenir. Amaç, taşıma ve diriltmeyi " +
+        "denemek için hazır bir ceset bulundurmak — önce birini öldürmeye " +
+        "gerek kalmıyor. Eleme NORMAL yoldan yapılıyor (RoundManager." +
+        "ReportCaught), yani ölüm animasyonu, ceset ve sayaçlar gerçek turdaki " +
+        "gibi işliyor. Yalnızca test botunda açılmalı.")]
+    [SerializeField] private bool startEliminated;
+
     [SyncVar(hook = nameof(OnRoleChanged))]
     private RoundRole role = RoundRole.None;
 
@@ -97,6 +104,9 @@ public class RoundParticipant : NetworkBehaviour
 
     /// <summary>Test botu mu — rol dağıtımı buna bakıyor.</summary>
     public bool IsBot => isBot;
+
+    /// <summary>TEST: tur başlar başlamaz elensin mi (hazır ceset için).</summary>
+    public bool StartEliminated => startEliminated;
 
     /// <summary>Kaçıp kurtuldu mu.</summary>
     public bool IsEscaped => escaped;

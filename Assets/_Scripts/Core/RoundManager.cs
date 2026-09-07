@@ -554,6 +554,32 @@ public class RoundManager : NetworkBehaviour
 
         Debug.Log($"Tur başladı. {aliveRunnerCount} kaçan, {requiredTerminals} terminal gerekiyor. " +
             "Süre sınırı yok: tur herkes ölene ya da kaçana kadar sürüyor.");
+
+        ServerEliminateTestCorpses();
+    }
+
+    /// <summary>
+    /// TEST: `startEliminated` işaretli katılımcıları tur başlar başlamaz eler.
+    ///
+    /// Taşıma ve diriltmeyi denemek için hazır bir ceset bulundurmaya yarıyor —
+    /// önce birini öldürmek gerekmiyor. Eleme NORMAL yoldan (`ReportCaught`)
+    /// yapılıyor, yani ölüm animasyonu, ceset doğumu ve sayaçlar gerçek turdaki
+    /// gibi işliyor; test ettiğin şey gerçekten oyunun kendisi oluyor.
+    ///
+    /// **Fazdan SONRA çağrılıyor:** `ReportCaught` yalnızca `Playing`
+    /// fazında iş yapıyor, `phase` ise hemen yukarıda yazılıyor.
+    /// </summary>
+    [Server]
+    private void ServerEliminateTestCorpses()
+    {
+        for (int i = participants.Count - 1; i >= 0; i--)
+        {
+            RoundParticipant participant = participants[i];
+
+            if (participant != null && participant.StartEliminated
+                && participant.Role == RoundRole.Runner)
+                ReportCaught(participant);
+        }
     }
 
     // ---------- Ceset ----------
