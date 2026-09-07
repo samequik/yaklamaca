@@ -35,6 +35,9 @@ public class Corpse : NetworkBehaviour, IInteractable
     private Renderer[] renderers;
     private Vector3[] heldOffsets;
     private Quaternion[] heldRotations;
+
+    /// <summary>Kalçanın taşıyıcıya göre duruşu — alındığı andaki hâli korunuyor.</summary>
+    private Quaternion carriedHipsRotation = Quaternion.identity;
     private int playerMask;
     public uint VictimNetId => victimNetId;
     public uint StationNetId => stationNetId;
@@ -122,17 +125,36 @@ public class Corpse : NetworkBehaviour, IInteractable
         }
     }
     private void OnHolderChanged(uint before, uint after) => ApplyAuthority();
+    /// <summary>
+    /// Fiziği kimin yürüteceğini ve neyin serbest kalacağını yazar.
+    ///
+    /// **Taşırken gövde DONMUYOR.** Eskiden bütün parçalar kinematik yapılıyor
+    /// ve poz kare kare zorla yazılıyordu; ceset elde tahta gibi duruyordu.
+    /// Artık yalnızca KALÇA sabitleniyor (taşıyıcının elindeki nokta), geri
+    /// kalan her şey eklemlerden sarkıyor: kollar, bacaklar ve baş yürüdükçe
+    /// sallanıyor. Klasik ragdoll taşıma kurulumu — sabit bir kök, serbest
+    /// zincir.
+    ///
+    /// Kabinde ise her şey kinematik: gövde yerleştirildiği pozda durmalı,
+    /// yoksa yavaşça kabinden dışarı akardı.
+    /// </summary>
     private void ApplyAuthority()
     {
         if (ragdoll == null) return;
-        foreach (var part in ragdoll)
+        bool carried = carrierNetId != 0;
+        for (int i = 0; i < ragdoll.Count; i++)
         {
-            bool simulate = isServer && !IsHeld;
+            var part = ragdoll[i];
+            // Kalça (i == 0) taşınırken sabit; kabinde her şey sabit.
+            bool pinned = stationNetId != 0 || (carried && i == 0);
+            bool simulate = isServer && !pinned;
             if (part.Body.isKinematic != !simulate)
             {
                 part.Body.isKinematic = !simulate;
                 if (simulate) { part.Body.velocity = Vector3.zero; part.Body.angularVelocity = Vector3.zero; part.Body.WakeUp(); }
             }
+            // Taşınırken collider'lar kapalı: açık kalsaydı sarkan uzuvlar
+            // taşıyanı itip zemine takılırdı.
             part.Collider.enabled = !IsHeld;
         }
         sync.Continuous = IsHeld;
@@ -150,7 +172,11 @@ public class Corpse : NetworkBehaviour, IInteractable
             RoundParticipant carrier = Resolve(carrierNetId);
             if (!LivingRunner(carrier) || carrier.GetComponent<PlayerController>()?.IsFocused == true)
             { ServerDrop(); return; }
-            MoveHeld(carrier.transform.TransformPoint(CarryOffset), carrier.transform.rotation);
+            // Yalnızca KALÇA sürülüyor; gerisi eklemlerden sarkıp sallanıyor.
+            Vector3 anchor = carrier.transform.TransformPoint(CarryOffset);
+            Rigidbody hips = ragdoll[0].Body;
+            hips.position = anchor;
+            hips.rotation = carrier.transform.rotation * carriedHipsRotation;
             return;
         }
         if (stationNetId != 0) return;
@@ -169,6 +195,10 @@ public class Corpse : NetworkBehaviour, IInteractable
             heldOffsets[i] = inverse * (ragdoll[i].Bone.position - anchor);
             heldRotations[i] = inverse * ragdoll[i].Bone.rotation;
         }
+
+        // Taşırken yalnızca kalça sürülüyor (bkz. FixedUpdate); duruşunu
+        // alındığı andan koruyor ki gövde birden ters dönmesin.
+        carriedHipsRotation = heldRotations[0];
     }
     private void MoveHeld(Vector3 anchor, Quaternion orientation)
     {

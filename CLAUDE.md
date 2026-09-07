@@ -3787,6 +3787,39 @@ Dört şikâyet, dördü de düzeltildi:
   dizilimi hücrelerde gösteriliyor ve sıradaki hücre dolu renkte — göz
   sıradakini aramak zorunda kalmıyor (bölüm 18'deki desen).
 
+### Kabin gövdesi tıklanamıyordu (2026-09-08)
+
+Şikâyet: "cesedi kabine koyunca kabin saymıyor, hâlâ ceset istiyor."
+
+Sebep: `RevivalStation` kabinin küçük TERMİNAL kutusunda duruyor; taban,
+tavan, arka panel ve yan paneller onun **kardeşleri**. `PlayerInteractor`
+hedefi `GetComponentInParent<IInteractable>()` ile buluyor, yani kabinin
+gövdesine bakınca yukarı arayınca terminale hiç ulaşamıyordu — gövde ışını
+kesiyor ama kullanılabilir bir şey çıkmıyordu.
+
+Oynanışta şöyle görünüyordu: ceset taşırken kabine bakıp E'ye basıyorsun,
+yerleştirme yerine ceset **bırakılıyor**. Bırakma artık bakılan yöne
+yapıldığı için gövde tam kabinin içine düşüyor ve yerleşmiş gibi duruyor;
+kabin ise "bir ceset getir" demeye devam ediyor. Yani bırakma iyileştirmesi
+var olan bir boşluğu görünür hâle getirdi.
+
+`RevivalStationRelay` kabin köküne biniyor ve gövdenin herhangi bir parçasına
+bakmayı terminale yönlendiriyor. `RevivalStation.Awake` içinde çalışma anında
+kuruluyor, sahneyi yeniden kurmak gerekmiyor. Aynı desen `ExitTriggerRelay`'de
+de var (bölüm 18): collider bir objede, mantık başka objede olduğunda araya
+aktarıcı konuyor.
+
+### Taşınan ceset artık sarkıyor
+
+Eskiden taşırken bütün parçalar kinematik yapılıp poz kare kare zorla
+yazılıyordu: ceset elde tahta gibi duruyordu. Artık yalnızca **kalça**
+sabitleniyor (elindeki nokta), geri kalan her şey eklemlerden sarkıyor —
+kollar, bacaklar ve baş yürüdükçe sallanıyor.
+
+Collider'lar taşırken kapalı kalıyor: açık olsalardı sarkan uzuvlar taşıyanı
+itip zemine takılırdı. Kabine yerleştirilince her şey yeniden kinematik
+oluyor, yoksa gövde yavaşça kabinden dışarı akardı.
+
 ### Bu oturumda düzeltilen iki kusur
 
 - **Kabin sıfırlanınca ceset donuyordu.** `ResetStation` yalnızca `corpseId`'yi

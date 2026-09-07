@@ -56,6 +56,17 @@ public class RevivalStation : NetworkBehaviour, IInteractable
 
     private void Awake()
     {
+        // Kabin gövdesine bakınca da terminal bulunsun diye köke aktarıcı
+        // takılıyor — bkz. RevivalStationRelay. Çalışma anında kuruluyor,
+        // sahneyi yeniden kurmak gerekmiyor.
+        Transform cabin = transform.parent;
+        if (cabin != null)
+        {
+            RevivalStationRelay relay = cabin.GetComponent<RevivalStationRelay>()
+                ?? cabin.gameObject.AddComponent<RevivalStationRelay>();
+            relay.Bind(this);
+        }
+
         block = new MaterialPropertyBlock();
         audioSource = gameObject.AddComponent<AudioSource>();
         audioSource.playOnAwake = false; audioSource.loop = true;
