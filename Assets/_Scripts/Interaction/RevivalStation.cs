@@ -10,7 +10,7 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     [SerializeField] private AudioClip workingClip;
     [SerializeField] private AudioClip warningClip;
     [SerializeField] private float duration = 15f;
-    [SerializeField] private float useDistance = 2.8f;
+    [SerializeField] private float useDistance = 4f;
 
     [Tooltip("Bu kabinin bir TURDA kaç diriltme yapabileceği. Sınırsız " +
         "diriltme turu bitmez hâle getiriyordu (bölüm 11.1: tur ancak sahada " +

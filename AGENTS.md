@@ -3799,6 +3799,26 @@ Collider'lar taşırken kapalı kalıyor: açık olsalardı sarkan uzuvlar taş�
 itip zemine takılırdı. Kabine yerleştirilince her şey yeniden kinematik
 oluyor, yoksa gövde yavaşça kabinden dışarı akardı.
 
+### Taşıma ince ayarları (2026-09-08, ikinci geri bildirim)
+
+- **Koşarken ceset titriyordu.** Kalça kinematik ve konumu her fizik adımında
+  DOĞRUDAN yazılıyordu; bu bir ışınlama sayılıyor, çözücü aradaki hareketi
+  görmüyor ve ona bağlı eklemler her adımda sıfırdan bir sıçrama görüp
+  zangırdıyordu. `MovePosition`/`MoveRotation`'a geçildi: hareket adım boyunca
+  yayılıyor ve çözücü hız bilgisi alıyor.
+- **Elde taşınan ceset cisimlerin içinden geçiyordu.** Collider'lar taşırken
+  kapalıydı; artık AÇIK, yani sarkan uzuvlar duvara ve eşyalara çarpıyor.
+  Taşıyanın kendi kapsülüyle çarpışma ayrıca kapatılıyor
+  (`Corpse.IgnoreCarrier`), yoksa uzuvlar taşıyanı iter ve ikisi birbirine
+  takılırdı.
+- **Taşıma yüksekliği 0.05 → 0.5 m.** Collider'lar açılınca alçak tutmak
+  sarkan bacakları zemine sürtüp gövdeyi çırpındırıyordu.
+- **Taşırken katman `Sus`, yerdeyken `Etkilesim`.** Collider'lar açılınca
+  taşınan ceset kendi nişan ışınını kesmeye başladı ve kabin hedeflenemez
+  oldu. `Etkilesim` ışın maskesinde, `Sus` değil — çarpışma katmandan
+  bağımsız sürdüğü için taşırken `Sus`'a geçmek ikisini birden çözüyor.
+- **Kabin menzili 2.8 → 4 m**: terminal cesedi zor algılıyordu.
+
 ### Bu oturumda düzeltilen iki kusur
 
 - **Kabin sıfırlanınca ceset donuyordu.** `ResetStation` yalnızca `corpseId`'yi

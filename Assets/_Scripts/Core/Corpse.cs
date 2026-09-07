@@ -22,7 +22,11 @@ public class Corpse : NetworkBehaviour, IInteractable
     /// biraz aşağıya ve öne koymak onu ekranın alt yarısına oturtuyor:
     /// taşıdığını görüyorsun ama görüşünü kapatmıyor.
     /// </summary>
-    private static readonly Vector3 CarryOffset = new Vector3(0f, 0.05f, 0.95f);
+    /// Yükseklik (0.5) uzuvların YERE SÜRTMEMESİ için: kalça ayaklardan
+    /// ~1.19 m yukarıda kalıyor, sarkan bacaklar zemine değmiyor. Collider'lar
+    /// taşırken açık olduğundan (bkz. ApplyAuthority) alçak tutmak bacakları
+    /// zemine takıp gövdeyi çırpındırırdı.
+    private static readonly Vector3 CarryOffset = new Vector3(0f, 0.5f, 0.8f);
 
     /// <summary>Bırakırken cesedin taşıyıcının kaç metre önüne konacağı.</summary>
     private const float DropForward = 0.9f;
@@ -38,6 +42,9 @@ public class Corpse : NetworkBehaviour, IInteractable
 
     /// <summary>Kalçanın taşıyıcıya göre duruşu — alındığı andaki hâli korunuyor.</summary>
     private Quaternion carriedHipsRotation = Quaternion.identity;
+
+    /// <summary>Şu an çarpışması kapatılmış taşıyıcı kapsülü — bkz. IgnoreCarrier.</summary>
+    private Collider ignoredCarrier;
     private int playerMask;
     public uint VictimNetId => victimNetId;
     public uint StationNetId => stationNetId;
@@ -153,11 +160,58 @@ public class Corpse : NetworkBehaviour, IInteractable
                 part.Body.isKinematic = !simulate;
                 if (simulate) { part.Body.velocity = Vector3.zero; part.Body.angularVelocity = Vector3.zero; part.Body.WakeUp(); }
             }
-            // Taşınırken collider'lar kapalı: açık kalsaydı sarkan uzuvlar
-            // taşıyanı itip zemine takılırdı.
-            part.Collider.enabled = !IsHeld;
+            // Taşırken collider'lar AÇIK kalıyor: sarkan uzuvlar duvara ve
+            // eşyalara çarpsın, gövde cisimlerin içinden geçmesin. Taşıyanın
+            // kendisiyle çarpışma ayrıca kapatılıyor (IgnoreCarrier), yoksa
+            // uzuvlar taşıyanı iter ve ikisi birbirine takılırdı.
+            //
+            // Kabinde kapalı: orada gövde yerleştirildiği pozda duruyor,
+            // çarpışmasına gerek yok.
+            part.Collider.enabled = stationNetId == 0;
+
+            // **Taşırken katman `Sus`, yerdeyken `Etkilesim`.**
+            // `Etkilesim` nişan ışınının maskesinde (bölüm 16): yerdeki cesede
+            // bakıp E ile alabilmemizi o sağlıyor. Ama taşırken gövde
+            // kameranın 0.8 m önünde duruyor ve collider'ları artık AÇIK —
+            // aynı maskede kalsaydı kendi taşıdığın ceset nişan ışınını keser,
+            // kabini hedefleyemezdin. `Sus` maskede değil, yani ışın içinden
+            // geçiyor; çarpışma ise katmandan bağımsız sürüyor.
+            part.Collider.gameObject.layer = LayerMask.NameToLayer(
+                carrierNetId != 0 ? "Sus" : "Etkilesim");
         }
+        IgnoreCarrier();
         sync.Continuous = IsHeld;
+    }
+
+    /// <summary>
+    /// Taşıyanın çarpışma kapsülüyle cesedin çarpışmasını kapatır, bırakınca
+    /// geri açar. `Physics.IgnoreCollision` collider çifti başına çalışıyor,
+    /// o yüzden hangi çiftleri kapattığımızı hatırlamak zorundayız.
+    /// </summary>
+    private void IgnoreCarrier()
+    {
+        Collider wanted = null;
+
+        if (carrierNetId != 0)
+        {
+            RoundParticipant carrier = Resolve(carrierNetId);
+            if (carrier != null) wanted = carrier.GetComponent<CharacterController>();
+        }
+
+        if (wanted == ignoredCarrier) return;
+
+        SetCarrierIgnored(ignoredCarrier, false);
+        ignoredCarrier = wanted;
+        SetCarrierIgnored(ignoredCarrier, true);
+    }
+
+    private void SetCarrierIgnored(Collider carrier, bool ignore)
+    {
+        if (carrier == null || ragdoll == null) return;
+
+        foreach (var part in ragdoll)
+            if (part.Collider != null && part.Collider.enabled)
+                Physics.IgnoreCollision(part.Collider, carrier, ignore);
     }
     // Taşınan ceset ARTIK GİZLENMİYOR. Eskiden taşıyanın ekranında
     // kapatılıyordu (yüzünü kapatmasın diye) ama o zaman elinde bir şey
@@ -173,10 +227,18 @@ public class Corpse : NetworkBehaviour, IInteractable
             if (!LivingRunner(carrier) || carrier.GetComponent<PlayerController>()?.IsFocused == true)
             { ServerDrop(); return; }
             // Yalnızca KALÇA sürülüyor; gerisi eklemlerden sarkıp sallanıyor.
+            //
+            // **`MovePosition`/`MoveRotation`, doğrudan `position` yazmak
+            // DEĞİL.** Kinematik bir gövdenin konumunu doğrudan yazmak onu
+            // ışınlıyor: çözücü aradaki hareketi görmüyor, dolayısıyla ona
+            // bağlı eklemler her fizik adımında sıfırdan bir sıçrama görüp
+            // titriyordu — koşarken cesedin zangırdamasının sebebi buydu.
+            // `MovePosition` hareketi adım boyunca yayıyor ve çözücüye hız
+            // bilgisi veriyor; uzuvlar sarsılmak yerine akıcı sallanıyor.
             Vector3 anchor = carrier.transform.TransformPoint(CarryOffset);
             Rigidbody hips = ragdoll[0].Body;
-            hips.position = anchor;
-            hips.rotation = carrier.transform.rotation * carriedHipsRotation;
+            hips.MovePosition(anchor);
+            hips.MoveRotation(carrier.transform.rotation * carriedHipsRotation);
             return;
         }
         if (stationNetId != 0) return;

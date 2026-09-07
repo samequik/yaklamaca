@@ -28089,7 +28089,7 @@ MonoBehaviour:
   workingClip: {fileID: 8300000, guid: ffa4aa3af8fee5b4c9b35e8423c2b317, type: 3}
   warningClip: {fileID: 8300000, guid: 92d5fa5d85f475847ab5c9799daf3f80, type: 3}
   duration: 15
-  useDistance: 2.8
+  useDistance: 4
   charges: 1
 --- !u!114 &411895060
 MonoBehaviour:
@@ -83174,7 +83174,7 @@ MonoBehaviour:
   workingClip: {fileID: 8300000, guid: ffa4aa3af8fee5b4c9b35e8423c2b317, type: 3}
   warningClip: {fileID: 8300000, guid: 92d5fa5d85f475847ab5c9799daf3f80, type: 3}
   duration: 15
-  useDistance: 2.8
+  useDistance: 4
   charges: 1
 --- !u!114 &1204268942
 MonoBehaviour:
