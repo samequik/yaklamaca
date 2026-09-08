@@ -30,11 +30,18 @@ canavar modeli, animasyonları ve ışıkları (bölüm 14) · katman düzeni
 ve kilit paneli (bölüm 18) · lightmap + occlusion · **EOS relay'i** ·
 **kısa lobi kodu ve oda listesi** (bölüm 13) · **sesli sohbet, mikrofon
 göstergesi ve TAB paneli** (bölüm 19) · **gerçek UI** (bölüm 20) ·
-**fizik motorlu ceset/ragdoll** (bölüm 21) · git.
+**fizik motorlu ceset/ragdoll** (bölüm 21) ·
+**ceset taşıma ve diriltme** (bölüm 23) · git · **GitHub** (bölüm 24).
 
-**Sıradaki büyük iş belli: diriltme.** Ceset artık haritada duruyor ve
-itilebiliyor; amaç onu oyuna geri sokmak. Akış ve cevaplanmamış tasarım
-soruları **bölüm 21.2**'de yazılı.
+**Diriltme de bitti** (bölüm 23). Ceset haritada duruyor, taşınıyor, kabine
+konuyor; terminalde 15 saniyelik işlem hatasız biterse kaçan orada diriliyor.
+21.2'de açık bırakılan altı tasarım sorusunun beşi cevaplandı; kalan tek soru
+**canavarın karşı hamlesi** — bugün diriltmeyi kesintiye uğratacak hiçbir aracı
+yok.
+
+**Sıradaki büyük iş, oynanarak ölçmek.** Yazılmış ama iki makineyle hiç
+denenmemiş iki sistem var (sesli sohbetin ağ yolu ve ceset senkronunun istemci
+tarafı) ve bütün denge sayıları hâlâ tahmin.
 
 ---
 
@@ -296,6 +303,69 @@ kuralı hep geçerli kalmalı.
 
 ---
 
+### 2026-09-08 oturumunda yapılanlar
+
+Tek hedef: **diriltme** (bölüm 23). GPT-6'nın yarım bıraktığı uygulama
+tamamlandı, sonra dört tur oynanış geri bildirimiyle elden geçirildi. Sonunda
+proje GitHub'a gönderildi (bölüm 24).
+
+#### 1. Diriltme: spesifikasyondan çalışan mekaniğe
+
+Bölüm 21.2'deki akış bitti. 21.2'de karara bağlanmak üzere bırakılan **altı
+tasarım sorusunun beşi cevaplandı** — tablo bölüm 23'te. Kalan tek soru
+canavarın karşı hamlesi ve bilinçli olarak açık bırakıldı: diriltme şu an tek
+taraflı bir kazanç.
+
+#### 2. Diriltme hakkı: sınırsız diriltme turu bitmez yapıyordu
+
+`RevivalStation.charges` (varsayılan **1**, her tur başında yenileniyor). Bölüm
+11.1'e göre tur ancak sahada oynayan kaçan kalmayınca bitiyor; dolu kadroda
+herkes geri gelebiliyorsa o an hiç gelmiyor. İki kabin var, yani tur başına
+iki diriltme.
+
+Hak **tur başında** yenileniyor, kabin her sıfırlandığında değil — sıfırlama
+başarılı bir diriltmeden sonra da çalışıyor ve orada yenilemek sınırı büsbütün
+anlamsız kılardı.
+
+#### 3. Ölü test botu
+
+`Test Botu Ekle (ölü — ceset testi)` tur başlar başlamaz elenen ikinci bir bot
+koyuyor: taşımayı denemek için artık önce birini öldürmek gerekmiyor. Eleme
+**normal yoldan** (`RoundManager.ReportCaught`) yapılıyor, yani ölüm
+animasyonu, ceset doğumu ve sayaçlar gerçek turdaki gibi işliyor — test edilen
+şey gerçekten oyunun kendisi oluyor.
+
+#### 4. Dört tur oynanış geri bildirimi
+
+Hepsinin ayrıntısı bölüm 23'te; özet:
+
+| Tur | Şikâyet | Ne yapıldı |
+|---|---|---|
+| 1 | Ceset kaygan ve hafif · taşırken görünmüyor · ayağın dibine bırakılıyor · kabin ekranı çirkin | Sürtünme materyali + sönümleme, elde taşıma, bakılan yöne bırakma, terminal görsel diline geçiş |
+| 2 | Kabin cesedi saymıyor · taşınan ceset donuyor | `RevivalStationRelay`; yalnızca kalça sabitleniyor, uzuvlar sarkıyor |
+| 3 | Koşarken titriyor · duvardan geçiyor · terminal zor algılıyor | `MovePosition`/`MoveRotation`, collider'lar açık + `IgnoreCarrier`, menzil 2.8 → 4 m |
+| 4 | Kabine bırakmak saymıyor · kalça duvara giriyor, uzuvlar çıldırıyor | `TryAcceptNearbyCorpse`; taşıma noktası küre ışınıyla sınırlı — önü kapalıysa ceset taşıyana yaklaşıyor |
+
+#### Bu oturumun iki dersi
+
+> **1. Bir iyileştirme, var olan bir boşluğu görünür hâle getirebilir.**
+> "Cesedi bakılan yöne bırak" değişikliği gövdeyi tam kabinin içine düşürdü ve
+> kabin onu saymadığı için "bozuldu" gibi göründü. Oysa kabinin GÖVDESİ hiçbir
+> zaman tıklanabilir değildi (`GetComponentInParent` terminale ulaşamıyordu);
+> o güne kadar kimse tam oraya bakıp E'ye basmamıştı.
+>
+> Ders: yeni bir hata gibi görünen şey, eski bir boşluğun yeni yoludur.
+> "Değişiklikten önce çalışıyordu" cümlesi tek başına kanıt değil.
+>
+> **2. Kinematik bir gövdeyi hiçbir şey durdurmaz.** Taşınan cesedin kalçası
+> duvarın içine giriyor, sarkan uzuvlar o derin çakışmayı çözmeye çalışıp
+> savruluyordu — yani "uzuvlar çıldırıyor" bir sebep değil **sonuçtu.** İki tur
+> boyunca uzuvlar ayarlandı ve hiçbiri işe yaramadı; çözüm kalçayı durdurmak
+> oldu. Bölüm 21.1'in dersinin aynısı: fizikte belirtiyi tek başına okumak
+> yanıltıyor.
+
+---
+
 ### Sıradaki adımlar
 
 #### Önce: bekleyen araç çalıştırması
@@ -306,10 +376,14 @@ Yakalamaca > Menü Kur
 
 Skor tablosu satırlarındaki açıklama etiketi (`Not`) sahnede henüz yok. Onsuz
 kendi satırında ve botta boş bir alan kalıyor ve "bozuk" gibi duruyor.
+2026-09-06'dan beri bekliyor.
 
 > Bir sahne değişikliğinin gerçekten uygulanıp uygulanmadığını **sahne
 > dosyasından** doğrulayabilirsin, tahmin etmeden:
 > `grep -c "m_Name: Not$" Assets/_Scenes/SampleScene.unity`
+
+Ceset sisteminin araçları (`Ceset Sistemini Kur`, `Test Botu Ekle`) 2026-09-07'de
+çalıştırıldı ve sahneden doğrulandı; onlar için bekleyen bir şey yok.
 
 #### Sonra: iki doğrulama, ikisi de oynayarak
 
@@ -323,10 +397,24 @@ göndermiyor) · karşı taraf 18 m içinde mi · elenen biri konuşabiliyor mu
 (konuşmamalı) · TAB panelinde karşı tarafın satırında kaydırıcı ve SUSTUR
 çıkıyor mu.
 
-**2. Denge ölçümü.** Bütün sayılar hâlâ tahmin. Özellikle **direksiyon cezası**
+**2. Cesedi iki makinede dene** — sesli sohbetle **aynı sınıftan bir boşluk.**
+Ceset host'ta çalışıyor, ama host'ta `RagdollSync.Update` ilk satırda
+`isServer` görüp çıkıyor: yani **senkron yolunun istemci tarafı bugüne kadar
+bir kez bile çalışmadı.** Ragdoll'un tamamı orada kinematik ve pozu ağdan
+alıyor; sınanmamış varsayım az değil (paketin çözülmesi, kemik indekslerinin
+iki tarafta tutması, yumuşatma).
+
+Bakılacaklar: ceset karşı tarafta da aynı pozda mı · biri iterken öbürü
+hareketi görüyor mu · ceset oturunca iki ekranda aynı yerde mi duruyor.
+
+**3. Denge ölçümü.** Bütün sayılar hâlâ tahmin. Özellikle **direksiyon cezası**
 (bölüm 1) yepyeni ve hiç ölçülmedi: canavar artık hem %5 yavaş başlıyor hem
 köşelerde pay kaybediyor, fazla zayıflamış olabilir. Profiller Play modunda
 değiştirilince kalıcı.
+
+Zıplama da bu oturumda değişti (yerçekimi 900, sprint sıçraması +60 u/s):
+koşarken zıplamak artık gözle görülür bir mesafe kazandırıyor, kaçanın canavara
+karşı yeni bir aracı. Ölçülmedi.
 
 #### Kalan işler
 
@@ -337,7 +425,7 @@ değiştirilince kalıcı.
 | 2 | **Bıçak sesleri** (teknik borç 1) | Hâlâ sentetik yer tutucu, üstelik bıçak kaldırıldı; elle saldırıya göre yeniden seçilmeli |
 | 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
 | 4 | **Kapıdan vuruş** | İki oyuncu da kapıya 0.3 m mesafedeyken ışın kapıya varmadan kesiliyor ve isabet sayılıyor |
-| 5 | **`EosApiKey.asset` client secret** | Depo yerelken sorun yok; **herkese açık bir GitHub deposuna gitmeden önce çıkarılmalı** |
+| 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
@@ -413,7 +501,8 @@ geri getirmiyor.
   geliyor, ama çıkış kapısını/panelini elle ayarladıysan o ayar gider.
 
 **Yedek var.** Proje 2026-08-31'de git deposuna alındı; ilk commit haritanın
-düzenleme öncesi hâli. Kayıt noktaları `git log`, son kayda dönüş
+düzenleme öncesi hâli. 2026-09-08'den beri **GitHub'da gizli bir depoda** da
+duruyor (bölüm 24) — yani disk giderse proje gitmiyor. Kayıt noktaları `git log`, son kayda dönüş
 `git checkout -- .`, belirli bir noktaya dönüş `git reset --hard <commit>`.
 Düzenleme sırasında ara ara `git add -A && git commit -m "..."` yapılmalı.
 
@@ -965,7 +1054,10 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Hareket Profillerini Sıfırla | Kaçan = Source, canavar = araba modeli (bkz. bölüm 1) |
 | Katmanları Kur | Dört katman tanımlar, sahneye ve prefaba atar, maskeleri daraltır (bkz. bölüm 16) |
 | Işığı Pişir (lightmap) | Lightmap UV'si üretir, ışıkları Baked yapar, probe kurar, pişirir |
-| Test Botu Ekle/Kaldır | Tek başına test için sahte kaçan |
+| Ceset Sistemini Kur | Ceset prefabı (ragdoll) + NetworkManager ve RoundManager bağlantısı (bkz. bölüm 21) |
+| Test Botu Ekle/Kaldır | Tek başına test için sahte kaçan — kaçan modeli ve animasyonlarıyla |
+| Test Botu Ekle (ölü) | Tur başında elenen ikinci bot: taşıma/diriltme testi için hazır ceset (bkz. bölüm 23) |
+| Diriltme Sistemini Kur | Ceset gövde prefabı + haritanın iki ucuna diriltme kabini (bkz. bölüm 23) |
 | Hataları Temizle (Sahne Onarımı) | Eksik NetworkIdentity ekler, ağ öncesi artıkları söker |
 
 > ### Editörde çalışan her API build'de yok
@@ -3855,3 +3947,86 @@ Yakalamaca > Diriltme Sistemini Kur
 
 Var olan kabinleri yeniden üretmiyor, haritaya ve terminallere dokunmuyor.
 Sahnede ikiden farklı sayıda kabin bulursa durup uyarıyor.
+
+---
+
+## 24. GitHub: depo, gizli anahtar ve büyük dosyalar (2026-09-08)
+
+Proje 2026-08-31'den beri yerel bir git deposu (bölüm 0'ın "yedek var" kutusu);
+2026-09-08'de GitHub'a taşındı. Burada yazılı olan şey **kararlar** — komutlar
+her yerde bulunur, ama bu depoya özgü üç tuzak var ve üçü de sessiz.
+
+### Depo GİZLİ (private) olmalı — anahtar geçmişte duruyor
+
+`Assets/_ScriptableObjects/EosApiKey.asset` içinde **gerçek bir client secret**
+var (bölüm 13'ün sonundaki uyarı). Dosya EOS kurulduğundan beri takip ediliyor,
+yani anahtar **git geçmişinin içinde**: bugünkü commit'ten silmek onu
+geçmişten silmiyor. `git rm` bir dosyayı gelecekten çıkarır, geçmişten değil.
+
+Sonuç iki maddede:
+
+- **Depo gizli kaldığı sürece sorun yok.** Anahtarı yalnızca depoya erişimi
+  olanlar görebiliyor ve bugün o kişi tek başına sensin.
+- **Herkese açık yapmadan önce anahtar YENİLENMELİ.** Epic portalından yeni bir
+  client oluşturup eskisini silmek gerekiyor. Geçmişi temizlemek
+  (`git filter-repo`) 77 commit ve 824 MB'lık bir depoda hem yavaş hem
+  kırılgan — üstelik anahtar bir kez sızdıysa geçmişi temizlemek onu geri
+  almıyor, yalnızca izini siliyor.
+
+Doğru sıra: **önce anahtarı yenile, sonra herkese açık yap.** Tersi işe
+yaramıyor.
+
+> Bu, teknik borç değil bir **kapı**. `EosApiKey.asset` bugün bilerek takip
+> ediliyor: tek geliştiricili gizli bir depoda dosyanın gitmesi, klonlayınca
+> EOS'un kendiliğinden çalışması demek. Depo herkese açılacaksa hem anahtar
+> yenilenmeli hem dosya `.gitignore`'a girmeli.
+
+### Büyük dosyalar: sınıra girmiyor ama yakın
+
+GitHub tek dosyada **100 MB**'ı reddediyor ve 50 MB üstünde uyarı basıyor.
+Depodaki en büyük üçü:
+
+| Dosya | Boyut |
+|---|---|
+| `EOS_DevAuthTool-win32-x64-1.0.1.zip` | 74 MB |
+| `EOS_DevAuthTool-darwin-x64-1.0.1.zip` | 57 MB |
+| `libEOSSDK-Mac-Shipping.dylib` | 27 MB |
+
+Üçü de sınırın altında, yani **Git LFS gerekmiyor** — LFS kurmak ayrı bir
+bağımlılık ve ayrı bir kota, gereksizken açılmamalı.
+
+İlk ikisi EOS'un geliştirici kimlik aracı (bölüm 13'teki "aynı bilgisayarda
+iki kopyayla EOS test edilemez" kutusu). Kullanılmıyorsa silinip depo 130 MB
+küçültülebilir, ama zip'ler pakete ait olduğu için paket güncellenince geri
+gelirler.
+
+Depo toplamı **824 MB**. GitHub 1 GB üstünde e-posta uyarısı gönderiyor;
+bugün altındayız. İlk push bu yüzden uzun sürüyor (bağlantıya göre 10-40
+dakika) ve **yarıda kesilirse baştan başlıyor** — git bir push'u parçalara
+bölmüyor.
+
+### `Library/` gönderilmiyor, bu doğru
+
+`.gitignore` `Library/`, `Temp/`, `obj/`, `Build/` ve IDE dosyalarını dışarıda
+bırakıyor. Unity `Library`'yi `Assets` + `ProjectSettings`'ten kendisi kuruyor;
+gigabaytlarca import önbelleğini göndermek hem gereksiz hem zararlı (iki
+makinenin önbelleği birbirini tutmuyor).
+
+**Bunun görünen bedeli var:** depoyu başka bir makineye klonlayınca Unity'nin
+ilk açılışı uzun sürüyor, çünkü bütün varlıkları yeniden import ediyor. Bu bir
+hata değil, `Library` yokluğunun doğal sonucu — beklenmezse "proje bozuk" diye
+okunuyor.
+
+### Klonlanan projede ÇALIŞTIRILMASI gereken hiçbir araç yok
+
+Sahne, prefablar, lightmap ve occlusion verisi depoda. Yani başka bir makinede
+bölüm 7'deki "sıfırdan kurulum sırası" **gerekmiyor** — o liste yalnızca her
+şey bozulduğunda geçerli. Klonla, aç, bekle, Play.
+
+### Ne zaman commit'lenir
+
+Bölüm 0 zaten "düzenleme sırasında ara ara commit" diyor. GitHub gelince
+pratik kural netleşti: **her oynanabilir duruma geldiğinde.** Bu oturumdaki
+dört geri bildirim turu dört ayrı commit oldu ve bir şey bozulduğunda hangi
+turun bozduğu tek bakışta görüldü — tek büyük commit olsaydı dördü birbirine
+karışırdı.

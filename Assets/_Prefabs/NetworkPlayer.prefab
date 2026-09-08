@@ -804,6 +804,7 @@ MonoBehaviour:
   bodyVisual: {fileID: 8696086221272132888}
   isBot: 0
   botName: Test Botu
+  startEliminated: 0
   audioSource: {fileID: 794516134023322604}
   deathClip: {fileID: 8300000, guid: b8112f511370c98409d108784e0e442d, type: 3}
   deathVolume: 0.9

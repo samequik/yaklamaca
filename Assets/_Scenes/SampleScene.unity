@@ -28091,6 +28091,7 @@ MonoBehaviour:
   duration: 15
   useDistance: 4
   charges: 1
+  acceptRadius: 1.1
 --- !u!114 &411895060
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -83176,6 +83177,7 @@ MonoBehaviour:
   duration: 15
   useDistance: 4
   charges: 1
+  acceptRadius: 1.1
 --- !u!114 &1204268942
 MonoBehaviour:
   m_ObjectHideFlags: 0
