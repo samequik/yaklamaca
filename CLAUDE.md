@@ -4175,17 +4175,17 @@ Built-in RP'de `OnRenderImage` + `Graphics.Blit` zaten tam ekran efekt
 | | Atmosfer (uzak) | Dehşet (dipte) |
 |---|---|---|
 | Vinyet | 0.38 | 0.80 |
-| Gren | 0.024 | 0.075 |
+| Gren | 0.034 | 0.095 |
 | Renk ayrışması | 0.0016 | 0.0065 |
 | Renk kaybı | 0.10 | 0.50 |
-| Pikselleme | — | **6 piksellik blok** |
+| Pikselleme | — | **3 piksellik blok** |
 
 Dehşet **22 m'de sıfır, 5 m'de tam**. Artışı hızlı (0.9/sn), düşüşü yavaş
 (0.30/sn): canavar gittikten sonra gerilim üstünde biraz kalıyor. Tavanda
 vinyet ~1.15 Hz nabızla atıyor — kalp atışı sesi geldiğinde (kalan iş 1) ikisi
 aynı şeyi söyleyecek.
 
-**Pikselleme dehşetle birlikte geliyor** (`dreadPixelate` = 6). Canavar
+**Pikselleme dehşetle birlikte geliyor** (`dreadPixelate` = 3). Canavar
 uzaktayken görüntü tam çözünürlükte; yaklaştıkça bloklaşıyor. Hep açık
 olsaydı oyunu ucuzlatırdı — böyle bir "gerçeklik bozuluyor" anı oluyor.
 
@@ -4220,10 +4220,19 @@ ilişkisiz olduğu için karanlıkta bir şeyin yerini de ele vermiyor.
 > takas (bölüm 5). Efekti rahat ettirmek için oyunun temel kuralını gevşetmek
 > ters yönde bir bedel.
 >
-> Çözüm greni parlaklığa bağlamak oldu: `_GrainFloor` (0.18) altındaki
-> parlaklıkta gren kademeli olarak sönüyor, simsiyahta hiç yok. Vinyetle
-> kararan köşeler de kendiliğinden temizleniyor, çünkü maske vinyetten SONRA
-> hesaplanıyor.
+> Çözüm greni parlaklığa bağlamak oldu: `_GrainFloor` altındaki parlaklıkta
+> gren kademeli olarak sönüyor, simsiyahta hiç yok. Vinyetle kararan köşeler
+> de kendiliğinden temizleniyor, çünkü maske vinyetten SONRA hesaplanıyor.
+>
+> **Eşik iki turda oturdu.** İlk deneme 0.18'di ve greni büsbütün görünmez
+> yaptı — bu haritada yüzeylerin çoğu 0.05 civarında, yalnızca lamba altları
+> 0.28'e çıkıyor, yani 0.18 pratikte "hiçbir yerde gren yok" demekti.
+> **0.09** yapıldı ve genlik de yükseltildi (0.024 → 0.034): loş koridorda
+> gren görünüyor, simsiyah bölgeler temiz kalıyor.
+>
+> Ders: bir maskenin eşiğini koyarken **sahnedeki gerçek değer aralığına**
+> bak. 0.18 soyut olarak makul bir sayı ama bu haritanın parlaklık dağılımında
+> tavanın hemen altında kalıyor.
 >
 > Bu gerçek kamera gürültüsünün tersi (o karanlıkta artar) ama buradaki ölçüt
 > gerçekçilik değil **göz konforu**.

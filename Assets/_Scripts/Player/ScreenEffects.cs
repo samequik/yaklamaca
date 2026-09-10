@@ -54,26 +54,28 @@ public class ScreenEffects : MonoBehaviour
 
     [Header("Atmosfer — canavar uzaktayken")]
     [SerializeField] private float calmVignette = 0.38f;
-    [SerializeField] private float calmGrain = 0.024f;
+    [SerializeField] private float calmGrain = 0.034f;
     [SerializeField] private float calmAberration = 0.0016f;
     [SerializeField] private float calmDesaturate = 0.10f;
 
     [Header("Dehşet — canavar dibindeyken")]
     [SerializeField] private float dreadVignette = 0.80f;
-    [SerializeField] private float dreadGrain = 0.075f;
+    [SerializeField] private float dreadGrain = 0.095f;
     [SerializeField] private float dreadAberration = 0.0065f;
     [SerializeField] private float dreadDesaturate = 0.50f;
 
     [Tooltip("Dehşet tavanındaki piksel blok boyutu. 0 veya 1 = pikselleme " +
         "kapalı. Dehşetle birlikte artıyor, yani canavar uzaktayken görüntü " +
         "tam çözünürlükte kalıyor.")]
-    [SerializeField] private float dreadPixelate = 6f;
+    [SerializeField] private float dreadPixelate = 3f;
 
     [Tooltip("Grenin TAM güce ulaştığı parlaklık. Altında kademeli olarak " +
         "sönüyor, simsiyahta hiç yok. Sabit genlikli gren karanlık bir " +
         "ekranda statik gibi görünüyordu; asıl sorun genlik değil, karanlık " +
-        "zeminde göreli kontrastın devasa olmasıydı.")]
-    [SerializeField] private float grainFloor = 0.18f;
+        "zeminde göreli kontrastın devasa olmasıydı. 0.18 çok yüksekti ve " +
+        "greni tamamen görünmez yaptı: bu haritada yüzeylerin çoğu 0.05 " +
+        "civarında, yalnızca lamba altları 0.28'e çıkıyor.")]
+    [SerializeField] private float grainFloor = 0.09f;
 
     [Header("Vinyet geometrisi")]
     [Tooltip("Merkeze uzaklık (köşe = 1): kararmanın başladığı yer.")]
