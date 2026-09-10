@@ -421,8 +421,10 @@ karşı yeni bir aracı. Ölçülmedi.
 | 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
 | 4 | **Kapıdan vuruş** | İki oyuncu da kapıya 0.3 m mesafedeyken ışın kapıya varmadan kesiliyor ve isabet sayılıyor |
 | 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
-| 6 | **Menü ve ayarlar arayüzü** | Oyun içi HUD Canvas'a taşındı (bölüm 20) ama **menü ekranlarının görünümü hiç elden geçmedi**: düz düğmeler, hizasız satırlar, kimliksiz bir görünüm. Terminal ve çıkış kilidi panellerinde kurulan görsel dil (bölüm 18: koyu gövde, ince çerçeve, köşe ayraçları, tek renk ailesi) menüye de taşınmalı. **Kullanıcı 2026-09-10'da açıkça istedi** |
+| 6 | **Menü ve ayarlar arayüzü** | Oyun içi HUD Canvas'a taşındı (bölüm 20) ama **menü ekranlarının görünümü hiç elden geçmedi**: düz düğmeler, hizasız satırlar, kimliksiz bir görünüm. Terminal ve çıkış kilidi panellerinde kurulan görsel dil (bölüm 18: koyu gövde, ince çerçeve, köşe ayraçları, tek renk ailesi) menüye de taşınmalı. **Kullanıcı 2026-09-10'da açıkça istedi.** Madde 8 ve 9'la birlikte yapılmalı: üçü de aynı canvas'a dokunuyor |
 | 7 | **Korku ekran efektleri** | Hafif gren, kenar vinyeti, karartma; canavar yaklaştıkça artan bozulma. Kalp atışıyla (madde 1) aynı işi görsel tarafta yapacak. **Built-in RP'de post-processing paketi kurulu değil** ve bölüm 0'ın bağımlılık kuralı var — muhtemel yol tam ekran bir Canvas kaplaması ya da kendi shader'ımız. Efekt **yön bildirmemeli**: nereden geldiğini söylerse madde 1'deki 2B kuralının aynısı delinir |
+| 8 | **Karakter seçimi: kostümler ve ikinci canavar** | Üç yeni kaçan kostümü (**yalnızca görsel** — bölüm 17'nin ölçek kuralı gereği çarpan 1 kalmalı, şişirilmiş bir kaçan isabet etmeyen vuruşlar üretir) ve **özelliği olan ikinci bir canavar**. İkincisi kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1), yani ikinci bir profil doğal yol. Seçim lobide yapılacak, yani `RoundParticipant`'a birer SyncVar ve `PlayerBodyVisual`'a üçüncü bir gövde daha. **Canavarın özelliği madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
+| 9 | **Menü arka planı** | Bugün düz siyah (`Arkaplan`, bölüm 13 — tur oynanmıyorken açılıyor). Arkaya karakterler konacak: canavarlar ve kaçanlar, oyunu ilk açan neyin olduğunu görsün. Madde 6 ve 8'le **birlikte** yapılmalı — menü canvas'ını üç kez yeniden kurmak israf |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
@@ -3814,7 +3816,7 @@ YOK — bilinen eksik.
 | Soru | Durum |
 |---|---|
 | 1. `requiredTerminals` geri artacak mı | **Cevaplandı:** artmıyor. Ayrıca indirim kurban başına BİR KEZ uygulanıyor (`terminalDiscountedVictims`), yani ölüp dirilip tekrar ölmek sayıyı ikinci kez düşürmüyor |
-| 5. Kabinler haritaya nasıl konacak | **Cevaplandı:** `RevivalSetup` zemin ızgarasında boş hücre arayıp birbirine EN UZAK ikisini seçiyor (en az 25 m). Haritaya dokunmuyor, yalnızca yeni kök ekliyor |
+| 5. Kabinler haritaya nasıl konacak | **Cevaplandı.** Araç ilk kurulumda otomatik yerleştirdi; **2026-09-10'da ikisi de ELLE taşındı** ve artık orada kalacak (aşağıdaki kutu) |
 | 2. Bilgi sızıntısı | **Cevaplandı (2026-09-08).** İzleyici zaten YALNIZCA hayattaki kaçanları izleyebiliyor, canavarı asla (`SpectatorController.RefreshTargets` — bölüm 5'ten beri böyle). Kullanıcı bunu yeterli buldu, ek kısıt getirilmedi |
 | 3. Canavarın karşı hamlesi | **AÇIK.** Canavar kabini kilitleyemiyor, cesedi taşıyamıyor, diriltmeyi kesintiye uğratamıyor. Diriltme şu an tek taraflı bir kazanç |
 | 4. Taşımanın bedeli | **Cevaplandı (2026-09-10).** Taşıyan `Corpse.CarrySpeedMultiplier` kadar yavaşlıyor (0.85); ayrıca terminal kullanamıyor ve odaklanınca ceset düşüyor |
@@ -3983,6 +3985,23 @@ oluyor, yoksa gövde yavaşça kabinden dışarı akardı.
   bakınca "Diriltmeyi başlat" yazıyordu ama `CmdUse` reddediyordu; oyuncu E'ye
   basıp hiçbir şey olmadığını görüyordu. Yazı artık "Kabin dolu — taşıdığın
   cesedi önce bırak" diyor.
+
+### Kabinler ELLE yerleştirildi — araç onları geri almıyor (2026-09-10)
+
+Kabinler artık `Diriltme_A` (2.5, 0, -23.2) ve `Diriltme_B` (-23.2, 0, 21.6);
+**aralarında 51.6 m** var (harita 54.4 m). Aracın otomatik yerleşimi 25 m
+garanti ediyordu, elle konan yer ondan belirgin biçimde iyi — iki kabin
+haritanın iki ucunda.
+
+**`Diriltme Sistemini Kur` bunları GERİ TAŞIMIYOR.** Araç sahnede kaç kabin
+olduğuna bakıyor: sıfırsa kuruyor, tam ikiyse hiçbir şey yapmıyor, başka bir
+sayıysa durup uyarıyor. Yani bölüm 0'ın "elle düzenlenen kaybolmasın" kuralı
+burada baştan sağlanmış — `Terminal ve Çıkış Kur`'un 2026-09-03'e kadar
+yaptığı hatanın tersi.
+
+Yine de araç **`Corpse.prefab`'ı her çalıştırmada yeniden üretiyor**
+(`BuildBodyTemplate`). Kabinlere dokunmuyor ama ceset gövdesini kaçan
+modelinden yeniden kuruyor, yani `Kaçan Modelini Kur`'dan sonra çalıştırılmalı.
 
 ### Taşımanın bedeli ve fırlatma (2026-09-10)
 
