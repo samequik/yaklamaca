@@ -101,6 +101,15 @@ public class NetworkPlayerSetup : NetworkBehaviour
         {
             playerCamera.enabled = isLocal;
             playerCamera.nearClipPlane = FirstPersonNearClip;
+
+            // Korku kaplaması yalnızca YEREL kameraya biniyor: uzak
+            // oyuncuların kamerası zaten kapalı, ona takmak bir işe yaramaz
+            // ama her karede boş yere blit maliyeti çıkarırdı.
+            //
+            // Çalışma anında takılıyor, prefaba serileştirilmiyor: aksi hâlde
+            // `Ağ Kurulumu` zincirinin tamamını yeniden çalıştırmak gerekirdi
+            // (bölüm 7'deki kurulum sırası).
+            if (isLocal) ScreenEffects.Attach(playerCamera);
         }
 
         if (audioListener != null)

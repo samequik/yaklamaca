@@ -31,7 +31,8 @@ ve kilit paneli (bölüm 18) · lightmap + occlusion · **EOS relay'i** ·
 **kısa lobi kodu ve oda listesi** (bölüm 13) · **sesli sohbet, mikrofon
 göstergesi ve TAB paneli** (bölüm 19) · **gerçek UI** (bölüm 20) ·
 **fizik motorlu ceset/ragdoll** (bölüm 21) ·
-**ceset taşıma ve diriltme** (bölüm 23) · git · **GitHub** (bölüm 24).
+**ceset taşıma ve diriltme** (bölüm 23) · git · **GitHub** (bölüm 24) ·
+**korku ekran efektleri** (bölüm 25).
 
 **Diriltme de bitti** (bölüm 23). Ceset haritada duruyor, taşınıyor, kabine
 konuyor; terminalde 15 saniyelik işlem hatasız biterse kaçan orada diriliyor.
@@ -422,7 +423,7 @@ karşı yeni bir aracı. Ölçülmedi.
 | 4 | **Kapıdan vuruş** | İki oyuncu da kapıya 0.3 m mesafedeyken ışın kapıya varmadan kesiliyor ve isabet sayılıyor |
 | 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
 | 6 | **Menü ve ayarlar arayüzü** | Oyun içi HUD Canvas'a taşındı (bölüm 20) ama **menü ekranlarının görünümü hiç elden geçmedi**: düz düğmeler, hizasız satırlar, kimliksiz bir görünüm. Terminal ve çıkış kilidi panellerinde kurulan görsel dil (bölüm 18: koyu gövde, ince çerçeve, köşe ayraçları, tek renk ailesi) menüye de taşınmalı. **Kullanıcı 2026-09-10'da açıkça istedi.** Madde 8 ve 9'la birlikte yapılmalı: üçü de aynı canvas'a dokunuyor |
-| 7 | **Korku ekran efektleri** | Hafif gren, kenar vinyeti, karartma; canavar yaklaştıkça artan bozulma. Kalp atışıyla (madde 1) aynı işi görsel tarafta yapacak. **Built-in RP'de post-processing paketi kurulu değil** ve bölüm 0'ın bağımlılık kuralı var — muhtemel yol tam ekran bir Canvas kaplaması ya da kendi shader'ımız. Efekt **yön bildirmemeli**: nereden geldiğini söylerse madde 1'deki 2B kuralının aynısı delinir |
+| 7 | ~~**Korku ekran efektleri**~~ | **YAPILDI** (2026-09-10, bölüm 25). Vinyet, gren, renk ayrışması, renk kaybı; canavar yaklaştıkça artıyor. Paket eklenmedi. Kalan: ayarlar ekranında açma/kapama (madde 6 ile birlikte) |
 | 8 | **Karakter seçimi: kostümler ve ikinci canavar** | Üç yeni kaçan kostümü (**yalnızca görsel** — bölüm 17'nin ölçek kuralı gereği çarpan 1 kalmalı, şişirilmiş bir kaçan isabet etmeyen vuruşlar üretir) ve **özelliği olan ikinci bir canavar**. İkincisi kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1), yani ikinci bir profil doğal yol. Seçim lobide yapılacak, yani `RoundParticipant`'a birer SyncVar ve `PlayerBodyVisual`'a üçüncü bir gövde daha. **Canavarın özelliği madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
 | 9 | **Menü arka planı** | Bugün düz siyah (`Arkaplan`, bölüm 13 — tur oynanmıyorken açılıyor). Arkaya karakterler konacak: canavarlar ve kaçanlar, oyunu ilk açan neyin olduğunu görsün. Madde 6 ve 8'le **birlikte** yapılmalı — menü canvas'ını üç kez yeniden kurmak israf |
 
@@ -4139,3 +4140,129 @@ pratik kural netleşti: **her oynanabilir duruma geldiğinde.** Bu oturumdaki
 dört geri bildirim turu dört ayrı commit oldu ve bir şey bozulduğunda hangi
 turun bozduğu tek bakışta görüldü — tek büyük commit olsaydı dördü birbirine
 karışırdı.
+
+---
+
+## 25. Korku ekran efektleri (2026-09-10)
+
+Oyunun görüntüsü teknik olarak doğruydu ama **düz** duruyordu: karanlık bir
+koridor, üstünde hiçbir şey yok. Bu bölüm o kaplamayı ekliyor — vinyet, gren,
+renk ayrışması, renk kaybı ve isteğe bağlı pikselleme.
+
+| Parça | İşi |
+|---|---|
+| `_Art/Shaders/Resources/EkranEfekti.shader` | Tam ekran efektin kendisi |
+| `Player/ScreenEffects.cs` | Kamerada duruyor, değerleri sürüyor, dehşeti hesaplıyor |
+| `NetworkPlayerSetup.Configure` | Yerel kameraya çalışma anında takıyor |
+
+### Paket YOK — Built-in'in kendi yolu
+
+Post Processing Stack ya da URP'nin Volume sistemi projeye **girmedi**.
+Built-in RP'de `OnRenderImage` + `Graphics.Blit` zaten tam ekran efekt
+çalıştırmak için var ve tek ihtiyacı bizim yazdığımız bir shader. Bölüm 0'ın
+"bağımlılık eklemeden önce iki kez düşün" kuralı korundu.
+
+> Dışarıdan hazır bir efekt paketi almak cazipti (kullanıcı itch.io'dan
+> indirmeyi önerdi) ama çoğu **URP istiyor** — projede URP yok ve geçmek
+> bütün materyalleri, ışıkları ve pişmiş lightmap'i baştan yapmak demek.
+> Otuz satırlık bir shader'a karşılık kabul edilemez bir bedel.
+
+### İki katman: atmosfer ve dehşet
+
+**Atmosfer** hep açık ve sabit; oyunun "ucuz kamera" görünümü bundan geliyor.
+**Dehşet** canavar yaklaştıkça onun üstüne biniyor.
+
+| | Atmosfer (uzak) | Dehşet (dipte) |
+|---|---|---|
+| Vinyet | 0.38 | 0.80 |
+| Gren | 0.028 | 0.085 |
+| Renk ayrışması | 0.0016 | 0.0065 |
+| Renk kaybı | 0.10 | 0.50 |
+| Pikselleme | — | **kapalı** (varsayılan 0) |
+
+Dehşet **22 m'de sıfır, 5 m'de tam**. Artışı hızlı (0.9/sn), düşüşü yavaş
+(0.30/sn): canavar gittikten sonra gerilim üstünde biraz kalıyor. Tavanda
+vinyet ~1.15 Hz nabızla atıyor — kalp atışı sesi geldiğinde (kalan iş 1) ikisi
+aynı şeyi söyleyecek.
+
+**Pikselleme varsayılan KAPALI.** Kullanıcı istedi ve yazıldı, ama abartıldığı
+anda oyunu ucuzlatıyor; `dreadPixelate` 4-8 arası bir değerle denenmeli.
+
+### Hiçbir efekt YÖN BİLDİRMİYOR
+
+Hepsi ekranın merkezine göre simetrik. Bu, bölüm 12'deki kalp atışı kuralının
+görsel karşılığı: canavarın hangi tarafta olduğunu söyleyen bir efekt "geliyor
+ama nereden" gerilimini **radara** çevirir. Sağ kenarı karartmak teknik olarak
+kolay ve tam da bu yüzden yapılmadı.
+
+Renk ayrışması merkezde sıfır, kenara doğru artıyor — nişangahın olduğu yer
+keskin kalmalı, yoksa canavara nişan almak zorlaşır.
+
+### Gren SIFIR ORTALAMALI — karanlık kuralı delinmiyor
+
+Gürültü `(n - 0.5)` olarak ekleniyor, yani ortalama parlaklığı değiştirmiyor.
+Bölüm 5'in ölçütü ("fenersiz görülmemeli") ayakta kalıyor. Gürültü geometriyle
+ilişkisiz olduğu için karanlıkta bir şeyin yerini de ele vermiyor.
+
+Vinyet zaten yalnızca karartıyor; hiçbir efekt ekranı aydınlatmıyor.
+
+### Mesafe ağdan GELMİYOR
+
+Canavarın konumu zaten `NetworkTransform` ile her istemcide var. Ayrı bir
+"yakınlık" mesajı yollamak aynı bilgiyi ikinci kez göndermek olurdu —
+animatörlerin hızı pozisyon farkından çıkarmasıyla (bölüm 14, 17) ve
+`FootstepAudio`'nun aynı şeyi yapmasıyla (bölüm 12) birebir aynı desen.
+
+Bir sonucu var: **bu bir karar değil, yerel bir görüntü.** Değiştirilmiş bir
+istemci zaten aynı mesafeyi hesaplayabilirdi, yani bilgi tavanı yükselmiyor.
+Sunucuya taşımak trafik ekler ve hiçbir şey kazandırmaz.
+
+**Görüş hattı aranmıyor**, bilerek: duvarın arkasındaki canavarın da
+hissedilmesi gerekiyor, mekaniğin tamamı o.
+
+### Kimler görüyor
+
+| Rol | Dehşet |
+|---|---|
+| Hayattaki kaçan | **var** |
+| Canavar | yok — "yakında kaçan var" uyarısı doğrudan hile olurdu |
+| Elenen / kurtulan / izleyici | yok |
+
+Atmosfer herkeste açık: o bir uyarı değil, oyunun görünümü.
+
+### Shader neden `Resources` altında
+
+`Shader.Find` **yalnızca editörde güvenilir**. Build'e girmeyen bir shader'ı
+bulamıyor ve hata ancak build alınınca çıkıyor — bölüm 7'deki "editörde
+çalışan her API build'de yok" tuzağının aynısı. `Resources` klasöründeki her
+şey build'e giriyor, yani `Resources.Load<Shader>` garanti.
+
+Alternatif "Always Included Shaders" listesine eklemekti; o da bir editör
+adımı gerektirirdi ve unutulduğunda aynı sessiz hatayı verirdi.
+
+### Kurulum gerekmiyor
+
+Araç çalıştırmak yok. `NetworkPlayerSetup` bileşeni yerel kameraya çalışma
+anında takıyor — `Terminal.GetOrCreateStateLight` ve `MonsterAura` ile aynı
+gerekçe (bölüm 11.2): prefaba serileştirilmiş bir alan olsaydı `Ağ Kurulumu`
+zincirinin tamamını yeniden çalıştırmak gerekirdi.
+
+**Yalnızca yerel kameraya biniyor.** Uzak oyuncuların kamerası zaten kapalı;
+oraya takmak bir işe yaramaz ama her karede boş yere blit maliyeti çıkarırdı.
+
+### Ayarlamak
+
+Değerler `ScreenEffects` bileşeninde, Play modunda **canlı** çalışıyor. Ama
+bileşen çalışma anında takıldığı için Inspector'da ancak Play sırasında
+görünüyor ve **Play bitince değişiklik kaybolur** — beğenilen sayı koda
+yazılmalı.
+
+`ScreenEffects.Master` (statik, varsayılan 1) hepsini birden kısıyor; ayarlar
+ekranına bir kaydırıcı eklendiğinde bağlanacak yer orası.
+
+### Bilinen sınırlar
+
+- **Ayarlar ekranında açma/kapama yok.** `Master` hazır ama menüye bağlanmadı;
+  kalan iş 6'daki menü elden geçirmesiyle birlikte yapılmalı.
+- **Kare başına bir blit.** Ölçülebilir bir maliyet değil ama zayıf bir GPU'da
+  4K'da fark edilebilir; ayar geldiğinde kapatılabilir olması bu yüzden önemli.
