@@ -4174,9 +4174,9 @@ Built-in RP'de `OnRenderImage` + `Graphics.Blit` zaten tam ekran efekt
 
 | | Atmosfer (uzak) | Dehşet (dipte) |
 |---|---|---|
-| Vinyet | 0.58 | 0.85 |
-| Kontrast | 1.20 | 1.25 |
-| Bloom | 1.1 (eşik 0.22) | aynı |
+| Vinyet | 0.45 | 0.78 |
+| Kontrast | **1.0 (nötr)** | 1.15 |
+| Bloom | 0.5 (eşik 0.22) | aynı |
 | Gren | 0.040 | 0.095 |
 | Renk ayrışması | 0.005 | 0.012 |
 | Renk kaybı | 0.30 | 0.70 |
@@ -4353,9 +4353,27 @@ bant üretiyor. Çok geçişli bir bulanık daha yumuşak olurdu ama ayrı
 RenderTexture'lar ve ek blit'ler demek — bir lamba halesi için gereğinden
 pahalı.
 
-Bloom kontrasttan SONRA, doygunluktan ÖNCE uygulanıyor: kontrast lambaları
-zaten yükseltmiş oluyor, hale onun üstüne biniyor, renk kaybı ikisine birden
-işliyor.
+Bloom kontrasttan SONRA, doygunluktan ÖNCE uygulanıyor: renk kaybı ikisine
+birden işliyor.
+
+> **İkisini birden açmak felaket oldu — üçüncü ve son ayar dersi.** Kontrast
+> 1.20 ve bloom 1.1 aynı anda çalışınca oynanışta "ışık olan yer çok parlak,
+> karanlık olan yer çok karanlık" diye geldi. Sebep basit ama fark etmesi
+> zor: **ikisi de aynı yöne ittiriyor.** Kontrast aydınlığı yukarı karanlığı
+> aşağı çekiyor, bloom da aydınlığın üstüne ışık ekliyor. Tek tek makul olan
+> iki değer birlikte uçlara gidiyor.
+>
+> Çözüm birini kısmak değil, **sakin durumda kontrastı tamamen bırakmak
+> oldu** (1.0 = dokunma). Lambaları parlatma işi artık tek bir kaldıraçta:
+> bloom. Kontrast yalnızca dehşette (1.15) devreye giriyor, yani kovalanırken
+> görüntünün sertleşmesi olarak.
+>
+> Ders: **aynı yöne çalışan iki ayarı birlikte açma.** Ayrı ayrı ayarlanabilir
+> görünüyorlar ama etkileri çarpışıyor ve hangisinin ne yaptığı anlaşılmaz
+> oluyor. Bir işi bir kaldıraç yapmalı.
+
+Ayrıca vinyet de geri çekildi (0.58 → 0.45): kenar karartması kontrastın
+çökerttiği karanlığın üstüne biniyordu.
 
 ### Karanlıkta ÇALIŞAN üç efekt daha (2026-09-11)
 

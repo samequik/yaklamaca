@@ -53,23 +53,24 @@ public class ScreenEffects : MonoBehaviour
     public static float Master = 1f;
 
     [Header("Atmosfer — canavar uzaktayken")]
-    [SerializeField] private float calmVignette = 0.58f;
+    [SerializeField] private float calmVignette = 0.45f;
     [SerializeField] private float calmGrain = 0.040f;
     [SerializeField] private float calmAberration = 0.005f;
     [SerializeField] private float calmDesaturate = 0.30f;
 
-    [Tooltip("1 = dokunma. Üstü aydınlığı parlatıp karanlığı çökertiyor — " +
-        "karanlık bir oyunda en çok işe yarayan ayar, çünkü çarpımsal " +
-        "efektler (vinyet, doygunluk) simsiyah bir ekranda hiçbir şey " +
-        "yapmıyor.")]
-    [SerializeField] private float calmContrast = 1.20f;
+    [Tooltip("1 = DOKUNMA (sakin durumun varsayılanı). Üstü aydınlığı " +
+        "parlatıp karanlığı çökertiyor. Sakinde 1 tutuluyor çünkü bloom'la " +
+        "birlikte kullanınca ikisi aynı yöne ittiriyor: aydınlık patlıyor, " +
+        "karanlık büsbütün çöküyor. Lambaları parlatma işi artık tek bir " +
+        "kaldıraçta — bloom'da.")]
+    [SerializeField] private float calmContrast = 1.0f;
 
     [Header("Dehşet — canavar dibindeyken")]
-    [SerializeField] private float dreadVignette = 0.85f;
+    [SerializeField] private float dreadVignette = 0.78f;
     [SerializeField] private float dreadGrain = 0.095f;
     [SerializeField] private float dreadAberration = 0.012f;
     [SerializeField] private float dreadDesaturate = 0.70f;
-    [SerializeField] private float dreadContrast = 1.25f;
+    [SerializeField] private float dreadContrast = 1.15f;
 
     [Tooltip("Kontrastın döndüğü eksen: bunun ÜSTÜ parlıyor, altı çöküyor. " +
         "Sahnenin gerçek orta parlaklığı olmak zorunda. 0.5 (matematiksel " +
@@ -81,7 +82,7 @@ public class ScreenEffects : MonoBehaviour
     [Tooltip("Taşmanın gücü. 0 = kapalı. Karanlık bir oyunda ışıkları " +
         "'patlatmanın' doğru yolu bu: toplamsal ve eşikli olduğu için " +
         "yalnızca zaten parlak yerleri etkiliyor, karanlığa dokunmuyor.")]
-    [SerializeField] private float bloom = 1.1f;
+    [SerializeField] private float bloom = 0.5f;
 
     [Tooltip("Bu parlaklığın ÜSTÜ taşıyor. Lamba altı ~0.28, fener konisi " +
         "daha yüksek, ambient 0.006 — eşiği ambient'in çok üstünde tutmak " +
