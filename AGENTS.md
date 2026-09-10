@@ -4174,8 +4174,8 @@ Built-in RP'de `OnRenderImage` + `Graphics.Blit` zaten tam ekran efekt
 
 | | Atmosfer (uzak) | Dehşet (dipte) |
 |---|---|---|
-| Vinyet | 0.75 | 0.92 |
-| Kontrast | 1.18 | 1.40 |
+| Vinyet | 0.58 | 0.85 |
+| Kontrast | 1.12 | 1.25 |
 | Gren | 0.040 | 0.095 |
 | Renk ayrışması | 0.005 | 0.012 |
 | Renk kaybı | 0.30 | 0.70 |
@@ -4215,14 +4215,27 @@ kenar karartması da basamaklanır ve efekt bozuk görünürdü.
 > aralığına bak.** Karanlık bir oyunda çarpımsal efektler çok daha agresif
 > olmak zorunda, toplamsal olanlar ise çok daha uysal.
 
-**Kontrast bu yüzden eklendi** (`_Contrast`, atmosferde 1.18). 0.5 ekseninde
-açıldığı için 0.5'in altı daha da kararıyor, üstü parlıyor: fener konisi
-keskinleşiyor, çevresi çöküyor. Karanlık bir oyunda görüntüyü "pahalı"
-gösteren tek ayar bu, çünkü tek etkili olduğu yer zaten AYDINLIK olan yerler.
+**Kontrast bu yüzden eklendi** (`_Contrast`, atmosferde 1.12): ekseninin
+üstü parlıyor, altı çöküyor. Fener konisi keskinleşiyor, çevresi karanlığa
+gömülüyor.
 
-Taban aydınlığı yükseltmiyor — ambient 0.006, yani 0.5'in çok altında ve
-kontrast onu daha da aşağı çekiyor. Bölüm 5'in ölçütü delinmiyor, tersine
-güçleniyor.
+> **Ekseni 0.5 seçmek her şeyi kararttı — ikinci ders, birincisinin ikizi.**
+> "0.5'in üstü parlar" doğru bir cümle ama bu haritada **0.5'in üstünde
+> hiçbir şey yok**: lamba altı 0.28, geri kalan 0.05 civarı. Yani kontrast
+> yalnızca "altı" tarafını çalıştırdı ve sahnenin tamamını çökertti. Oynanınca
+> "feneri kapayınca sıfır görüntü, lambalar fayda etmiyor" diye geldi.
+>
+> `_ContrastPivot` eklendi ve **0.18** yapıldı — sahnenin gerçek orta
+> parlaklığı. Şimdi lamba altı (0.28) ve fener konisi yükseliyor, ambient
+> (0.006) daha da çöküyor. İstenen tam olarak buydu.
+>
+> Ders bölüm 25'in başındakiyle aynı ailedeni: **bir efektin sayısını
+> seçerken sahnenin gerçek değer aralığına bak.** İlk seferinde genlik,
+> ikincisinde eksen — ikisi de "matematiksel olarak makul" ama bu sahnede
+> yanlıştı.
+
+Taban aydınlığı yine yükselmiyor: ambient 0.006, eksenin çok altında ve
+kontrast onu aşağı çekiyor. Bölüm 5'in ölçütü delinmiyor, tersine güçleniyor.
 
 ### Hiçbir efekt YÖN BİLDİRMİYOR
 
@@ -4313,6 +4326,48 @@ zincirinin tamamını yeniden çalıştırmak gerekirdi.
 
 **Yalnızca yerel kameraya biniyor.** Uzak oyuncuların kamerası zaten kapalı;
 oraya takmak bir işe yaramaz ama her karede boş yere blit maliyeti çıkarırdı.
+
+### Karanlıkta ÇALIŞAN üç efekt daha (2026-09-11)
+
+Çarpımsal efektlerin karanlıkta kaybolduğu anlaşılınca yön değişti: parlaklığa
+dokunmayan, **hareket ve yer değiştirme** tabanlı efektler eklendi. Üçü de
+aynı `ScreenEffects.DreadAt` sayısından besleniyor, yani ekran, ışık ve kamera
+hiçbir zaman farklı şey söylemiyor.
+
+**1. Fener titremesi** (`Flashlight.TickFlicker`). Canavar yaklaştıkça fener
+titriyor ve arada sırada sertçe kısılıyor. Listenin en etkilisi bu, çünkü
+fener sahnedeki neredeyse tek ışık kaynağı: onu oynatmak görünürlüğü GERÇEKTEN
+değiştiriyor. Üstelik oynanış — tek ışığın tam ihtiyacın olduğu anda
+güvenilmez oluyor.
+
+- **Perlin gürültüsü, `Random` değil:** rastgele değer stroboskop gibi çırpar;
+  Perlin sürekli olduğu için ışık "bozuluyor" gibi davranıyor. İki frekans üst
+  üste biniyor ki ritim ezberlenmesin.
+- **Karesi alınıyor:** çoğu zaman tam parlaklık, arada sert düşüş. Doğrusal
+  olsaydı sürekli yarı sönük bir fener olurdu.
+- **`isOn` SyncVar'ına DOKUNULMUYOR**, yalnızca `intensity` oynuyor. Durumu
+  yerel bir efekt için kurcalamak onu ağa yazardı.
+- **Herkeste çalışıyor**, `isLocalPlayer` kontrolünden ÖNCE: karşı tarafın
+  feneri de titremeli. `FootstepAudio`'nun uzak oyuncuda kapalı kalıp adım
+  seslerini yok etmesiyle (bölüm 12) aynı tuzak, bu kez baştan kaçınıldı.
+
+**2. Kamera sarsıntısı** (`CameraBob.DreadShake`). Parlaklığa hiç dokunmuyor,
+yani simsiyah ekranda bile hissediliyor. Genlik bilerek küçük (1.8 cm): büyük
+sarsıntı nişan almayı bozar ve canavarı haksız yere güçlendirir — buradaki iş
+nişanı zorlaştırmak değil, huzursuzluk vermek. Üç eksen ayrı Perlin
+tohumundan, yoksa kamera tek bir doğru boyunca gidip gelir ve titreme değil
+sallanma gibi durur.
+
+**3. VHS parazit** (`_Glitch`). Ekranı yatay bantlara bölüp bazılarını yana
+kaydırıyor. Yer değiştirme efekti, yani karanlıkta da görünüyor. Yalnızca
+dehşetin **üst yarısında** ve karesel artıyor: canavar 15 m ötedeyken ekran
+titremesin diye.
+
+> **Yapılmayanlar ve sebepleri.** *Lens kiri* bir doku istiyor; prosedürel
+> üretilen leke iyi görünmüyor ve kötü bir leke, leke olmamasından kötü.
+> *Nefes salınımı* sarsıntının yavaş bir varyantı, üstüne yeni bir şey
+> katmıyor. *Yakalanma çakması* ölüm zincirine bağlanmayı gerektiriyor,
+> ayrı bir iş.
 
 ### "Çalışıyor mu" sorusu: konsola bakılır
 

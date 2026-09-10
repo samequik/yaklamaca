@@ -53,7 +53,7 @@ public class ScreenEffects : MonoBehaviour
     public static float Master = 1f;
 
     [Header("Atmosfer — canavar uzaktayken")]
-    [SerializeField] private float calmVignette = 0.75f;
+    [SerializeField] private float calmVignette = 0.58f;
     [SerializeField] private float calmGrain = 0.040f;
     [SerializeField] private float calmAberration = 0.005f;
     [SerializeField] private float calmDesaturate = 0.30f;
@@ -62,14 +62,20 @@ public class ScreenEffects : MonoBehaviour
         "karanlık bir oyunda en çok işe yarayan ayar, çünkü çarpımsal " +
         "efektler (vinyet, doygunluk) simsiyah bir ekranda hiçbir şey " +
         "yapmıyor.")]
-    [SerializeField] private float calmContrast = 1.18f;
+    [SerializeField] private float calmContrast = 1.12f;
 
     [Header("Dehşet — canavar dibindeyken")]
-    [SerializeField] private float dreadVignette = 0.92f;
+    [SerializeField] private float dreadVignette = 0.85f;
     [SerializeField] private float dreadGrain = 0.095f;
     [SerializeField] private float dreadAberration = 0.012f;
     [SerializeField] private float dreadDesaturate = 0.70f;
-    [SerializeField] private float dreadContrast = 1.40f;
+    [SerializeField] private float dreadContrast = 1.25f;
+
+    [Tooltip("Kontrastın döndüğü eksen: bunun ÜSTÜ parlıyor, altı çöküyor. " +
+        "Sahnenin gerçek orta parlaklığı olmak zorunda. 0.5 (matematiksel " +
+        "orta) bu haritada TAVANIN ÜSTÜNDE kalıyor — lamba altı 0.28, geri " +
+        "kalan 0.05 civarı — yani her şeyi karartıyordu.")]
+    [SerializeField] private float contrastPivot = 0.18f;
 
     [Tooltip("Dehşet tavanındaki piksel blok boyutu. 0 veya 1 = pikselleme " +
         "kapalı. Dehşetle birlikte artıyor, yani canavar uzaktayken görüntü " +
@@ -86,15 +92,16 @@ public class ScreenEffects : MonoBehaviour
 
     [Header("Vinyet geometrisi")]
     [Tooltip("Merkeze uzaklık (köşe = 1): kararmanın başladığı yer.")]
-    [SerializeField] private float vignetteStart = 0.28f;
+    [SerializeField] private float vignetteStart = 0.36f;
     [Tooltip("Tam karardığı yer. 1'in üstü köşeleri tamamen siyah yapmıyor.")]
-    [SerializeField] private float vignetteEnd = 1.0f;
+    [SerializeField] private float vignetteEnd = 1.05f;
 
     [Header("Dehşetin mesafeyle ilişkisi")]
-    [Tooltip("Bu mesafede dehşet TAM (metre).")]
-    [SerializeField] private float dreadNear = 5f;
-    [Tooltip("Bu mesafenin ötesinde dehşet YOK (metre). Sis görüşü ~25 m.")]
-    [SerializeField] private float dreadFar = 22f;
+    /// <summary>Bu mesafede dehşet TAM (metre).</summary>
+    public const float DreadNear = 5f;
+
+    /// <summary>Bu mesafenin ötesinde dehşet YOK (metre). Sis görüşü ~25 m.</summary>
+    public const float DreadFar = 22f;
     [Tooltip("Saniyede artış hızı — yaklaşma çabuk hissedilmeli.")]
     [SerializeField] private float dreadRise = 0.9f;
     [Tooltip("Saniyede düşüş hızı. Artıştan YAVAŞ: canavar gittikten sonra " +
@@ -113,6 +120,10 @@ public class ScreenEffects : MonoBehaviour
     private float forcedDread = -1f;
 #endif
 
+    [Tooltip("Dehşet tavanındaki yatay bant kayması (UV birimi). Parazit " +
+        "yalnızca dehşetin üst yarısında görünüyor.")]
+    [SerializeField] private float glitchStrength = 0.045f;
+
     [Header("Nabız")]
     [SerializeField] private float pulseHz = 1.15f;
     [SerializeField] private float pulseDepth = 0.10f;
@@ -127,6 +138,8 @@ public class ScreenEffects : MonoBehaviour
     private static readonly int PixelateId = Shader.PropertyToID("_Pixelate");
     private static readonly int DesaturateId = Shader.PropertyToID("_Desaturate");
     private static readonly int ContrastId = Shader.PropertyToID("_Contrast");
+    private static readonly int ContrastPivotId = Shader.PropertyToID("_ContrastPivot");
+    private static readonly int GlitchId = Shader.PropertyToID("_Glitch");
 
     private Material material;
     private RoundParticipant owner;
@@ -195,23 +208,29 @@ public class ScreenEffects : MonoBehaviour
     }
 
     /// <summary>
-    /// Canavara olan mesafeden dehşet oranı. Görüş hattı ARANMIYOR: duvarın
-    /// arkasındaki canavarın da hissedilmesi gerekiyor, mekaniğin tamamı o.
+    /// Yerel oyuncunun dehşeti. Hesap `DreadAt`'te duruyor, çünkü fener
+    /// titremesi ve kamera sarsıntısı da aynı sayıyı kullanıyor — üçü
+    /// ayrışırsa ekran, ışık ve kamera farklı şeyler söylerdi.
     /// </summary>
-    private float TargetDread()
+    private float TargetDread() => DreadAt(Owner());
+
+    /// <summary>
+    /// Bir kaçanın o anki dehşeti — fener titremesi ve kamera sarsıntısı da
+    /// buradan besleniyor, böylece üçü aynı sayıyı kullanıyor.
+    ///
+    /// Statik ve herkeste hesaplanabilir: canavarın konumu zaten senkron,
+    /// yani her istemci AYNI sonucu buluyor ve fener titremesi karşı tarafta
+    /// da aynı görünüyor. Ağ trafiği sıfır.
+    /// </summary>
+    public static float DreadAt(RoundParticipant player)
     {
-        if (RoundManager.Instance == null || RoundManager.Instance.Phase != RoundPhase.Playing)
+        if (player == null || RoundManager.Instance == null
+            || RoundManager.Instance.Phase != RoundPhase.Playing
+            || player.Role != RoundRole.Runner || !player.IsAlive
+            || player.IsSpectating || player.IsEscaped)
             return 0f;
 
-        RoundParticipant local = Owner();
-
-        // Canavar dehşet görmüyor: "yakında kaçan var" uyarısı doğrudan hile
-        // olurdu. Elenen ve kurtulan da görmüyor.
-        if (local == null || local.Role != RoundRole.Runner || !local.IsAlive
-            || local.IsSpectating || local.IsEscaped)
-            return 0f;
-
-        Vector3 here = local.transform.position;
+        Vector3 here = player.transform.position;
         float nearest = float.MaxValue;
 
         IReadOnlyList<RoundParticipant> all = RoundParticipant.All;
@@ -226,10 +245,9 @@ public class ScreenEffects : MonoBehaviour
             if (distance < nearest) nearest = distance;
         }
 
-        if (nearest == float.MaxValue)
-            return 0f;
+        if (nearest == float.MaxValue) return 0f;
 
-        return Mathf.Clamp01((dreadFar - nearest) / Mathf.Max(0.01f, dreadFar - dreadNear));
+        return Mathf.Clamp01((DreadFar - nearest) / (DreadFar - DreadNear));
     }
 
     private RoundParticipant Owner()
@@ -266,6 +284,13 @@ public class ScreenEffects : MonoBehaviour
         material.SetFloat(DesaturateId, Mathf.Lerp(calmDesaturate, dreadDesaturate, level) * master);
         // Kontrastta "kapalı" 0 değil 1: master 0'a giderken 1'e dönmeli.
         material.SetFloat(ContrastId, Mathf.Lerp(1f, Mathf.Lerp(calmContrast, dreadContrast, level), master));
+        material.SetFloat(ContrastPivotId, contrastPivot);
+
+        // Parazit yalnızca dehşetin üst yarısında ve karesel artıyor: alt
+        // yarıda hiç yok, tavana yaklaşınca hızla açılıyor. Doğrusal olsaydı
+        // canavar 15 m ötedeyken bile ekran titrerdi.
+        float glitchLevel = Mathf.Clamp01((level - 0.5f) * 2f);
+        material.SetFloat(GlitchId, glitchLevel * glitchLevel * glitchStrength * master);
 
         // 1 ve altı shader'da "kapalı" demek, yani dehşet 0'ken pikselleme yok.
         material.SetFloat(PixelateId, dreadPixelate > 1f ? Mathf.Lerp(1f, dreadPixelate, level) : 0f);

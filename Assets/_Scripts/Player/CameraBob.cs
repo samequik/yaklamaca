@@ -20,6 +20,17 @@ public class CameraBob : MonoBehaviour
 {
     [SerializeField] private Transform cameraTransform;
 
+    [Header("Dehşet sarsıntısı")]
+    [Tooltip("Canavar dibindeyken kameranın sapma genliği, metre. Küçük " +
+        "tut: büyük sarsıntı nişan almayı bozup canavarı haksız yere " +
+        "güçlendirir.")]
+    [SerializeField] private float shakeAmplitude = 0.018f;
+
+    [Tooltip("Sarsıntının hızı. Yüksek değer sinirli, düşük değer ağır.")]
+    [SerializeField] private float shakeFrequency = 9f;
+
+    private RoundParticipant participant;
+
     [Header("Ritim")]
     [Tooltip("Kaç metrede bir tam salınım döngüsü. FootstepAudio'daki değerle aynı olmalı.")]
     [SerializeField] private float strideLength = 2f;
@@ -88,6 +99,45 @@ public class CameraBob : MonoBehaviour
     private void OnJumped()
     {
         springVelocity += jumpKickSpeed;
+    }
+
+    /// <summary>
+    /// Canavar yaklaştıkça kameranın titremesi.
+    ///
+    /// **Sarsıntı karanlıkta ÇALIŞAN nadir efektlerden biri**, çünkü
+    /// parlaklığa hiç dokunmuyor: hareket, simsiyah bir ekranda bile
+    /// hissediliyor. Bölüm 25'teki "çarpımsal efektler karanlıkta görünmez"
+    /// dersinin diğer yüzü.
+    ///
+    /// Genlik bilerek küçük (birkaç milimetre). Büyük sarsıntı nişan almayı
+    /// bozar ve canavarı haksız yere güçlendirir; buradaki iş nişanı
+    /// zorlaştırmak değil, huzursuzluk vermek.
+    ///
+    /// Kaynak `ScreenEffects.DreadAt`: ekran, fener ve kamera aynı sayıyı
+    /// kullanıyor, yani üçü hiçbir zaman farklı şey söylemiyor.
+    /// </summary>
+    private Vector3 DreadShake()
+    {
+        if (shakeAmplitude <= 0f)
+            return Vector3.zero;
+
+        if (participant == null)
+            participant = GetComponentInParent<RoundParticipant>();
+
+        float dread = ScreenEffects.DreadAt(participant);
+        if (dread <= 0.01f)
+            return Vector3.zero;
+
+        // Perlin ve üç ayrı tohum: eksenler birbirinden bağımsız oynuyor,
+        // yoksa kamera tek bir doğru boyunca gidip gelir ve titreme değil
+        // sallanma gibi durur.
+        float time = Time.time * shakeFrequency;
+        float amount = shakeAmplitude * dread * dread;
+
+        return new Vector3(
+            (Mathf.PerlinNoise(time, 0f) - 0.5f) * amount,
+            (Mathf.PerlinNoise(time, 17f) - 0.5f) * amount,
+            (Mathf.PerlinNoise(time, 41f) - 0.5f) * amount * 0.5f);
     }
 
     private void LateUpdate()
@@ -180,9 +230,13 @@ public class CameraBob : MonoBehaviour
         // dokunuyor" varsayımıyla). Eğilirken kamerayı öne alan pay gelince o
         // varsayım bozuldu ve pay her karede siliniyordu — Inspector'dan değeri
         // ne yaparsan yap hiçbir şey değişmiyordu. Artık kontrolcüden okunuyor.
-        local.x = horizontal;
-        local.z = controller != null ? controller.CameraForwardOffset : 0f;
-        local.y += vertical + springOffset;
+        // Dehşet sarsıntısı salınımın ÜSTÜNE biniyor, yerine geçmiyor:
+        // yürüme ritmi sürerken kamera ayrıca titriyor.
+        Vector3 shake = DreadShake();
+
+        local.x = horizontal + shake.x;
+        local.z = (controller != null ? controller.CameraForwardOffset : 0f) + shake.z;
+        local.y += vertical + springOffset + shake.y;
 
         cameraTransform.localPosition = local;
 

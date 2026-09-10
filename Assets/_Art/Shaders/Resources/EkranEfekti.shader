@@ -43,6 +43,8 @@ Shader "Yakalamaca/EkranEfekti"
             float _Pixelate;       // 0/1 = kapalı, >1 = blok kenarı (piksel)
             float _Desaturate;     // renk kaybı (0-1)
             float _Contrast;       // 1 = dokunma, >1 = aydınlık parlar karanlık çöker
+            float _ContrastPivot;  // kontrastın döndüğü eksen — sahnenin ORTA parlaklığı
+            float _Glitch;         // yatay bant kayması (VHS)
 
             float Noise(float2 p)
             {
@@ -68,6 +70,20 @@ Shader "Yakalamaca/EkranEfekti"
                     uv = (floor(uv * blocks) + 0.5) / blocks;
                 }
 
+                // VHS parazit: ekranı yatay bantlara bölüp bazılarını yana
+                // kaydırıyor. Bantlar _GrainSeed'e bağlı, yani her karede
+                // başkaları kayıyor. Bu bir YER DEĞİŞTİRME efekti — parlaklığa
+                // hiç dokunmadığı için karanlık sahnede de görünüyor,
+                // çarpımsal efektlerin aksine.
+                if (_Glitch > 0.0001)
+                {
+                    float band = floor(uv.y * 26.0);
+                    float pick = Noise(float2(band, floor(_GrainSeed) * 0.017));
+                    float active = step(0.80, pick);
+                    float shift = (Noise(float2(band, floor(_GrainSeed) * 0.031)) - 0.5);
+                    uv.x = saturate(uv.x + shift * _Glitch * active);
+                }
+
                 float3 col = float3(0.0, 0.0, 0.0);
 
                 // Renk ayrışması merkezde SIFIR, kenara doğru artıyor —
@@ -91,7 +107,7 @@ Shader "Yakalamaca/EkranEfekti"
                 // Ambient 0.006 olduğu için taban aydınlığı yükselmiyor, yani
                 // bölüm 5'in "fenersiz görülmemeli" ölçütü delinmiyor —
                 // tersine güçleniyor.
-                col = (col - 0.5) * _Contrast + 0.5;
+                col = (col - _ContrastPivot) * _Contrast + _ContrastPivot;
 
                 float grey = dot(col, float3(0.299, 0.587, 0.114));
                 col = lerp(col, float3(grey, grey, grey), saturate(_Desaturate));
