@@ -4174,10 +4174,11 @@ Built-in RP'de `OnRenderImage` + `Graphics.Blit` zaten tam ekran efekt
 
 | | Atmosfer (uzak) | Dehşet (dipte) |
 |---|---|---|
-| Vinyet | 0.38 | 0.80 |
-| Gren | 0.034 | 0.095 |
-| Renk ayrışması | 0.0016 | 0.0065 |
-| Renk kaybı | 0.10 | 0.50 |
+| Vinyet | 0.75 | 0.92 |
+| Kontrast | 1.18 | 1.40 |
+| Gren | 0.040 | 0.095 |
+| Renk ayrışması | 0.005 | 0.012 |
+| Renk kaybı | 0.30 | 0.70 |
 | Pikselleme | — | **3 piksellik blok** |
 
 Dehşet **22 m'de sıfır, 5 m'de tam**. Artışı hızlı (0.9/sn), düşüşü yavaş
@@ -4192,6 +4193,36 @@ olsaydı oyunu ucuzlatırdı — böyle bir "gerçeklik bozuluyor" anı oluyor.
 **Vinyet ve renk ayrışması pikselleşmiyor:** ikisinin geometrisi orijinal
 UV'den okunuyor, yalnızca görüntü örneklemesi bloklara oturuyor. Aksi hâlde
 kenar karartması da basamaklanır ve efekt bozuk görünürdü.
+
+### Karanlık oyun, efekt ayarlarını TERSİNE çeviriyor
+
+> **İlk iki ayar turu boşa gitti ve sebebi öğreticiydi.** Değerler normal
+> parlaklıktaki bir oyuna göre seçilmişti: vinyet 0.38, doygunluk 0.10,
+> ayrışma 0.0016. Oynanınca "hiçbir fark göremedim" geldi ve önce ayar
+> sanıldı, iki tur sayı oynatıldı, hiçbiri işe yaramadı.
+>
+> Asıl sebep şu: **vinyet, doygunluk ve ayrışma ÇARPIMSAL efektler.** Ekranın
+> neredeyse tamamı simsiyah olduğu için (ambient 0.006) siyahı 0.66 ile
+> çarpmak hiçbir şey değiştirmiyor. Normal bir oyunda göze batan bu değerler
+> burada matematiksel olarak görünmez.
+>
+> Aynı sebep ilk şikâyeti de açıklıyor: gren **toplamsal**, yani siyahın
+> üstünde görünebilen tek efekt oydu — bu yüzden "ekranda pixelimsi şeyler"
+> diye tek başına fark edildi ve göz yordu. Maskelenince geriye görünür
+> hiçbir şey kalmadı.
+>
+> Ders: **bir görsel efektin değerini seçerken sahnenin gerçek parlaklık
+> aralığına bak.** Karanlık bir oyunda çarpımsal efektler çok daha agresif
+> olmak zorunda, toplamsal olanlar ise çok daha uysal.
+
+**Kontrast bu yüzden eklendi** (`_Contrast`, atmosferde 1.18). 0.5 ekseninde
+açıldığı için 0.5'in altı daha da kararıyor, üstü parlıyor: fener konisi
+keskinleşiyor, çevresi çöküyor. Karanlık bir oyunda görüntüyü "pahalı"
+gösteren tek ayar bu, çünkü tek etkili olduğu yer zaten AYDINLIK olan yerler.
+
+Taban aydınlığı yükseltmiyor — ambient 0.006, yani 0.5'in çok altında ve
+kontrast onu daha da aşağı çekiyor. Bölüm 5'in ölçütü delinmiyor, tersine
+güçleniyor.
 
 ### Hiçbir efekt YÖN BİLDİRMİYOR
 
@@ -4282,6 +4313,21 @@ zincirinin tamamını yeniden çalıştırmak gerekirdi.
 
 **Yalnızca yerel kameraya biniyor.** Uzak oyuncuların kamerası zaten kapalı;
 oraya takmak bir işe yaramaz ama her karede boş yere blit maliyeti çıkarırdı.
+
+### "Çalışıyor mu" sorusu: konsola bakılır
+
+`ScreenEffects` açılırken konsola bir satır yazıyor:
+
+```
+Ekran efekti AÇIK — kamera 'PlayerCamera', shader 'Yakalamaca/EkranEfekti'.
+```
+
+Bu satır **yoksa** efekt hiç kurulmamış demektir (shader bulunamadı ya da
+bileşen takılmadı) ve ayarlarla uğraşmanın anlamı yok. Satır **varsa** efekt
+çalışıyordur ve sorun değerlerdedir.
+
+Tek satırlık bir log ama "göremiyorum" şikâyetinde ilk sorulacak şeyi
+tahminden çıkarıyor — bu ayrım aranmadığı için bir tur kaybedildi.
 
 ### Tek başına denemek: F9
 

@@ -53,16 +53,23 @@ public class ScreenEffects : MonoBehaviour
     public static float Master = 1f;
 
     [Header("Atmosfer — canavar uzaktayken")]
-    [SerializeField] private float calmVignette = 0.38f;
-    [SerializeField] private float calmGrain = 0.034f;
-    [SerializeField] private float calmAberration = 0.0016f;
-    [SerializeField] private float calmDesaturate = 0.10f;
+    [SerializeField] private float calmVignette = 0.75f;
+    [SerializeField] private float calmGrain = 0.040f;
+    [SerializeField] private float calmAberration = 0.005f;
+    [SerializeField] private float calmDesaturate = 0.30f;
+
+    [Tooltip("1 = dokunma. Üstü aydınlığı parlatıp karanlığı çökertiyor — " +
+        "karanlık bir oyunda en çok işe yarayan ayar, çünkü çarpımsal " +
+        "efektler (vinyet, doygunluk) simsiyah bir ekranda hiçbir şey " +
+        "yapmıyor.")]
+    [SerializeField] private float calmContrast = 1.18f;
 
     [Header("Dehşet — canavar dibindeyken")]
-    [SerializeField] private float dreadVignette = 0.80f;
+    [SerializeField] private float dreadVignette = 0.92f;
     [SerializeField] private float dreadGrain = 0.095f;
-    [SerializeField] private float dreadAberration = 0.0065f;
-    [SerializeField] private float dreadDesaturate = 0.50f;
+    [SerializeField] private float dreadAberration = 0.012f;
+    [SerializeField] private float dreadDesaturate = 0.70f;
+    [SerializeField] private float dreadContrast = 1.40f;
 
     [Tooltip("Dehşet tavanındaki piksel blok boyutu. 0 veya 1 = pikselleme " +
         "kapalı. Dehşetle birlikte artıyor, yani canavar uzaktayken görüntü " +
@@ -75,13 +82,13 @@ public class ScreenEffects : MonoBehaviour
         "zeminde göreli kontrastın devasa olmasıydı. 0.18 çok yüksekti ve " +
         "greni tamamen görünmez yaptı: bu haritada yüzeylerin çoğu 0.05 " +
         "civarında, yalnızca lamba altları 0.28'e çıkıyor.")]
-    [SerializeField] private float grainFloor = 0.09f;
+    [SerializeField] private float grainFloor = 0.05f;
 
     [Header("Vinyet geometrisi")]
     [Tooltip("Merkeze uzaklık (köşe = 1): kararmanın başladığı yer.")]
-    [SerializeField] private float vignetteStart = 0.45f;
+    [SerializeField] private float vignetteStart = 0.28f;
     [Tooltip("Tam karardığı yer. 1'in üstü köşeleri tamamen siyah yapmıyor.")]
-    [SerializeField] private float vignetteEnd = 1.15f;
+    [SerializeField] private float vignetteEnd = 1.0f;
 
     [Header("Dehşetin mesafeyle ilişkisi")]
     [Tooltip("Bu mesafede dehşet TAM (metre).")]
@@ -119,6 +126,7 @@ public class ScreenEffects : MonoBehaviour
     private static readonly int AberrationId = Shader.PropertyToID("_Aberration");
     private static readonly int PixelateId = Shader.PropertyToID("_Pixelate");
     private static readonly int DesaturateId = Shader.PropertyToID("_Desaturate");
+    private static readonly int ContrastId = Shader.PropertyToID("_Contrast");
 
     private Material material;
     private RoundParticipant owner;
@@ -151,6 +159,12 @@ public class ScreenEffects : MonoBehaviour
         }
 
         material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+
+        // Teşhis logu. "Efekti hiç göremiyorum" şikâyeti geldiğinde ilk soru
+        // "çalışıyor mu" oluyor ve tahminle aranması bir tur kaybettirdi.
+        // Bir satır, oyun başında bir kez.
+        Debug.Log($"Ekran efekti AÇIK — kamera '{name}', shader '{shader.name}'. " +
+            "F9 dehşeti zorluyor (kapalı/yarı/tam).", this);
     }
 
     private void OnDisable()
@@ -250,6 +264,8 @@ public class ScreenEffects : MonoBehaviour
         material.SetFloat(GrainSeedId, Random.value * 1000f);
         material.SetFloat(AberrationId, Mathf.Lerp(calmAberration, dreadAberration, level) * master);
         material.SetFloat(DesaturateId, Mathf.Lerp(calmDesaturate, dreadDesaturate, level) * master);
+        // Kontrastta "kapalı" 0 değil 1: master 0'a giderken 1'e dönmeli.
+        material.SetFloat(ContrastId, Mathf.Lerp(1f, Mathf.Lerp(calmContrast, dreadContrast, level), master));
 
         // 1 ve altı shader'da "kapalı" demek, yani dehşet 0'ken pikselleme yok.
         material.SetFloat(PixelateId, dreadPixelate > 1f ? Mathf.Lerp(1f, dreadPixelate, level) : 0f);

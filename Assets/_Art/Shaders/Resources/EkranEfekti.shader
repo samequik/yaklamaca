@@ -42,6 +42,7 @@ Shader "Yakalamaca/EkranEfekti"
             float _Aberration;     // renk ayrışması (UV birimi)
             float _Pixelate;       // 0/1 = kapalı, >1 = blok kenarı (piksel)
             float _Desaturate;     // renk kaybı (0-1)
+            float _Contrast;       // 1 = dokunma, >1 = aydınlık parlar karanlık çöker
 
             float Noise(float2 p)
             {
@@ -83,6 +84,14 @@ Shader "Yakalamaca/EkranEfekti"
                 {
                     col = tex2D(_MainTex, uv).rgb;
                 }
+
+                // **Kontrast, karanlık bir oyunda en çok işe yarayan ayar.**
+                // 0.5 ekseninde açıldığı için 0.5'in ALTI daha da kararıyor,
+                // üstü parlıyor: fener konisi keskinleşiyor, çevresi çöküyor.
+                // Ambient 0.006 olduğu için taban aydınlığı yükselmiyor, yani
+                // bölüm 5'in "fenersiz görülmemeli" ölçütü delinmiyor —
+                // tersine güçleniyor.
+                col = (col - 0.5) * _Contrast + 0.5;
 
                 float grey = dot(col, float3(0.299, 0.587, 0.114));
                 col = lerp(col, float3(grey, grey, grey), saturate(_Desaturate));
