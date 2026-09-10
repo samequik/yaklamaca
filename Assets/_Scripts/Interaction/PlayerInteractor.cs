@@ -22,6 +22,15 @@ public class PlayerInteractor : MonoBehaviour
     private IInteractable currentTarget;
     private string currentPrompt;
 
+    /// <summary>
+    /// Etkileşim tuşunun basılı tutulmaya başladığı an; -1 = basılı değil.
+    ///
+    /// Ceset taşırken E'nin iki işi var: kısa basış BIRAKIR, basılı tutmak
+    /// FIRLATIR. Ayrımı burada yapmak zorundayız çünkü `KeyBindings` yalnızca
+    /// "basıldı" ve "basılı" diyor, "ne kadar süredir basılı" demiyor.
+    /// </summary>
+    private float interactHeldSince = -1f;
+
     /// <summary>Şu an nişan alınan kullanılabilir nesne — UI veya ses için.</summary>
     public IInteractable CurrentTarget => currentTarget;
 
@@ -47,6 +56,7 @@ public class PlayerInteractor : MonoBehaviour
             // Nişan yazısı da susuyor: terminal kendi ekranını çiziyor.
             currentTarget = null;
             currentPrompt = null;
+            interactHeldSince = -1f;
             return;
         }
 
@@ -55,18 +65,62 @@ public class PlayerInteractor : MonoBehaviour
         Corpse carried = Corpse.CarriedBy(GetComponent<RoundParticipant>());
         if (carried != null)
         {
-            bool atStation = currentTarget is RevivalStation;
-            currentPrompt = atStation ? currentPrompt : "Ceset taşınıyor — bırak";
-            if (KeyBindings.Pressed(GameAction.Interact))
-            {
-                if (atStation) currentTarget.Interact(gameObject);
-                else carried.Drop();
-            }
+            TickCarrying(carried);
             return;
         }
 
+        interactHeldSince = -1f;
+
         if (currentTarget != null && KeyBindings.Pressed(GameAction.Interact))
             currentTarget.Interact(gameObject);
+    }
+
+    /// <summary>
+    /// Ceset taşırken etkileşim tuşu: kısa basış BIRAKIR, basılı tutmak
+    /// FIRLATIR.
+    ///
+    /// **Fırlatma eşiği geçilir geçilmez atıyor, tuş bırakılınca değil.**
+    /// Bırakışta atmak "ne kadar tuttuysam o kadar uzağa" gibi bir doldurma
+    /// mekaniği kurardı ve oyuncu her seferinde ne kadar tutacağını kestirmek
+    /// zorunda kalırdı. Sabit güçle ve anında atmak hem öngörülebilir hem de
+    /// elde anında geri bildirim veriyor.
+    ///
+    /// Kabine bakarken de aynı: kısa basış yerleştiriyor, basılı tutmak
+    /// kabinin içine fırlatıyor — ikisi de aynı sonuca varıyor
+    /// (`RevivalStation.TryAcceptNearbyCorpse` içine düşen cesedi kabul
+    /// ediyor).
+    /// </summary>
+    private void TickCarrying(Corpse carried)
+    {
+        bool atStation = currentTarget is RevivalStation;
+        currentPrompt = atStation
+            ? currentPrompt
+            : "Ceset taşınıyor — bırak · basılı tut: fırlat";
+
+        if (KeyBindings.Pressed(GameAction.Interact))
+        {
+            interactHeldSince = Time.time;
+            return; // Basışın kendisi henüz bir karar değil.
+        }
+
+        if (interactHeldSince < 0f)
+            return;
+
+        if (KeyBindings.Held(GameAction.Interact))
+        {
+            if (Time.time - interactHeldSince < Corpse.ThrowHoldTime)
+                return;
+
+            carried.Throw();
+            interactHeldSince = -1f; // Basış tüketildi: bırakışta bir daha iş yapmasın.
+            return;
+        }
+
+        // Tuş eşiğe varmadan bırakıldı → normal bırakma.
+        interactHeldSince = -1f;
+
+        if (atStation) currentTarget.Interact(gameObject);
+        else carried.Drop();
     }
 
     private void FindTarget()

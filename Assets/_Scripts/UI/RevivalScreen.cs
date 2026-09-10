@@ -185,7 +185,10 @@ public class RevivalScreen : MonoBehaviour
         barFill.color = accent;
 
         title.text = "DİRİLTME — " + (station.Body != null ? station.Body.VictimName : "KAÇAN");
-        charges.text = "HAK " + station.ChargesLeft;
+        // Kural kişi bazlı (her kabin her kişiyi bir kez), yani "kalan hak"
+        // diye bir sayı yok. Onun yerine kabinin bu turdaki geçmişi
+        // yazıyor — makinenin kullanıldığını gösteren dürüst bir bilgi.
+        charges.text = "BU KABİN: " + station.RevivedCount + " DİRİLTME";
 
         cellRow.SetActive(locked);
 

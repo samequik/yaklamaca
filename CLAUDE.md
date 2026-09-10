@@ -368,34 +368,29 @@ Hepsinin ayrıntısı bölüm 23'te; özet:
 
 ### Sıradaki adımlar
 
-#### Önce: bekleyen araç çalıştırması
+#### Bekleyen araç çalıştırması YOK
 
-```
-Yakalamaca > Menü Kur
-```
-
-Skor tablosu satırlarındaki açıklama etiketi (`Not`) sahnede henüz yok. Onsuz
-kendi satırında ve botta boş bir alan kalıyor ve "bozuk" gibi duruyor.
-2026-09-06'dan beri bekliyor.
+`Menü Kur` **2026-09-10'da çalıştırıldı**; skor tablosunun `Not` etiketi artık
+sahnede (beş satırın beşinde de var). 2026-09-06'dan beri bekleyen tek iş
+buydu ve kapandı.
 
 > Bir sahne değişikliğinin gerçekten uygulanıp uygulanmadığını **sahne
 > dosyasından** doğrulayabilirsin, tahmin etmeden:
 > `grep -c "m_Name: Not$" Assets/_Scenes/SampleScene.unity`
 
-Ceset sisteminin araçları (`Ceset Sistemini Kur`, `Test Botu Ekle`) 2026-09-07'de
-çalıştırıldı ve sahneden doğrulandı; onlar için bekleyen bir şey yok.
+Ceset ve diriltme araçları da (`Ceset Sistemini Kur`, `Test Botu Ekle`,
+`Diriltme Sistemini Kur`) çalıştırıldı ve sahneden doğrulandı — iki kabin,
+iki bot, beş terminal yerinde.
 
 #### Sonra: iki doğrulama, ikisi de oynayarak
 
-**1. Sesli sohbeti iki makinede dene.** Yazıldı, derlendi, kuruldu ama **ağ
-yolu hiç sınanmadı** — kendi sesimizi kendimize göndermiyoruz. Listenin en
-tepesindeki iş, çünkü altında bir sürü varsayım var: jitter tamponu,
-unreliable kanal, sunucu taraflı mesafe süzmesi.
+**1. ~~Sesli sohbeti iki makinede dene.~~ YAPILDI (2026-09-08).** Arkadaşla
+oynandı ve çalıştı: konuşma anlaşılır, uzaktaki uzaktan, yakındaki yakından
+geliyor. Yani jitter tamponu, unreliable kanal ve sunucu taraflı mesafe
+süzmesi — üçü de sahada doğrulandı, hiçbiri varsayım değil artık.
 
-Bakılacaklar: sağ üstteki çubuk kırmızıya dönüyor mu (gri = duyuyor ama
-göndermiyor) · karşı taraf 18 m içinde mi · elenen biri konuşabiliyor mu
-(konuşmamalı) · TAB panelinde karşı tarafın satırında kaydırıcı ve SUSTUR
-çıkıyor mu.
+Sınanmamış tek ayrıntı kaldı: **elenen birinin sahadakilere konuşamaması.**
+Kod öyle diyor (bölüm 19) ama iki makinede özellikle denenmedi.
 
 **2. Cesedi iki makinede dene** — sesli sohbetle **aynı sınıftan bir boşluk.**
 Ceset host'ta çalışıyor, ama host'ta `RagdollSync.Update` ilk satırda
@@ -420,12 +415,14 @@ karşı yeni bir aracı. Ölçülmedi.
 
 | # | İş | Not |
 |---|---|---|
-| 0 | ~~**Diriltme sistemi**~~ | **YAPILDI** (2026-09-08, bölüm 23). Açık kalan tasarım soruları: canavarın karşı hamlesi, bilgi sızıntısı, diriltme sayısı sınırı |
+| 0 | ~~**Diriltme sistemi**~~ | **YAPILDI** (2026-09-08, bölüm 23). Açık kalan tek tasarım sorusu: **canavarın karşı hamlesi** — diriltme bugün tek taraflı bir kazanç |
 | 1 | **Yakınlık sesi (kalp atışı)** | Ses dosyası **oyuncudan gelecek**, sentezlenmeyecek. `Assets/_Audio/KalpAtisi.*`. **2B olmalı** — yönü belli olursa gerilim radara döner (bölüm 12) |
 | 2 | **Bıçak sesleri** (teknik borç 1) | Hâlâ sentetik yer tutucu, üstelik bıçak kaldırıldı; elle saldırıya göre yeniden seçilmeli |
 | 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
 | 4 | **Kapıdan vuruş** | İki oyuncu da kapıya 0.3 m mesafedeyken ışın kapıya varmadan kesiliyor ve isabet sayılıyor |
 | 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
+| 6 | **Menü ve ayarlar arayüzü** | Oyun içi HUD Canvas'a taşındı (bölüm 20) ama **menü ekranlarının görünümü hiç elden geçmedi**: düz düğmeler, hizasız satırlar, kimliksiz bir görünüm. Terminal ve çıkış kilidi panellerinde kurulan görsel dil (bölüm 18: koyu gövde, ince çerçeve, köşe ayraçları, tek renk ailesi) menüye de taşınmalı. **Kullanıcı 2026-09-10'da açıkça istedi** |
+| 7 | **Korku ekran efektleri** | Hafif gren, kenar vinyeti, karartma; canavar yaklaştıkça artan bozulma. Kalp atışıyla (madde 1) aynı işi görsel tarafta yapacak. **Built-in RP'de post-processing paketi kurulu değil** ve bölüm 0'ın bağımlılık kuralı var — muhtemel yol tam ekran bir Canvas kaplaması ya da kendi shader'ımız. Efekt **yön bildirmemeli**: nereden geldiğini söylerse madde 1'deki 2B kuralının aynısı delinir |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
@@ -464,6 +461,27 @@ eksenleri kaldı — onlar tuş değil, cihazın kendisi.
 
 Input System'e geçilecekse hâlâ tek dosya değişir: `PlayerInputSource`
 (bkz. bölüm 5, soyutlama kuralı).
+
+> ### Kaynak dosyalar LF, ama biri KARIŞIK
+>
+> `core.autocrlf` **false**, yani git dosyaları olduğu gibi saklıyor ve satır
+> sonları neyse o kalıyor. `Assets/_Scripts` altındaki dosyaların hemen hepsi
+> LF — ama `Interaction/PlayerInteractor.cs` uzun süre **karışıktı** (95 satır
+> CRLF, 14 satır LF) ve 2026-09-10'da LF'e çevrildi.
+>
+> Bunun pratik sonucu: **script'le düzenleme yapan bir araç, çok satırlı bir
+> kalıbı `
+` ile arayınca CRLF'li dosyada hiçbir şey bulamıyor** ve sessizce
+> "0 eşleşme" diyor. Böyle bir dosyada düzenleme yapmadan önce satır sonunu
+> ölç, tahmin etme:
+>
+> ```
+> python -c "t=open('DOSYA',newline='').read(); print(t.count(chr(13)+chr(10)), t.count(chr(10)))"
+> ```
+>
+> `grep -c $''` ile ölçmeye çalışma — Git Bash'te bu kalıp bazı kabuklarda
+> boşa düşüyor ve **her satırı sayıyor**, yani her dosya "tamamen CRLF" gibi
+> görünüyor. Tam olarak bu yanlış ölçüm yapıldı ve teşhisi bir tur geciktirdi.
 
 ---
 
@@ -3799,23 +3817,50 @@ YOK — bilinen eksik.
 | 5. Kabinler haritaya nasıl konacak | **Cevaplandı:** `RevivalSetup` zemin ızgarasında boş hücre arayıp birbirine EN UZAK ikisini seçiyor (en az 25 m). Haritaya dokunmuyor, yalnızca yeni kök ekliyor |
 | 2. Bilgi sızıntısı | **Cevaplandı (2026-09-08).** İzleyici zaten YALNIZCA hayattaki kaçanları izleyebiliyor, canavarı asla (`SpectatorController.RefreshTargets` — bölüm 5'ten beri böyle). Kullanıcı bunu yeterli buldu, ek kısıt getirilmedi |
 | 3. Canavarın karşı hamlesi | **AÇIK.** Canavar kabini kilitleyemiyor, cesedi taşıyamıyor, diriltmeyi kesintiye uğratamıyor. Diriltme şu an tek taraflı bir kazanç |
-| 4. Taşımanın bedeli | **KISMEN.** Taşırken yavaşlama yok; ama terminal kullanılamıyor ve odaklanınca ceset düşüyor |
-| 6. Kaç kez dirilebilir | **Cevaplandı (2026-09-08).** Kabin başına hak: `RevivalStation.charges`, varsayılan **1**, her tur başında yenileniyor. İki kabin olduğu için tur başına toplam 2 diriltme. Sayı oynanarak ayarlanacak |
+| 4. Taşımanın bedeli | **Cevaplandı (2026-09-10).** Taşıyan `Corpse.CarrySpeedMultiplier` kadar yavaşlıyor (0.85); ayrıca terminal kullanamıyor ve odaklanınca ceset düşüyor |
+| 6. Kaç kez dirilebilir | **Cevaplandı (2026-09-10).** Kural KİŞİ bazlı: her kabin her kaçanı **bir kez** diriltebiliyor, yani kişi başına tavan 2 (iki kabin var). Ayrıntı aşağıda |
 
-### Diriltme hakkı (2026-09-08)
+### Diriltme hakkı: KİŞİ bazlı (2026-09-10)
 
 Sınırsız diriltme turu bitmez hâle getiriyordu: bölüm 11.1'e göre tur ancak
 sahada oynayan kaçan kalmayınca bitiyor, dolu kadroda her ölen geri
-gelebiliyorsa o an hiç gelmiyor.
+gelebiliyorsa o an hiç gelmiyor. Sınır şart.
 
-`RevivalStation.charges` (varsayılan **1**) kabinin bir TURDA kaç diriltme
-yapabileceğini söylüyor. Hak **tur başında yenileniyor**, kabin her
-sıfırlandığında değil — sıfırlama başarılı bir diriltmeden sonra da çalışıyor,
-orada yenilemek sınırı tamamen anlamsız kılardı.
+**Kural: her kabin her kaçanı bir kez diriltebiliyor.** İki kabin var, yani
+bir kişi turda en fazla iki kez geri gelebiliyor — bir kez A'da, bir kez
+B'de. Kabinin kendi başına bir kotası yok: dolu kadroda A kabini dört kaçanın
+dördünü de diriltebilir, ama hiçbirini ikinci kez.
 
-Hakkı biten kabin ceset kabul etmiyor ve nişan yazısı bunu ilk satırda
-söylüyor ("Bu kabinin diriltme hakkı bu turda bitti") — ceset boşuna
-taşınmasın diye. Kalan hak terminal ekranının başlığında da yazıyor.
+> **İlk sürüm KABİN başına saymıştı ve yanlış yeri sınırlıyordu**
+> (`charges = 1`, tur başına iki diriltme). O kuralda bir kaçan aynı kabinde
+> üst üste iki kez dirilebiliyor, buna karşılık ikinci bir kaçan hiç
+> dirilemiyordu — yani sınır "kaç kişi kurtulabilir"i değil "makine kaç kez
+> çalışır"ı ölçüyordu. Oyuncunun beklediği ise kişi bazlı bir haktı.
+>
+> Ders: bir kotayı **nesneye mi kişiye mi** bağladığın, sayının kendisinden
+> daha çok şey belirliyor.
+
+Kayıt `RevivalStation.revivedHere` — bu kabinde diriltilmiş kaçanların
+netId'lerini tutan bir `SyncList`. **SyncList, çünkü karar istemcide de
+gerekiyor:** nişan yazısı "bu kaçan burada zaten diriltildi" diyebilmek için
+sunucuya soramaz.
+
+Liste **tur başında** temizleniyor, kabin her sıfırlandığında değil —
+sıfırlama başarılı bir diriltmeden sonra da çalışıyor ve orada temizlemek
+sınırı tamamen anlamsız kılardı.
+
+**Kural üç yerde birden uygulanıyor**, çünkü cesedin kabine girmesinin üç yolu
+var: terminale nişan alıp E (`CmdUse`), kabinin içine bırakmak
+(`TryAcceptNearbyCorpse`) ve terminali başlatmak. Üçü de aynı sınamadan
+(`CanRevive`) geçiyor; biri atlansa gövde kabine girer, terminal hiç çalışmaz
+ve oyuncu sebebini göremezdi.
+
+Elinde uygun olmayan bir cesetle kabine bakınca nişan yazısı adıyla söylüyor:
+*"Ahmet bu kabinde diriltildi — diğer kabini dene."* Terminal ekranının üst
+köşesinde de kabinin o turdaki geçmişi yazıyor ("BU KABİN: 2 DİRİLTME").
+
+**İki kabinde de kullanılmış bir kaçan artık geri gelemiyor** ve cesedi
+haritada kalıyor. Bu kuralın doğal sonucu, ayrı bir kod yolu değil.
 
 ### Ölü test botu (2026-09-08)
 
@@ -3938,6 +3983,51 @@ oluyor, yoksa gövde yavaşça kabinden dışarı akardı.
   bakınca "Diriltmeyi başlat" yazıyordu ama `CmdUse` reddediyordu; oyuncu E'ye
   basıp hiçbir şey olmadığını görüyordu. Yazı artık "Kabin dolu — taşıdığın
   cesedi önce bırak" diyor.
+
+### Taşımanın bedeli ve fırlatma (2026-09-10)
+
+**Taşıyan yavaşlıyor: `Corpse.CarrySpeedMultiplier` = 0.85.** Ölü bir adamı
+taşımak bedava olmamalı (21.2'nin 4. sorusu), ama koşmayı büsbütün kesmek de
+yanlış olurdu: taşıyan zaten canavara açık bir hedef ve elleri dolu, üstüne
+bir de yürümeye mahkûm etmek diriltmeyi hiç denenmeyen bir hamleye çevirirdi.
+Koşabiliyor, sadece %15 daha yavaş.
+
+> **Bu çarpan aslında 2026-09-08'den beri vardı ama 0.70'ti** ve belge
+> "taşırken yavaşlama yok" diyordu — yani hem sayı fazla sertti hem belge
+> yanlıştı. İkisi birden düzeltildi.
+
+Değer `Corpse`'ta duruyor, `PlayerController`'da değil: taşımayla ilgili bütün
+ayarlar tek dosyada kalsın diye. **Sabit olması da bilinçli** — prefaba
+serileştirilmiş bir alan olsaydı koddaki değeri değiştirmek hiçbir şey
+yapmazdı (bölüm 16'daki tuzak).
+
+**E basılı tutmak cesedi fırlatıyor** (`Corpse.ThrowHoldTime` = 0.3 sn):
+
+| Girdi | Sonuç |
+|---|---|
+| E'ye kısa basış | Normal bırakma — bakılan yöne, 0.9 m öne |
+| E'ye kısa basış, kabine bakarken | Kabine yerleştirme |
+| **E'yi basılı tutmak** | **Fırlatma** — bakılan yöne, 9 m/s, hafif yukarı kavisle |
+
+Fırlatma kabine uzaktan atmayı gerçek bir yol hâline getiriyor: kabinin içine
+düşen serbest bir cesedi `TryAcceptNearbyCorpse` zaten kendiliğinden kabul
+ediyor.
+
+**Eşik geçilir geçilmez atıyor, tuş bırakılınca değil.** Bırakışta atmak "ne
+kadar tuttuysam o kadar uzağa" gibi bir doldurma mekaniği kurardı ve oyuncu
+her seferinde ne kadar tutacağını kestirmek zorunda kalırdı. Sabit güçle ve
+anında atmak hem öngörülebilir hem de elde anlık geri bildirim veriyor.
+
+**Hız bütün parçalara AYNI veriliyor.** Yalnızca kalçaya itki vermek gövdeyi
+eklemlerden geriye açar ve ceset havada yırtılıyormuş gibi görünür; hepsine
+aynı hızı vermek onu tek parça hâlinde yolluyor, dönüşü eklemlerin kendisi
+üretiyor.
+
+**Hız tavanı fırlatma sırasında gevşiyor** (`ThrowGrace`, 0.7 sn). Normal
+tavan `maxSpeed` = 6 m/s ve fırlatma hızı 9; gevşetilmeseydi `ClampSpeeds`
+gövdeyi daha havalanmadan kırpardı — "fırlattım ama iki adım öteye düştü"
+demek olurdu. O tavan duvara dayanınca uzuvların savrulmasını engellemek için
+var (üçüncü geri bildirim), fırlatmayı engellemek için değil.
 
 ### Kurulum
 

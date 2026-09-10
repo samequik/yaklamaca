@@ -37,6 +37,34 @@ public class Corpse : NetworkBehaviour, IInteractable
     /// <summary>Duvara dayanınca ceset en fazla bu kadar yaklaşıyor (metre).</summary>
     private const float CarryMinReach = 0.15f;
 
+    /// <summary>
+    /// Ceset taşıyanın hız çarpanı — bölüm 21.2'nin "taşımanın bedeli"
+    /// sorusunun cevabı.
+    ///
+    /// Ölü bir adamı taşımak bedava olmamalı, ama koşmayı büsbütün kesmek de
+    /// yanlış: taşıyan zaten canavara açık bir hedef ve elleri dolu, üstüne
+    /// bir de yürümeye mahkûm etmek diriltmeyi hiç denenmeyen bir hamleye
+    /// çevirirdi. Koşabiliyor, sadece eskisi kadar hızlı değil.
+    ///
+    /// **Değer BURADA duruyor, `PlayerController`'da değil** — taşımayla
+    /// ilgili bütün ayarlar tek dosyada kalsın diye. Sabit olması da
+    /// bilinçli: prefaba serileştirilmiş bir alan olsaydı koddaki değeri
+    /// değiştirmek hiçbir şey yapmazdı (bölüm 16'daki tuzak).
+    /// </summary>
+    public const float CarrySpeedMultiplier = 0.85f;
+
+    /// <summary>Fırlatılan cesedin çıkış hızı (m/s).</summary>
+    private const float ThrowSpeed = 9f;
+
+    /// <summary>Fırlatma yönünün yukarı bileşeni — düz atış yerde sürünüyor.</summary>
+    private const float ThrowRise = 0.35f;
+
+    /// <summary>E'nin fırlatma sayılması için basılı tutulma süresi (saniye).</summary>
+    public const float ThrowHoldTime = 0.3f;
+
+    /// <summary>Fırlatmadan sonra hız tavanının gevşek kaldığı süre.</summary>
+    private const float ThrowGrace = 0.7f;
+
     private static readonly List<Corpse> all = new List<Corpse>();
     private readonly Dictionary<Transform, Vector3> lastPlayerPositions = new Dictionary<Transform, Vector3>();
     private readonly Collider[] nearbyPlayers = new Collider[16];
@@ -51,6 +79,9 @@ public class Corpse : NetworkBehaviour, IInteractable
 
     /// <summary>Şu an çarpışması kapatılmış taşıyıcı kapsülü — bkz. IgnoreCarrier.</summary>
     private Collider ignoredCarrier;
+
+    /// <summary>Bu ana kadar hız tavanı gevşek — bkz. ClampSpeeds.</summary>
+    private float throwClampUntil;
     private int playerMask;
     public uint VictimNetId => victimNetId;
     public uint StationNetId => stationNetId;
@@ -284,11 +315,15 @@ public class Corpse : NetworkBehaviour, IInteractable
     /// <summary>Taşırken hız tavanı: uzuvlar çarpışmadan patlayıp savrulmasın.</summary>
     private void ClampSpeeds()
     {
-        float limit = maxSpeed * maxSpeed;
+        // Fırlatmadan hemen sonra tavan gevşiyor: normal tavan (maxSpeed = 6)
+        // fırlatma hızından düşük ve gövdeyi daha havalanmadan kırpardı —
+        // "fırlattım ama iki adım öteye düştü" demek olurdu.
+        float cap = Time.time < throwClampUntil ? Mathf.Max(maxSpeed, ThrowSpeed) : maxSpeed;
+        float limit = cap * cap;
 
         foreach (var part in ragdoll)
             if (!part.Body.isKinematic && part.Body.velocity.sqrMagnitude > limit)
-                part.Body.velocity = part.Body.velocity.normalized * maxSpeed;
+                part.Body.velocity = part.Body.velocity.normalized * cap;
     }
 
     private void CaptureHeldPose(Quaternion orientation)
@@ -341,6 +376,63 @@ public class Corpse : NetworkBehaviour, IInteractable
     private void CmdDrop(NetworkConnectionToClient sender = null)
     {
         if (sender?.identity != null && sender.identity.netId == carrierNetId) ServerDrop();
+    }
+
+    /// <summary>E BASILI TUTULUNCA: cesedi bakılan yöne fırlatır.</summary>
+    public void Throw() => CmdThrow();
+
+    [Command(requiresAuthority = false)]
+    private void CmdThrow(NetworkConnectionToClient sender = null)
+    {
+        if (sender?.identity != null && sender.identity.netId == carrierNetId) ServerThrow();
+    }
+
+    /// <summary>
+    /// Cesedi ileri fırlatır — bırakmanın "uzağa" hâli.
+    ///
+    /// Kabine uzaktan atmak için var ve gerçekten çalışıyor: kabin gövdesinin
+    /// içine düşen SERBEST bir cesedi `RevivalStation.TryAcceptNearbyCorpse`
+    /// kendiliğinden kabul ediyor, yani fırlatıp tutturmak yerleştirmenin
+    /// ikinci yolu.
+    ///
+    /// **Hız bütün parçalara AYNI veriliyor.** Yalnızca kalçaya itki vermek
+    /// gövdeyi eklemlerden geriye açar ve ceset havada yırtılıyormuş gibi
+    /// görünür; hepsine aynı hızı vermek onu tek parça hâlinde yolluyor,
+    /// dönüşü eklemlerin kendisi üretiyor.
+    /// </summary>
+    [Server] private void ServerThrow()
+    {
+        if (carrierNetId == 0 || ragdoll == null || ragdoll.Count == 0) return;
+
+        RoundParticipant carrier = Resolve(carrierNetId);
+        Vector3 direction = transform.forward;
+
+        if (carrier != null)
+        {
+            // Hafif yukarı: dümdüz ileri atılan gövde hemen zemine sürtüp
+            // duruyor, küçük bir kavis onu gerçekten ileri taşıyor.
+            Transform owner = carrier.transform;
+            direction = Vector3.ProjectOnPlane(owner.forward, Vector3.up).normalized
+                + Vector3.up * ThrowRise;
+        }
+
+        direction = direction.normalized;
+
+        // Önce normal bırakma: gövde taşıyıcıdan kopuyor, parçalar fiziğe
+        // dönüyor ve taşıyıcının kapsülüyle çarpışması geri açılıyor.
+        // Fırlatma yalnızca onun üstüne hız bindiriyor.
+        ServerDrop();
+
+        throwClampUntil = Time.time + ThrowGrace;
+
+        foreach (var part in ragdoll)
+        {
+            if (part.Body.isKinematic) continue;
+            part.Body.WakeUp();
+            part.Body.velocity = direction * ThrowSpeed;
+        }
+
+        sync.Publish();
     }
     [Server] public void ServerDrop()
     {

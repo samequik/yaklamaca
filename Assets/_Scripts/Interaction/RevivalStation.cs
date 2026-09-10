@@ -12,12 +12,6 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     [SerializeField] private float duration = 15f;
     [SerializeField] private float useDistance = 4f;
 
-    [Tooltip("Bu kabinin bir TURDA kaç diriltme yapabileceği. Sınırsız " +
-        "diriltme turu bitmez hâle getiriyordu (bölüm 11.1: tur ancak sahada " +
-        "kaçan kalmayınca bitiyor). Hak her tur başında yenileniyor. " +
-        "İki kabin var, yani tur başına toplam hak bunun iki katı.")]
-    [SerializeField] private int charges = 1;
-
     [Tooltip("Kabinin içine bırakılan cesedi bu yarıçapta kendiliğinden kabul " +
         "ediyor (metre). Kabin içi ~1.4 m geniş; terminale nişan almadan, " +
         "gövdeyi kabine bırakmak da yetsin diye.")]
@@ -25,7 +19,25 @@ public class RevivalStation : NetworkBehaviour, IInteractable
 
     private readonly Collider[] acceptBuffer = new Collider[16];
 
-    [SyncVar] private int chargesUsed;
+    /// <summary>
+    /// Bu kabinde BU TURDA diriltilmiş kaçanların netId'leri.
+    ///
+    /// Kural: **her kabin her kişiyi yalnızca bir kez diriltebiliyor.**
+    /// Kabin başına sabit bir hak sayısı (eski `charges`) yerine kişi bazlı
+    /// tutmanın sebebi, sınırın kimin üstünde olduğunu değiştirmesi: eski
+    /// kuralda bir kaçan aynı kabinde iki kez dirilebiliyor ama ikinci bir
+    /// kaçan hiç dirilemiyordu. Şimdi dört kaçanın dördü de iki kabinden
+    /// birer kez yararlanabiliyor — yani tavan KİŞİ başına 2, kabin başına
+    /// tavan yok.
+    ///
+    /// SyncList, çünkü nişan yazısı ve terminal ekranı istemcide karar
+    /// veriyor: "bu kaçan burada zaten diriltildi" yazısı sunucuya sormadan
+    /// çıkmalı.
+    ///
+    /// Liste TUR BAŞINDA temizleniyor (bkz. ServerTick).
+    /// </summary>
+    private readonly SyncList<uint> revivedHere = new SyncList<uint>();
+
     [SyncVar] private uint corpseId;
     [SyncVar] private uint operatorId;
     [SyncVar] private float elapsed;
@@ -54,11 +66,11 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     public int UnlockEntered => unlockEntered;
     public bool IsLocalOperator => NetworkClient.localPlayer != null && operatorId == NetworkClient.localPlayer.netId;
 
-    /// <summary>Bu turda bu kabinde diriltme hakkı kaldı mı.</summary>
-    public bool HasCharge => chargesUsed < charges;
+    /// <summary>Bu kabin BU kaçanı (hâlâ) diriltebilir mi.</summary>
+    public bool CanRevive(uint victim) => victim != 0 && !revivedHere.Contains(victim);
 
-    /// <summary>Kalan hak — ekran ve nişan yazısı gösteriyor.</summary>
-    public int ChargesLeft => Mathf.Max(0, charges - chargesUsed);
+    /// <summary>Bu kabinin bu turda kaç kişiyi dirilttiği — ekran gösteriyor.</summary>
+    public int RevivedCount => revivedHere.Count;
     public Corpse Body => FindCorpse(corpseId);
 
     private void Awake()
@@ -146,13 +158,15 @@ public class RevivalStation : NetworkBehaviour, IInteractable
         var local = NetworkClient.localPlayer != null ? NetworkClient.localPlayer.GetComponent<RoundParticipant>() : null;
         if (!Corpse.LivingRunner(local)) return null;
 
-        // Hak bitmişse hiçbir şey yapılamıyor; ceset boşuna taşınmasın diye
-        // bunu ilk satırda söylüyoruz.
-        if (!HasCharge) return "Bu kabinin diriltme hakkı bu turda bitti";
+        Corpse held = Corpse.CarriedBy(local);
+        bool carrying = held != null;
+
+        // Bu kabin bu kişiyi zaten dirilttiyse ceset boşuna taşınmasın: yazı
+        // ilk satırda söylüyor ve oyuncuyu diğer kabine yolluyor.
+        if (carrying && !CanRevive(held.VictimNetId))
+            return held.VictimName + " bu kabinde diriltildi — diğer kabini dene";
 
         if (operatorId != 0) return "Diriltme terminali kullanımda";
-
-        bool carrying = Corpse.CarriedBy(local) != null;
 
         if (corpseId == 0)
             return carrying ? "Cesedi kabine yerleştir" : "Diriltme kabini — bir ceset getir";
@@ -176,19 +190,21 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     private void CmdUse(NetworkConnectionToClient sender = null)
     {
         var player = Validate(sender);
-        if (player == null || operatorId != 0 || !HasCharge) return;
+        if (player == null || operatorId != 0) return;
         if (player.GetComponent<PlayerController>()?.IsFocused == true) return;
         Corpse carried = Corpse.CarriedBy(player);
         if (corpseId == 0)
         {
-            if (carried == null || !carried.ServerDeposit(player, this)) return;
+            // Bu kabin bu kişiyi zaten dirilttiyse cesedi hiç almıyor.
+            if (carried == null || !CanRevive(carried.VictimNetId)) return;
+            if (!carried.ServerDeposit(player, this)) return;
             corpseId = carried.netId;
             ResetProgress();
             return;
         }
         if (carried != null || Body == null) return;
         var victim = Corpse.Resolve(Body.VictimNetId);
-        if (victim == null || victim.IsAlive) return;
+        if (victim == null || victim.IsAlive || !CanRevive(Body.VictimNetId)) return;
         operatorId = player.netId; readyAt = Time.time + 0.6f;
         promptToken++;
     }
@@ -220,10 +236,10 @@ public class RevivalStation : NetworkBehaviour, IInteractable
         if (RoundManager.Instance == null || RoundManager.Instance.Phase != RoundPhase.Playing)
         {
             if (corpseId != 0 || operatorId != 0 || locked) ResetStation();
-            // Hak TUR BAŞINA yenileniyor, kabin sıfırlandıkça değil: sıfırlama
-            // başarılı bir diriltmeden sonra da çalışıyor, orada yenilemek
-            // sınırı tamamen anlamsız kılardı.
-            if (chargesUsed != 0) chargesUsed = 0;
+            // Kayıt TUR BAŞINA temizleniyor, kabin sıfırlandıkça değil:
+            // sıfırlama başarılı bir diriltmeden sonra da çalışıyor ve orada
+            // temizlemek sınırı tamamen anlamsız kılardı.
+            if (revivedHere.Count > 0) revivedHere.Clear();
             return;
         }
         if (corpseId == 0) TryAcceptNearbyCorpse();
@@ -249,10 +265,14 @@ public class RevivalStation : NetworkBehaviour, IInteractable
         { prompt = (byte)Random.Range(1, 5); deadline = NetworkTime.time + 1.8; promptToken++; return; }
         elapsed = Mathf.Min(duration, elapsed + Time.deltaTime);
         if (elapsed < duration || checksPassed < 3) return;
+        // Kurbanın kimliği ServerRevive'dan ÖNCE alınıyor: o çağrı cesedi yok
+        // ediyor ve sonrasında `Body` null dönüyor.
+        uint revived = Body != null ? Body.VictimNetId : 0;
+
         // Sayaç güncellemesi ve cesedin tüketilmesi tek sunucu işlemi.
         if (RoundManager.Instance.ServerRevive(Body, revivePoint != null ? revivePoint : BodyAnchor))
         {
-            chargesUsed++;
+            if (revived != 0) revivedHere.Add(revived);
             ResetStation();
         }
     }
@@ -270,8 +290,6 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     /// </summary>
     [Server] private void TryAcceptNearbyCorpse()
     {
-        if (!HasCharge) return;
-
         Vector3 center = BodyAnchor.position;
         int count = Physics.OverlapSphereNonAlloc(center, acceptRadius, acceptBuffer,
             LayerMask.GetMask("Etkilesim", "Sus"), QueryTriggerInteraction.Ignore);
@@ -282,6 +300,11 @@ public class RevivalStation : NetworkBehaviour, IInteractable
 
             Corpse candidate = acceptBuffer[i].GetComponentInParent<Corpse>();
             if (candidate == null || candidate.IsHeld) continue;
+
+            // Bu kabinde zaten diriltilmiş birinin cesedi kabul edilmiyor:
+            // yoksa gövde kabine girer, terminal hiç çalışmaz ve oyuncu
+            // sebebini göremezdi.
+            if (!CanRevive(candidate.VictimNetId)) continue;
 
             RoundParticipant victim = Corpse.Resolve(candidate.VictimNetId);
             if (victim == null || victim.IsAlive) continue;

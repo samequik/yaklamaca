@@ -804,8 +804,13 @@ public class PlayerController : MonoBehaviour
         // Hız payı yalnızca koşarken ekleniyor: yürürken birikmesi de
         // kullanılması da yanlış olurdu.
         float uprightSpeed = intent.sprint ? sprintSpeed + boostSpeed * boost : walkSpeed;
+        // Ceset taşımanın bedeli. Çarpan `Corpse`'ta duruyor: taşımayla ilgili
+        // bütün ayarlar tek dosyada (bkz. Corpse.CarrySpeedMultiplier).
+        float carryPenalty = Corpse.CarriedBy(GetComponent<RoundParticipant>()) != null
+            ? Corpse.CarrySpeedMultiplier : 1f;
+
         float targetSpeed = Mathf.Lerp(uprightSpeed, walkSpeed * crouchSpeedMultiplier, duckFraction)
-            * SpeedMultiplier * (Corpse.CarriedBy(GetComponent<RoundParticipant>()) != null ? 0.7f : 1f);
+            * SpeedMultiplier * carryPenalty;
 
         wishDirection = wishVelocity.normalized;
         wishSpeed = Mathf.Min(wishVelocity.magnitude, 1f) * targetSpeed;
