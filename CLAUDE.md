@@ -4175,7 +4175,8 @@ Built-in RP'de `OnRenderImage` + `Graphics.Blit` zaten tam ekran efekt
 | | Atmosfer (uzak) | Dehşet (dipte) |
 |---|---|---|
 | Vinyet | 0.58 | 0.85 |
-| Kontrast | 1.12 | 1.25 |
+| Kontrast | 1.20 | 1.25 |
+| Bloom | 1.1 (eşik 0.22) | aynı |
 | Gren | 0.040 | 0.095 |
 | Renk ayrışması | 0.005 | 0.012 |
 | Renk kaybı | 0.30 | 0.70 |
@@ -4326,6 +4327,35 @@ zincirinin tamamını yeniden çalıştırmak gerekirdi.
 
 **Yalnızca yerel kameraya biniyor.** Uzak oyuncuların kamerası zaten kapalı;
 oraya takmak bir işe yaramaz ama her karede boş yere blit maliyeti çıkarırdı.
+
+### Bloom: "lambaları patlat" isteğinin doğru cevabı (2026-09-11)
+
+Kontrast düzeltildikten sonra gelen geri bildirim "lambaları biraz daha
+patlat, etraf hâlâ karanlık" oldu. Akla gelen iki yanlış yol vardı:
+
+- **Lamba şiddetini yükseltmek** (`AtmosphereSetup.LightIntensity` = 5).
+  Işıklar `Baked`, yani yeniden pişirmek gerekirdi; üstelik `Atmosfer Kur`
+  `Lambalar` grubunu siliyor ve bölüm 0 onu yasaklıyor.
+- **Kontrastı zorlamak.** Her şeyi birden oynatıyor ve karanlığı da bozuyor.
+
+Doğrusu **bloom**: eşiğin üstündeki parlaklığı çevreye yayan tek geçişli bir
+hale (`BloomSample`). İki özelliği bu işi tam olarak çözüyor:
+
+- **Toplamsal**, yani karanlıkta görünen efekt ailesinden (bölüm 25'in ilk
+  dersi).
+- **Eşikli** (`_BloomThreshold` = 0.22). Lamba altı ~0.28 ve fener konisi
+  eşiğin üstünde, ambient 0.006 ise çok altında — yani hale yalnızca zaten
+  parlak olan yerlerden taşıyor ve **taban aydınlığa hiç dokunmuyor.** Bölüm
+  5'in ölçütü kendiliğinden korunuyor.
+
+Örnekler **altın açı sarmalında** dağıtılıyor: düzenli halkalar gözle görülür
+bant üretiyor. Çok geçişli bir bulanık daha yumuşak olurdu ama ayrı
+RenderTexture'lar ve ek blit'ler demek — bir lamba halesi için gereğinden
+pahalı.
+
+Bloom kontrasttan SONRA, doygunluktan ÖNCE uygulanıyor: kontrast lambaları
+zaten yükseltmiş oluyor, hale onun üstüne biniyor, renk kaybı ikisine birden
+işliyor.
 
 ### Karanlıkta ÇALIŞAN üç efekt daha (2026-09-11)
 

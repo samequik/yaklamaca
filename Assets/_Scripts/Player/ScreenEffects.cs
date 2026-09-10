@@ -62,7 +62,7 @@ public class ScreenEffects : MonoBehaviour
         "karanlık bir oyunda en çok işe yarayan ayar, çünkü çarpımsal " +
         "efektler (vinyet, doygunluk) simsiyah bir ekranda hiçbir şey " +
         "yapmıyor.")]
-    [SerializeField] private float calmContrast = 1.12f;
+    [SerializeField] private float calmContrast = 1.20f;
 
     [Header("Dehşet — canavar dibindeyken")]
     [SerializeField] private float dreadVignette = 0.85f;
@@ -75,7 +75,21 @@ public class ScreenEffects : MonoBehaviour
         "Sahnenin gerçek orta parlaklığı olmak zorunda. 0.5 (matematiksel " +
         "orta) bu haritada TAVANIN ÜSTÜNDE kalıyor — lamba altı 0.28, geri " +
         "kalan 0.05 civarı — yani her şeyi karartıyordu.")]
-    [SerializeField] private float contrastPivot = 0.18f;
+    [SerializeField] private float contrastPivot = 0.15f;
+
+    [Header("Bloom — lambaların halesi")]
+    [Tooltip("Taşmanın gücü. 0 = kapalı. Karanlık bir oyunda ışıkları " +
+        "'patlatmanın' doğru yolu bu: toplamsal ve eşikli olduğu için " +
+        "yalnızca zaten parlak yerleri etkiliyor, karanlığa dokunmuyor.")]
+    [SerializeField] private float bloom = 1.1f;
+
+    [Tooltip("Bu parlaklığın ÜSTÜ taşıyor. Lamba altı ~0.28, fener konisi " +
+        "daha yüksek, ambient 0.006 — eşiği ambient'in çok üstünde tutmak " +
+        "karanlığın korunmasını garanti ediyor.")]
+    [SerializeField] private float bloomThreshold = 0.22f;
+
+    [Tooltip("Halenin yarıçapı (ekran genişliğinin oranı).")]
+    [SerializeField] private float bloomRadius = 0.018f;
 
     [Tooltip("Dehşet tavanındaki piksel blok boyutu. 0 veya 1 = pikselleme " +
         "kapalı. Dehşetle birlikte artıyor, yani canavar uzaktayken görüntü " +
@@ -140,6 +154,9 @@ public class ScreenEffects : MonoBehaviour
     private static readonly int ContrastId = Shader.PropertyToID("_Contrast");
     private static readonly int ContrastPivotId = Shader.PropertyToID("_ContrastPivot");
     private static readonly int GlitchId = Shader.PropertyToID("_Glitch");
+    private static readonly int BloomId = Shader.PropertyToID("_Bloom");
+    private static readonly int BloomThresholdId = Shader.PropertyToID("_BloomThreshold");
+    private static readonly int BloomRadiusId = Shader.PropertyToID("_BloomRadius");
 
     private Material material;
     private RoundParticipant owner;
@@ -285,6 +302,9 @@ public class ScreenEffects : MonoBehaviour
         // Kontrastta "kapalı" 0 değil 1: master 0'a giderken 1'e dönmeli.
         material.SetFloat(ContrastId, Mathf.Lerp(1f, Mathf.Lerp(calmContrast, dreadContrast, level), master));
         material.SetFloat(ContrastPivotId, contrastPivot);
+        material.SetFloat(BloomId, bloom * master);
+        material.SetFloat(BloomThresholdId, bloomThreshold);
+        material.SetFloat(BloomRadiusId, bloomRadius);
 
         // Parazit yalnızca dehşetin üst yarısında ve karesel artıyor: alt
         // yarıda hiç yok, tavana yaklaşınca hızla açılıyor. Doğrusal olsaydı

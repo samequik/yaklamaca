@@ -45,10 +45,44 @@ Shader "Yakalamaca/EkranEfekti"
             float _Contrast;       // 1 = dokunma, >1 = aydınlık parlar karanlık çöker
             float _ContrastPivot;  // kontrastın döndüğü eksen — sahnenin ORTA parlaklığı
             float _Glitch;         // yatay bant kayması (VHS)
+            float _Bloom;          // parlak yerlerin taşma gücü
+            float _BloomThreshold; // bu parlaklığın üstü taşıyor
+            float _BloomRadius;    // taşmanın yarıçapı (UV)
 
             float Noise(float2 p)
             {
                 return frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453);
+            }
+
+            // Tek geçişli bloom: eşiğin üstündeki parlaklığı çevreye yayıyor.
+            //
+            // **Karanlık bir oyunda "lambaları patlatmanın" doğru yolu bu.**
+            // Kontrastı zorlamak her şeyi birden oynatıyor ve karanlığı da
+            // bozuyor; bloom ise TOPLAMSAL ve eşikli: yalnızca zaten parlak
+            // olan yerlerden ışık taşıyor, ambient'e (0.006) hiç dokunmuyor.
+            // Yani bölüm 5'in "fenersiz görülmemeli" ölçütü etkilenmiyor.
+            //
+            // Örnekler altın açı sarmalında: düzenli halkalar gözle görülür
+            // bant üretiyor, sarmal onları dağıtıyor. Çok geçişli bir bulanık
+            // daha yumuşak olurdu ama ayrı RenderTexture'lar ve ek blit'ler
+            // demek — lamba halesi için gereğinden pahalı.
+            float3 BloomSample(float2 uv, float aspect)
+            {
+                float3 sum = float3(0.0, 0.0, 0.0);
+
+                [unroll]
+                for (int i = 0; i < 12; i++)
+                {
+                    float angle = i * 2.39996;                  // altın açı
+                    float radius = sqrt((i + 0.5) / 12.0);      // eşit alan
+                    float2 offset = float2(cos(angle) / aspect, sin(angle))
+                        * radius * _BloomRadius;
+
+                    float3 s = tex2D(_MainTex, uv + offset).rgb;
+                    sum += max(s - _BloomThreshold, 0.0);
+                }
+
+                return sum / 12.0;
             }
 
             fixed4 frag(v2f_img input) : SV_Target
@@ -108,6 +142,12 @@ Shader "Yakalamaca/EkranEfekti"
                 // bölüm 5'in "fenersiz görülmemeli" ölçütü delinmiyor —
                 // tersine güçleniyor.
                 col = (col - _ContrastPivot) * _Contrast + _ContrastPivot;
+
+                // Bloom kontrasttan SONRA, doygunluktan ÖNCE: kontrast
+                // lambaları zaten yükseltmiş oluyor, hale onun üstüne biniyor
+                // ve renk kaybı ikisine birden uygulanıyor.
+                if (_Bloom > 0.0001)
+                    col += BloomSample(uv, _ScreenParams.x / max(_ScreenParams.y, 1.0)) * _Bloom;
 
                 float grey = dot(col, float3(0.299, 0.587, 0.114));
                 col = lerp(col, float3(grey, grey, grey), saturate(_Desaturate));
