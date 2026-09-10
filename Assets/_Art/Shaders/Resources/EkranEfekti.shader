@@ -37,6 +37,7 @@ Shader "Yakalamaca/EkranEfekti"
             float _VignetteStart;  // merkeze uzaklık: kararmanın başladığı yer
             float _VignetteEnd;    // tam karardığı yer
             float _Grain;          // gren genliği
+            float _GrainFloor;     // grenin tam güce ulaştığı parlaklık
             float _GrainSeed;      // her karede değişiyor, gren animasyonu
             float _Aberration;     // renk ayrışması (UV birimi)
             float _Pixelate;       // 0/1 = kapalı, >1 = blok kenarı (piksel)
@@ -51,6 +52,13 @@ Shader "Yakalamaca/EkranEfekti"
             {
                 float2 uv = input.uv;
 
+                // Vinyet ve ayrışma geometrisi ORİJİNAL uv'den okunuyor:
+                // pikselleme yalnızca görüntüyü bloklara ayırmalı, kenar
+                // karartmasını basamaklandırmamalı.
+                float2 centered = input.uv - 0.5;
+                // 1.414 ile köşe ~1.0 oluyor: eşikler en boy oranından bağımsız.
+                float dist = length(centered) * 1.41421356;
+
                 // Pikselleme: UV'yi bloklara oturtuyor. Kapalıyken (_Pixelate
                 // <= 1) hiçbir maliyeti yok.
                 if (_Pixelate > 1.0)
@@ -58,10 +66,6 @@ Shader "Yakalamaca/EkranEfekti"
                     float2 blocks = max(_ScreenParams.xy / _Pixelate, float2(1.0, 1.0));
                     uv = (floor(uv * blocks) + 0.5) / blocks;
                 }
-
-                float2 centered = uv - 0.5;
-                // 1.414 ile köşe ~1.0 oluyor: eşikler en boy oranından bağımsız.
-                float dist = length(centered) * 1.41421356;
 
                 float3 col = float3(0.0, 0.0, 0.0);
 
@@ -86,8 +90,20 @@ Shader "Yakalamaca/EkranEfekti"
                 float edge = 1.0 - smoothstep(_VignetteStart, _VignetteEnd, dist);
                 col *= lerp(1.0, edge, saturate(_Vignette));
 
+                // **Gren PARLAKLIĞA bağlı.** Sabit genlikli gren simsiyah bir
+                // zemine binince göreli kontrast devasa oluyor ve ekran statik
+                // gibi görünüyor — oyunun büyük kısmı karanlık olduğu için de
+                // her yerde. Maske karanlıkta greni tamamen kapatıyor,
+                // aydınlıkta tam güce çıkarıyor.
+                //
+                // Gerçek kamera gürültüsünün tersi (o karanlıkta artar) ama
+                // burada ölçüt gerçekçilik değil göz konforu; ayrıca vinyetle
+                // kararan köşeler de kendiliğinden temizleniyor.
+                float lum = dot(col, float3(0.299, 0.587, 0.114));
+                float grainMask = saturate(lum / max(_GrainFloor, 0.0001));
+
                 float n = Noise(uv * _ScreenParams.xy + _GrainSeed);
-                col += (n - 0.5) * _Grain;
+                col += (n - 0.5) * _Grain * grainMask;
 
                 return fixed4(max(col, 0.0), 1.0);
             }

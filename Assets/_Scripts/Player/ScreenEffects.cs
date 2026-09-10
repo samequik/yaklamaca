@@ -54,19 +54,26 @@ public class ScreenEffects : MonoBehaviour
 
     [Header("Atmosfer — canavar uzaktayken")]
     [SerializeField] private float calmVignette = 0.38f;
-    [SerializeField] private float calmGrain = 0.028f;
+    [SerializeField] private float calmGrain = 0.024f;
     [SerializeField] private float calmAberration = 0.0016f;
     [SerializeField] private float calmDesaturate = 0.10f;
 
     [Header("Dehşet — canavar dibindeyken")]
     [SerializeField] private float dreadVignette = 0.80f;
-    [SerializeField] private float dreadGrain = 0.085f;
+    [SerializeField] private float dreadGrain = 0.075f;
     [SerializeField] private float dreadAberration = 0.0065f;
     [SerializeField] private float dreadDesaturate = 0.50f;
 
     [Tooltip("Dehşet tavanındaki piksel blok boyutu. 0 veya 1 = pikselleme " +
-        "KAPALI (varsayılan). Denemek için 4-8 arası bir değer yaz.")]
-    [SerializeField] private float dreadPixelate = 0f;
+        "kapalı. Dehşetle birlikte artıyor, yani canavar uzaktayken görüntü " +
+        "tam çözünürlükte kalıyor.")]
+    [SerializeField] private float dreadPixelate = 6f;
+
+    [Tooltip("Grenin TAM güce ulaştığı parlaklık. Altında kademeli olarak " +
+        "sönüyor, simsiyahta hiç yok. Sabit genlikli gren karanlık bir " +
+        "ekranda statik gibi görünüyordu; asıl sorun genlik değil, karanlık " +
+        "zeminde göreli kontrastın devasa olmasıydı.")]
+    [SerializeField] private float grainFloor = 0.18f;
 
     [Header("Vinyet geometrisi")]
     [Tooltip("Merkeze uzaklık (köşe = 1): kararmanın başladığı yer.")]
@@ -85,6 +92,18 @@ public class ScreenEffects : MonoBehaviour
         "gerilim bir süre üstünde kalsın.")]
     [SerializeField] private float dreadFall = 0.30f;
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    [Header("Test — yalnızca editörde ve geliştirme build'inde")]
+    [Tooltip("Dehşeti elle zorlar: kapalı → yarı → tam → kapalı. Tek başına " +
+        "test ederken sahada canavar olmadığı için dehşet hiç tetiklenmiyor " +
+        "([2] ile başlayınca bütün botlar kaçan) ve efektin o katmanı hiç " +
+        "görülemiyordu.")]
+    [SerializeField] private KeyCode debugDreadKey = KeyCode.F9;
+
+    /// <summary>-1 = zorlama yok.</summary>
+    private float forcedDread = -1f;
+#endif
+
     [Header("Nabız")]
     [SerializeField] private float pulseHz = 1.15f;
     [SerializeField] private float pulseDepth = 0.10f;
@@ -93,6 +112,7 @@ public class ScreenEffects : MonoBehaviour
     private static readonly int VignetteStartId = Shader.PropertyToID("_VignetteStart");
     private static readonly int VignetteEndId = Shader.PropertyToID("_VignetteEnd");
     private static readonly int GrainId = Shader.PropertyToID("_Grain");
+    private static readonly int GrainFloorId = Shader.PropertyToID("_GrainFloor");
     private static readonly int GrainSeedId = Shader.PropertyToID("_GrainSeed");
     private static readonly int AberrationId = Shader.PropertyToID("_Aberration");
     private static readonly int PixelateId = Shader.PropertyToID("_Pixelate");
@@ -142,6 +162,17 @@ public class ScreenEffects : MonoBehaviour
 
     private void Update()
     {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (Input.GetKeyDown(debugDreadKey))
+            forcedDread = forcedDread < 0f ? 0.5f : forcedDread < 0.9f ? 1f : -1f;
+
+        if (forcedDread >= 0f)
+        {
+            dread = forcedDread;
+            return;
+        }
+#endif
+
         float target = TargetDread();
         float rate = target > dread ? dreadRise : dreadFall;
         dread = Mathf.MoveTowards(dread, target, Time.deltaTime * rate);
@@ -213,6 +244,7 @@ public class ScreenEffects : MonoBehaviour
         material.SetFloat(VignetteStartId, vignetteStart);
         material.SetFloat(VignetteEndId, vignetteEnd);
         material.SetFloat(GrainId, Mathf.Lerp(calmGrain, dreadGrain, level) * master);
+        material.SetFloat(GrainFloorId, grainFloor);
         material.SetFloat(GrainSeedId, Random.value * 1000f);
         material.SetFloat(AberrationId, Mathf.Lerp(calmAberration, dreadAberration, level) * master);
         material.SetFloat(DesaturateId, Mathf.Lerp(calmDesaturate, dreadDesaturate, level) * master);

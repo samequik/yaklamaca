@@ -4175,18 +4175,23 @@ Built-in RP'de `OnRenderImage` + `Graphics.Blit` zaten tam ekran efekt
 | | Atmosfer (uzak) | Dehşet (dipte) |
 |---|---|---|
 | Vinyet | 0.38 | 0.80 |
-| Gren | 0.028 | 0.085 |
+| Gren | 0.024 | 0.075 |
 | Renk ayrışması | 0.0016 | 0.0065 |
 | Renk kaybı | 0.10 | 0.50 |
-| Pikselleme | — | **kapalı** (varsayılan 0) |
+| Pikselleme | — | **6 piksellik blok** |
 
 Dehşet **22 m'de sıfır, 5 m'de tam**. Artışı hızlı (0.9/sn), düşüşü yavaş
 (0.30/sn): canavar gittikten sonra gerilim üstünde biraz kalıyor. Tavanda
 vinyet ~1.15 Hz nabızla atıyor — kalp atışı sesi geldiğinde (kalan iş 1) ikisi
 aynı şeyi söyleyecek.
 
-**Pikselleme varsayılan KAPALI.** Kullanıcı istedi ve yazıldı, ama abartıldığı
-anda oyunu ucuzlatıyor; `dreadPixelate` 4-8 arası bir değerle denenmeli.
+**Pikselleme dehşetle birlikte geliyor** (`dreadPixelate` = 6). Canavar
+uzaktayken görüntü tam çözünürlükte; yaklaştıkça bloklaşıyor. Hep açık
+olsaydı oyunu ucuzlatırdı — böyle bir "gerçeklik bozuluyor" anı oluyor.
+
+**Vinyet ve renk ayrışması pikselleşmiyor:** ikisinin geometrisi orijinal
+UV'den okunuyor, yalnızca görüntü örneklemesi bloklara oturuyor. Aksi hâlde
+kenar karartması da basamaklanır ve efekt bozuk görünürdü.
 
 ### Hiçbir efekt YÖN BİLDİRMİYOR
 
@@ -4198,11 +4203,30 @@ kolay ve tam da bu yüzden yapılmadı.
 Renk ayrışması merkezde sıfır, kenara doğru artıyor — nişangahın olduğu yer
 keskin kalmalı, yoksa canavara nişan almak zorlaşır.
 
-### Gren SIFIR ORTALAMALI — karanlık kuralı delinmiyor
+### Gren PARLAKLIĞA bağlı — ilk sürüm gözü yoruyordu
 
 Gürültü `(n - 0.5)` olarak ekleniyor, yani ortalama parlaklığı değiştirmiyor.
 Bölüm 5'in ölçütü ("fenersiz görülmemeli") ayakta kalıyor. Gürültü geometriyle
 ilişkisiz olduğu için karanlıkta bir şeyin yerini de ele vermiyor.
+
+> **İlk sürüm sabit genlikliydi ve oynanınca "ekranda pixelimsi şeyler var,
+> göz bozuyor" diye geri geldi.** Sebep genliğin büyüklüğü değildi: oyunun
+> büyük kısmı simsiyah (ambient 0.006) ve **sabit bir gürültü siyah zeminde
+> göreli olarak devasa kontrast** üretiyor. Aynı genlik aydınlık bir sahnede
+> fark bile edilmezdi.
+>
+> Akla gelen ilk çözüm "karanlığı azalt"tı ve **yanlış olurdu**: fenerin
+> "açarsan görürsün ama görünürsün" takası ancak fenersiz GÖRÜLMÜYORSA bir
+> takas (bölüm 5). Efekti rahat ettirmek için oyunun temel kuralını gevşetmek
+> ters yönde bir bedel.
+>
+> Çözüm greni parlaklığa bağlamak oldu: `_GrainFloor` (0.18) altındaki
+> parlaklıkta gren kademeli olarak sönüyor, simsiyahta hiç yok. Vinyetle
+> kararan köşeler de kendiliğinden temizleniyor, çünkü maske vinyetten SONRA
+> hesaplanıyor.
+>
+> Bu gerçek kamera gürültüsünün tersi (o karanlıkta artar) ama buradaki ölçüt
+> gerçekçilik değil **göz konforu**.
 
 Vinyet zaten yalnızca karartıyor; hiçbir efekt ekranı aydınlatmıyor.
 
@@ -4249,6 +4273,17 @@ zincirinin tamamını yeniden çalıştırmak gerekirdi.
 
 **Yalnızca yerel kameraya biniyor.** Uzak oyuncuların kamerası zaten kapalı;
 oraya takmak bir işe yaramaz ama her karede boş yere blit maliyeti çıkarırdı.
+
+### Tek başına denemek: F9
+
+Dehşet katmanı **tek başına test edilemiyordu.** Sahada canavar olmadan
+tetiklenmiyor ve test tuşlarıyla bu durum kurulamıyor: [2] seni kaçan yapıyor
+ama bütün botlar da kaçan, [1] ile tek başınayken canavar sen oluyorsun ve
+canavar dehşet görmüyor.
+
+`ScreenEffects.debugDreadKey` (**F9**) dehşeti elle zorluyor: kapalı → yarı →
+tam → kapalı. `#if UNITY_EDITOR || DEVELOPMENT_BUILD` içinde, yani
+gönderilecek build'e girmiyor.
 
 ### Ayarlamak
 
