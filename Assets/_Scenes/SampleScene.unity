@@ -22903,6 +22903,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cameraTransform: {fileID: 2061969343}
+  shakeAmplitude: 0.018
+  shakeFrequency: 9
   strideLength: 2
   minSpeed: 40
   sprintThreshold: 300
