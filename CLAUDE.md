@@ -2522,6 +2522,31 @@ Sahne kökü **kapalı kuruluyor** ve `MenuStage` gerektiğinde açıyor: menü
 kapalıyken küçük bir sahneyi her karede çizmenin ve üç ışığı motorda tutmanın
 karşılığı yok.
 
+> ### `GameObject.Find` kapalı objeyi BULMUYOR — sahne bu yüzden hiç görünmedi
+>
+> İlk sürüm sahne kökünü `GameObject.Find(StageName)` ile arıyordu ve o metot
+> **yalnızca AÇIK objeleri** döndürüyor. Kök ise bilerek kapalı kuruluyor, yani
+> arama her seferinde null dönüyor, `RawImage` kapanıyor ve menünün arkası
+> hiç değişmemiş gibi düz siyah kalıyordu.
+>
+> **Hiçbir yerde hata yazmıyordu.** `Menü Kur` doğru çalışmıştı, sahnede kök de
+> ışıklar da karakterler de vardı; oyunda görünen tek şey eskisiyle aynı siyah
+> ekrandı. Oynanınca "keşke muz adam gözükseydi" diye bildirildi.
+>
+> `Scene.GetRootGameObjects` kapalı kökleri de veriyor ve sahne kökü gerçekten
+> bir kök obje (`MenuStageSetup` onu ebeveynsiz kuruyor), yani bu listede olması
+> garanti.
+>
+> Ders: **bir objeyi bilerek kapalı bırakıyorsan, onu bulan kodun kapalı
+> objeleri görüp görmediğini kontrol et.** Aynı aile bölüm 20'de de vardı:
+> kapalı bir `GameObject` `Update` çalıştırmıyor. Unity'de "kapalı" yalnızca
+> görünmemek değil, aramalardan da düşmek demek.
+
+> **Doğrulaması sahne dosyasından yapılamaz, çünkü sorun sahnede değildi.**
+> Karakterler prefab örneği olarak duruyor ve adları `m_Name` satırında değil
+> `m_Modifications` içinde geçiyor:
+> `grep -c "value: Kacan$" Assets/_Scenes/SampleScene.unity`
+
 ### Karakter seçimi: kostümler (2026-09-12)
 
 Kaçan ve canavar artık **kostüm seçiyor.** Seçim ana menüdeki ve lobideki
@@ -2608,6 +2633,13 @@ okunaklılık gövdeden değil kutudan geliyor.
 
 Sütun **oranla** konumlanıyor (ekran genişliğinin %30'u), pikselle değil: her
 çözünürlükte modelin payı aynı kalıyor.
+
+**Kamera mesafesi figürün GERÇEK boyundan hesaplanıyor**, sabit yazılmıyor:
+canavar kaçandan belirgin şekilde iri (bölüm 17'deki bilinçli karar) ve tek bir
+mesafe ikisine birden uymuyor — biri kadraja sığmazken öbürü minicik kalırdı.
+Yatay kayma da orandan geliyor: kadrajın genişliği mesafeye bağlı, sabit bir
+metre değeri iri figürü kenara iterdi. Yeni bir model geldiğinde elle
+ayarlanacak bir sayı çıkmıyor.
 
 > **İstenen görünüm STATİK bir alanda bekliyor.** `MenuController.Show`
 > panelleri arka plandan ÖNCE açıyor, yani seçim ekranı uyandığında sahne

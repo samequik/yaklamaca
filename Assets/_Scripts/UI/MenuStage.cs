@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -74,12 +75,16 @@ public class MenuStage : MonoBehaviour
         "tam dönüşte karakterin arkası da geliyor ve menüde sırt görmek kötü.")]
     [SerializeField] private float spinRange = 18f;
 
-    [Tooltip("Seçim ekranında karakter ekranın sağına kayıyor, çünkü sol " +
-        "tarafı panel kaplıyor. Kamera karakterin SOLUNA gidiyor: metre.")]
-    [SerializeField] private float focusSideShift = 0.75f;
+    [Tooltip("Seçim ekranında karakter kadrajın ortasından ne kadar sağda " +
+        "dursun. 0 = tam orta, 1 = kenar. Solunu seçim paneli kaplıyor.")]
+    [SerializeField] private float focusSideOffset = 0.44f;
 
-    [Tooltip("Seçim ekranında kamera karaktere bu kadar yaklaşıyor (metre).")]
-    [SerializeField] private float focusDistance = 2.45f;
+    [Tooltip("Seçim ekranında karakter dikey kadrajın ne kadarını doldursun. " +
+        "1 = tam sığar, kenar payı kalmaz.")]
+    [SerializeField] private float focusFill = 0.82f;
+
+    [Tooltip("Boy ölçülemezse kullanılacak yedek (metre).")]
+    [SerializeField] private float fallbackHeight = 1.6f;
 
     [Tooltip("Kameranın yeni yerine oturma hızı. Anında ışınlamak sert duruyor.")]
     [SerializeField] private float focusLerpSpeed = 7f;
@@ -88,6 +93,7 @@ public class MenuStage : MonoBehaviour
     [SerializeField] private int textureHeight = 720;
 
     private RawImage image;
+    private GameObject stageRoot;
     private Camera stageCamera;
     private Transform runner;
     private Transform monster;
@@ -96,12 +102,14 @@ public class MenuStage : MonoBehaviour
     private float runnerBaseYaw;
     private float monsterBaseYaw;
 
-    // Taban açılar YALNIZCA BİR KEZ okunuyor. Her açılışta okumak sessizce
-    // kayma üretirdi: `Update` figürlere taban + salınım yazıyor, yani ikinci
-    // açılışta okunan değer tabanın kendisi değil salınımın o anda kaldığı yer
-    // olurdu ve menü her açıldığında figürler biraz daha dönerdi.
+    // Taban değerler YALNIZCA BİR KEZ okunuyor. Her açılışta okumak sessizce
+    // kayma üretirdi: `Update` figürlere taban + salınım yazıyor ve kamerayı
+    // hedefe doğru kaydırıyor, yani ikinci açılışta okunan şey tabanın kendisi
+    // değil hareketin kaldığı yer olurdu — menü her açıldığında figürler biraz
+    // daha döner, kamera biraz daha kayardı.
     private bool basesCaptured;
     private Vector3 pairCameraPosition;
+    private Vector3 targetCameraPosition;
     private RenderTexture texture;
 
     private static MaterialPropertyBlock tintBlock;
@@ -112,8 +120,9 @@ public class MenuStage : MonoBehaviour
         instance = this;
         image = GetComponent<RawImage>();
 
-        GameObject stage = GameObject.Find(StageName);
-        if (stage == null)
+        stageRoot = FindStage(gameObject.scene);
+
+        if (stageRoot == null)
         {
             // Araç çalıştırılmamışsa sahne yok. Sessizce kapanıyoruz: menü
             // yine çalışıyor, arkası düz siyah kalıyor.
@@ -121,10 +130,10 @@ public class MenuStage : MonoBehaviour
             return;
         }
 
-        stage.SetActive(true);
+        stageRoot.SetActive(true);
 
-        stageCamera = stage.GetComponentInChildren<Camera>(true);
-        Transform turntable = stage.transform.Find("Doner");
+        stageCamera = stageRoot.GetComponentInChildren<Camera>(true);
+        Transform turntable = stageRoot.transform.Find("Doner");
 
         if (stageCamera == null || turntable == null)
         {
@@ -132,31 +141,30 @@ public class MenuStage : MonoBehaviour
             return;
         }
 
-        pairCameraPosition = stageCamera.transform.localPosition;
-
         runner = turntable.Find("Kacan");
         monster = turntable.Find("Canavar");
 
         // Taban açılar KURULUMDAN okunuyor, koda yazılmıyor: iki figür
         // birbirine hafifçe dönük duruyor ve o açılar `MenuStageSetup`'ta.
         // Burada tekrar yazmak iki yerde tutulan bir sayı olurdu.
-        if (runner != null)
+        if (!basesCaptured)
         {
-            if (!basesCaptured)
+            pairCameraPosition = stageCamera.transform.localPosition;
+
+            if (runner != null)
                 runnerBaseYaw = runner.localEulerAngles.y;
 
-            runnerRenderers = runner.GetComponentsInChildren<Renderer>(true);
-        }
-
-        if (monster != null)
-        {
-            if (!basesCaptured)
+            if (monster != null)
                 monsterBaseYaw = monster.localEulerAngles.y;
 
-            monsterRenderers = monster.GetComponentsInChildren<Renderer>(true);
+            basesCaptured = true;
         }
 
-        basesCaptured = true;
+        if (runner != null)
+            runnerRenderers = runner.GetComponentsInChildren<Renderer>(true);
+
+        if (monster != null)
+            monsterRenderers = monster.GetComponentsInChildren<Renderer>(true);
 
         texture = new RenderTexture(textureWidth, textureHeight, 24)
         {
@@ -175,6 +183,32 @@ public class MenuStage : MonoBehaviour
         ApplyFocus(instant: true);
     }
 
+    /// <summary>
+    /// Sahne kökünü bulur.
+    ///
+    /// > **`GameObject.Find` KULLANILAMIYOR ve bu sessizce her şeyi bozuyordu.**
+    /// > O metot yalnızca AÇIK objeleri buluyor; sahne kökü ise bilerek kapalı
+    /// > kuruluyor (menü açılana kadar üç ışığı ve kamerası motorda durmasın
+    /// > diye). Yani arama her seferinde null dönüyor, `RawImage` kapanıyor ve
+    /// > menünün arkası hiç değişmemiş gibi düz siyah kalıyordu — hiçbir yerde
+    /// > hata yazmadan.
+    /// >
+    /// > `Scene.GetRootGameObjects` kapalı kökleri de veriyor ve sahne kökü
+    /// > gerçekten bir kök obje: `MenuStageSetup` onu ebeveynsiz kuruyor.
+    /// </summary>
+    private static GameObject FindStage(Scene scene)
+    {
+        GameObject[] roots = scene.GetRootGameObjects();
+
+        for (int i = 0; i < roots.Length; i++)
+        {
+            if (roots[i].name == StageName)
+                return roots[i];
+        }
+
+        return null;
+    }
+
     private void OnDisable()
     {
         if (instance == this)
@@ -187,10 +221,10 @@ public class MenuStage : MonoBehaviour
         {
             stageCamera.targetTexture = null;
             stageCamera.enabled = false;
-
-            GameObject stage = GameObject.Find(StageName);
-            if (stage != null) stage.SetActive(false);
         }
+
+        if (stageRoot != null)
+            stageRoot.SetActive(false);
 
         if (image != null)
             image.texture = null;
@@ -241,34 +275,74 @@ public class MenuStage : MonoBehaviour
         // Odaklanılmayan figür GİZLENİYOR, silinmiyor: seçim ekranından
         // çıkınca geri gelmesi gerekiyor ve yeniden üretmek ışık/ölçek
         // kurulumunu tekrarlamak olurdu.
+        //
+        // Gizleme ÖLÇÜMDEN ÖNCE: hedef figürün açık olduğundan emin olmalıyız,
+        // yoksa `Renderer.bounds` bayat bir değer dönebiliyor.
         if (runner != null)
             runner.gameObject.SetActive(requested != Focus.Monster);
 
         if (monster != null)
             monster.gameObject.SetActive(requested != Focus.Runner);
 
+        targetCameraPosition = ComputeCameraPosition();
+
         if (instant && stageCamera != null)
-            stageCamera.transform.localPosition = TargetCameraPosition();
+            stageCamera.transform.localPosition = targetCameraPosition;
     }
 
-    private Vector3 TargetCameraPosition()
+    /// <summary>
+    /// Odaklanılan figürü kadraja oturtan kamera konumu.
+    ///
+    /// Mesafe figürün GERÇEK boyundan hesaplanıyor, sabit yazılmıyor: canavar
+    /// kaçandan belirgin şekilde iri (bölüm 17'deki bilinçli karar) ve tek bir
+    /// mesafe ikisine birden uymuyor. Yeni bir model geldiğinde de elle
+    /// ayarlanacak bir sayı çıkmıyor.
+    /// </summary>
+    private Vector3 ComputeCameraPosition()
     {
         Transform target = requested == Focus.Runner ? runner
             : requested == Focus.Monster ? monster
             : null;
 
-        if (target == null)
+        if (target == null || stageCamera == null || stageRoot == null)
             return pairCameraPosition;
 
-        // Kamera karakterin SOLUNA kayıyor, yani karakter ekranın sağında
-        // kalıyor — solu seçim paneli kaplıyor. Yükseklik değişmiyor: göğüs
-        // hizası ikisinde de doğru.
-        Vector3 position = target.localPosition;
-        position.x -= focusSideShift;
-        position.y = pairCameraPosition.y;
-        position.z -= focusDistance;
+        Bounds bounds = MeasureBounds(target);
+        float height = bounds.size.y > 0.01f ? bounds.size.y : fallbackHeight;
 
-        return position;
+        float halfTan = Mathf.Tan(stageCamera.fieldOfView * 0.5f * Mathf.Deg2Rad);
+        float distance = height * 0.5f / Mathf.Max(0.02f, halfTan * Mathf.Clamp01(focusFill));
+
+        // Kamera hafifçe aşağı bakıyor (kurulumdaki 4°), yani merkez ışını
+        // mesafeyle birlikte aşağı kayıyor. Figürü kadrajın ortasında tutmak
+        // için kamera o kadar yukarı çıkıyor.
+        float drop = distance * Mathf.Tan(stageCamera.transform.localEulerAngles.x * Mathf.Deg2Rad);
+
+        // Yatay kayma da ORANDAN geliyor, metreden değil: kadrajın genişliği
+        // mesafeye bağlı ve sabit bir metre değeri iri figürü kenara iterdi.
+        float halfWidth = distance * halfTan * stageCamera.aspect;
+
+        Vector3 center = stageRoot.transform.InverseTransformPoint(bounds.center);
+
+        return new Vector3(
+            center.x - focusSideOffset * halfWidth,
+            center.y + drop,
+            center.z - distance);
+    }
+
+    private static Bounds MeasureBounds(Transform target)
+    {
+        Renderer[] renderers = target.GetComponentsInChildren<Renderer>(true);
+
+        if (renderers.Length == 0)
+            return new Bounds(target.position, Vector3.zero);
+
+        Bounds bounds = renderers[0].bounds;
+
+        for (int i = 1; i < renderers.Length; i++)
+            bounds.Encapsulate(renderers[i].bounds);
+
+        return bounds;
     }
 
     private void Update()
@@ -288,7 +362,7 @@ public class MenuStage : MonoBehaviour
             return;
 
         stageCamera.transform.localPosition = Vector3.Lerp(
-            stageCamera.transform.localPosition, TargetCameraPosition(),
+            stageCamera.transform.localPosition, targetCameraPosition,
             1f - Mathf.Exp(-focusLerpSpeed * Time.unscaledDeltaTime));
     }
 
