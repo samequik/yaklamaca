@@ -468,9 +468,16 @@ Input System'e geçilecekse hâlâ tek dosya değişir: `PlayerInputSource`
 > ### Kaynak dosyalar LF, ama biri KARIŞIK
 >
 > `core.autocrlf` **false**, yani git dosyaları olduğu gibi saklıyor ve satır
-> sonları neyse o kalıyor. `Assets/_Scripts` altındaki dosyaların hemen hepsi
-> LF — ama `Interaction/PlayerInteractor.cs` uzun süre **karışıktı** (95 satır
-> CRLF, 14 satır LF) ve 2026-09-10'da LF'e çevrildi.
+> sonları neyse o kalıyor. **Karışık bir depo:** 2026-09-12'de ölçüldü —
+> `Assets/_Scripts` altında **72 dosya LF, 19 dosya CRLF, 2 dosya KARIŞIK**
+> (`Core/RagdollSync.cs` ve `Editor/RevivalSetup.cs`).
+>
+> Burada bir süre "hemen hepsi LF" yazıyordu ve **yanlıştı** — `MenuSetup.cs`
+> tamamen CRLF çıkınca ortaya çıktı. Doğru kural: **dosyanın satır sonunu
+> ÖLÇ, sonra onu koruyarak yaz.** Düzenleme yaparken bellekte `
+`'e
+> normalleştirip yazarken geri çevirmek hem kalıbın tutmasını hem diff'in
+> küçük kalmasını sağlıyor.
 >
 > Bunun pratik sonucu: **script'le düzenleme yapan bir araç, çok satırlı bir
 > kalıbı `
@@ -2343,6 +2350,52 @@ Sunucu penceresindeki [1]-[4] kaldırılmadı: tek başına test ederken lobi
 kurmadan hızlıca tur başlatmak hâlâ işe yarıyor. Özellikle **[2]** (kaçan
 olarak başlat) lobiden yapılamıyor — canavarı seçebiliyorsun ama "beni canavar
 YAPMA" diyemiyorsun.
+
+### Görsel dil: terminal paneliyle aynı aile (2026-09-12)
+
+Menü "düz düğmeler, hizasız satırlar, kimliksiz bir görünüm" diye şikâyet
+edildi. Sorun tek tek ekranlar değil, **ortak bir dilin hiç olmamasıydı**:
+paneller bir gri, düğmeler başka bir gri, vurgu ayrı bir kırmızı ve hiçbiri
+birbirine bağlı değil.
+
+Oyunun kendi dili zaten vardı — terminal ve çıkış kilidi panelleri (bölüm 18):
+koyu gövde, ince çerçeve, köşe ayraçları, **tek renk ailesi**. Menü de ona
+çekildi. Aile **kırmızı**: canavarın rengi, yani oyunun kimliği.
+
+**Dil TEK yardımcıda duruyor.** `CreateColumn` artık sütunu kendi kutusuna
+sarıyor (gövde + çerçeve + ayraçlar) ve dokuz Build*Panel'in hepsi onu
+çağırıyor — yani dokuz ekran tek yerden değişti. Her panele ayrı çerçeve
+yazmak dokuz yerde tutarlılık kovalamak olurdu.
+
+Kutu `ContentSizeFitter` ile içeriğe göre büyüyor, yani her ekran kendi
+boyunda bir panel oluyor. Skor tablosunun kendi kutusu zaten var, o yüzden
+tek istisna orası (`framed: false`) — yoksa çift çerçeve çıkardı.
+
+> **Düğmelerin üstüne gelince hiçbir şey olmuyordu ve sebebi ilginç.** Unity
+> `ColorBlock` durum rengini hedef grafiğin rengiyle **ÇARPIYOR**. Gövde koyu
+> gri (0.16) olduğu için varsayılan `highlightedColor` (0.96) neredeyse
+> hiçbir fark üretmiyordu — düğme ölü duruyordu.
+>
+> Çözüm ikisini ayırmak oldu: **gövde RENGİ taşıyor** (tam doygun kırmızı),
+> **`ColorBlock` PARLAKLIĞI veriyor** (normal 0.15, üstüne gelince 0.42,
+> basılınca 0.68). Sonuç hem koyu bir düğme hem gerçek bir tepki.
+>
+> `selectedColor` da normale eşitlendi: tıkladıktan sonra düğme "seçili"
+> kalıyor ve ekranda takılı bir vurgu bırakıyordu.
+
+**Birincil düğme dolu, yazısı koyu.** `AddButton`'a renk verilen çağrılar
+(LOBİ KUR, KATIL, BAŞLAT, DEVAM ET) zaten "o ekrandaki sıradaki adım"
+demekti; artık görsel olarak da öyle. Bölüm 18'deki "sıradaki hücre dolu
+renkte, yazısı koyu" deseninin aynısı — göz sıradakini aramak zorunda
+kalmıyor.
+
+Başlık da aileye girdi: vurgu renginde, aralıklı büyük harf ve altında ince
+bir ayraç çizgisi.
+
+> **Bu değişiklik için `Menü Kur` ÇALIŞTIRILMALI.** Değişen şey sahne değil,
+> sahneyi kuran araç. Çalıştırılmazsa menü eski görünümde kalır ve "hiçbir şey
+> olmadı" gibi durur — bölüm 7'deki "araç çalıştırmayı unutma" tuzağının
+> aynısı.
 
 ### Kurulum sırası
 

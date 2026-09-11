@@ -36,10 +36,30 @@ public static class MenuSetup
     /// </summary>
     private const int RoomListRows = 6;
 
-    private static readonly Color PanelColor = new Color(0.05f, 0.05f, 0.07f, 0.93f);
-    private static readonly Color ButtonColor = new Color(0.16f, 0.16f, 0.2f, 1f);
-    private static readonly Color AccentColor = new Color(0.75f, 0.2f, 0.16f, 1f);
-    private static readonly Color TextColor = new Color(0.92f, 0.92f, 0.95f, 1f);
+    // Menünün görsel dili terminal ve çıkış kilidi panelleriyle aynı aileden
+    // (bölüm 18): koyu gövde, ince çerçeve, köşe ayraçları ve TEK renk ailesi.
+    // Buradaki aile KIRMIZI — canavarın rengi, yani oyunun kimliği. Eskiden
+    // paneller bir gri, düğmeler başka bir gri, vurgu ayrı bir kırmızıydı ve
+    // hiçbiri birbirine bağlı değildi; "kimliksiz" görünmesinin sebebi buydu.
+    //
+    // Panel artık YARI SAYDAM: gövdeyi sütunun kendi kutusu taşıyor, tam ekran
+    // dolgu yalnızca arkayı karartıyor. Duraklatmada arkadaki sahnenin
+    // görünmesi gerekiyor (bölüm 13), o yüzden opak olamaz.
+    private static readonly Color PanelColor = new Color(0.02f, 0.02f, 0.03f, 0.55f);
+
+    /// <summary>İçerik kutusunun gövdesi — terminal panelleriyle aynı koyuluk.</summary>
+    private static readonly Color BoxColor = new Color(0.045f, 0.030f, 0.032f, 0.95f);
+
+    private static readonly Color AccentColor = new Color(0.88f, 0.28f, 0.22f, 1f);
+
+    /// <summary>Çerçeve ve ayraçların rengi: aynı kırmızının sönük tonu.</summary>
+    private static readonly Color AccentDim = new Color(0.40f, 0.13f, 0.10f, 1f);
+
+    /// <summary>Düğme yazısı ve ikincil vurgular.</summary>
+    private static readonly Color AccentLight = new Color(0.96f, 0.72f, 0.66f, 1f);
+
+    private static readonly Color ButtonColor = AccentColor;
+    private static readonly Color TextColor = new Color(0.93f, 0.89f, 0.87f, 1f);
 
     [MenuItem("Yakalamaca/Menü Kur")]
     private static void Build()
@@ -575,6 +595,86 @@ public static class MenuSetup
         return root;
     }
 
+    /// <summary>
+    /// Bir kutuya ince çerçeve + köşe ayraçları takar (bölüm 18'deki desen).
+    ///
+    /// Çerçevenin tamamını kalınlaştırmak kutuyu ağırlaştırıyor; vurgu
+    /// köşelerde toplanınca hem oturaklı hem hafif duruyor.
+    ///
+    /// **Hepsi `ignoreLayout`**: kutunun kendisi bir `VerticalLayoutGroup`
+    /// olabiliyor ve öyleyse kenarlar birer satır sanılıp içeriğin arasına
+    /// dizilirdi.
+    /// </summary>
+    private static void AddFrame(Transform parent, Color color, float thickness, float bracket)
+    {
+        Graphic[] edges =
+        {
+            CreateEdge(parent, "Kenar_Ust", new Vector2(0f, 1f), new Vector2(1f, 1f), thickness),
+            CreateEdge(parent, "Kenar_Alt", new Vector2(0f, 0f), new Vector2(1f, 0f), thickness),
+            CreateEdge(parent, "Kenar_Sol", new Vector2(0f, 0f), new Vector2(0f, 1f), thickness),
+            CreateEdge(parent, "Kenar_Sag", new Vector2(1f, 0f), new Vector2(1f, 1f), thickness),
+        };
+
+        foreach (Graphic edge in edges)
+        {
+            edge.color = color;
+            edge.raycastTarget = false;
+            IgnoreLayout(edge.gameObject);
+        }
+
+        if (bracket <= 0f)
+            return;
+
+        float thick = thickness * 2f;
+
+        for (int i = 0; i < 4; i++)
+        {
+            Vector2 corner = new Vector2(i % 2, i / 2);
+            CreateCornerBar(parent, "Ayrac_Yatay", corner, new Vector2(bracket, thick), color);
+            CreateCornerBar(parent, "Ayrac_Dikey", corner, new Vector2(thick, bracket), color);
+        }
+    }
+
+    /// <summary>Köşeye oturan kısa çubuk; pivot da köşede olduğu için tam kenara yapışıyor.</summary>
+    private static void CreateCornerBar(Transform parent, string name, Vector2 corner,
+        Vector2 size, Color color)
+    {
+        GameObject bar = new GameObject(name, typeof(RectTransform), typeof(Image));
+        bar.transform.SetParent(parent, false);
+
+        RectTransform rect = bar.GetComponent<RectTransform>();
+        rect.anchorMin = corner;
+        rect.anchorMax = corner;
+        rect.pivot = corner;
+        rect.sizeDelta = size;
+        rect.anchoredPosition = Vector2.zero;
+
+        Image image = bar.GetComponent<Image>();
+        image.color = color;
+        image.raycastTarget = false;
+        IgnoreLayout(bar);
+    }
+
+    private static void IgnoreLayout(GameObject target)
+    {
+        LayoutElement element = target.GetComponent<LayoutElement>()
+            ?? target.AddComponent<LayoutElement>();
+        element.ignoreLayout = true;
+    }
+
+    /// <summary>Başlığın altındaki ince ayraç çizgisi.</summary>
+    private static void CreateRule(Transform parent)
+    {
+        GameObject rule = new GameObject("Ayrac", typeof(RectTransform), typeof(Image));
+        rule.transform.SetParent(parent, false);
+
+        Image image = rule.GetComponent<Image>();
+        image.color = AccentDim;
+        image.raycastTarget = false;
+
+        SetPreferredHeight(rule, 2f);
+    }
+
     private static Graphic CreateEdge(Transform parent, string name, Vector2 min, Vector2 max,
         float thickness)
     {
@@ -866,7 +966,7 @@ public static class MenuSetup
         boxRect.sizeDelta = new Vector2(860f, 430f);
         boxRect.anchoredPosition = Vector2.zero;
 
-        Transform column = CreateColumn(box.transform, 760f);
+        Transform column = CreateColumn(box.transform, 760f, framed: false);
 
         CreateTitle(column, "OYUNCULAR").fontSize = 38f;
         CreateSpacer(column, 8f);
@@ -1442,7 +1542,8 @@ public static class MenuSetup
     }
 
     /// <summary>Ortada dikey sıralanan içerik sütunu.</summary>
-    private static Transform CreateColumn(Transform parent, float width = 520f)
+    private static Transform CreateColumn(Transform parent, float width = 520f,
+        bool framed = true)
     {
         GameObject column = new GameObject("Sutun", typeof(RectTransform),
             typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
@@ -1465,6 +1566,24 @@ public static class MenuSetup
         ContentSizeFitter fitter = column.GetComponent<ContentSizeFitter>();
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
+        // **Sütun artık kendi KUTUSU.** Koyu gövde, ince çerçeve, köşe
+        // ayraçları — terminal ve çıkış kilidi panelleriyle aynı dil
+        // (bölüm 18). Kutu `ContentSizeFitter` sayesinde içeriğe göre
+        // büyüyor, yani her ekran kendi boyunda bir panel oluyor.
+        //
+        // Dili BURAYA koymanın sebebi: bütün Build*Panel'ler bu yardımcıyı
+        // çağırıyor, yani dokuz ekran tek yerden değişiyor. Her panele ayrı
+        // çerçeve yazmak dokuz yerde tutarlılık kovalamak olurdu.
+        if (framed)
+        {
+            layout.padding = new RectOffset(34, 34, 30, 30);
+
+            Image body = column.AddComponent<Image>();
+            body.color = BoxColor;
+
+            AddFrame(column.transform, AccentDim, 2f, 40f);
+        }
+
         return column.transform;
     }
 
@@ -1475,11 +1594,20 @@ public static class MenuSetup
 
         TextMeshProUGUI tmp = label.GetComponent<TextMeshProUGUI>();
         tmp.text = text;
-        tmp.fontSize = 54f;
+        tmp.fontSize = 46f;
         tmp.alignment = TextAlignmentOptions.Center;
-        tmp.color = TextColor;
+        tmp.color = AccentColor;
 
-        SetPreferredHeight(label, 72f);
+        // Aralıklı büyük harf: terminal ekranlarındaki yazı hissi. Punto
+        // 54'ten 46'ya indi, çünkü aralık zaten genişletiyor ve kutu artık
+        // kenar boşluklu.
+        tmp.characterSpacing = 14f;
+
+        SetPreferredHeight(label, 62f);
+
+        // Başlığı içerikten ayıran ince çizgi — panelin üst bandı.
+        CreateRule(parent);
+
         return tmp;
     }
 
@@ -1508,11 +1636,22 @@ public static class MenuSetup
     private static Button AddButton(Transform parent, string text, UnityEngine.Events.UnityAction action,
         Color? color = null)
     {
+        bool primary = color.HasValue;
+
         GameObject buttonObject = new GameObject($"Buton_{text}", typeof(RectTransform), typeof(Image), typeof(Button));
         buttonObject.transform.SetParent(parent, false);
 
         Image image = buttonObject.GetComponent<Image>();
-        image.color = color ?? ButtonColor;
+
+        // **Gövde RENGİ taşıyor, parlaklığı `ColorBlock` veriyor.** Unity durum
+        // rengini gövdeyle ÇARPIYOR; gövde koyu griyken varsayılan
+        // `highlightedColor` (0.96) hiçbir şey yapmıyordu, yani düğmeler üstüne
+        // gelince ölü duruyordu — "kimliksiz" görünmelerinin bir sebebi buydu.
+        // Gövdeye tam doygun kırmızıyı verip durumları koyudan açığa
+        // sıralayınca hem koyu bir düğme hem gerçek bir tepki çıkıyor.
+        image.color = color ?? AccentColor;
+
+        AddFrame(buttonObject.transform, primary ? AccentLight : AccentDim, 1.5f, 12f);
 
         GameObject labelObject = new GameObject("Yazi", typeof(RectTransform), typeof(TextMeshProUGUI));
         labelObject.transform.SetParent(buttonObject.transform, false);
@@ -1520,26 +1659,49 @@ public static class MenuSetup
 
         TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
         label.text = text;
-        label.fontSize = 26f;
+        label.fontSize = 24f;
         label.alignment = TextAlignmentOptions.Center;
-        label.color = TextColor;
+        label.characterSpacing = 8f;
+        label.raycastTarget = false;
+
+        // Dolu düğmede yazı KOYU. "Sıradaki adım dolu renkte, yazısı koyu"
+        // bölüm 18'deki desen: göz sıradakini aramak zorunda kalmıyor.
+        label.color = primary ? new Color(0.08f, 0.04f, 0.03f, 1f) : AccentLight;
 
         Button button = buttonObject.GetComponent<Button>();
         button.targetGraphic = image;
 
+        ColorBlock colors = button.colors;
+
+        if (primary)
+        {
+            colors.normalColor = new Color(0.92f, 0.92f, 0.92f);
+            colors.highlightedColor = Color.white;
+            colors.pressedColor = new Color(0.68f, 0.68f, 0.68f);
+        }
+        else
+        {
+            colors.normalColor = new Color(0.15f, 0.15f, 0.16f);
+            colors.highlightedColor = new Color(0.42f, 0.38f, 0.38f);
+            colors.pressedColor = new Color(0.68f, 0.62f, 0.62f);
+        }
+
+        // Tıklandıktan sonra düğme "seçili" kalıyor; seçili rengi normale
+        // eşitlemek ekranda takılı kalan bir vurguyu önlüyor.
+        colors.selectedColor = colors.normalColor;
+
         // Unity'nin varsayılan disabledColor'ı çok soluk bir tint uyguluyor;
         // vurgu rengindeki bir düğme kapalıyken bile canlı kırmızı görünüyor
-        // ve basılabilir sanılıyordu. Değer görüntüyü belirgin şekilde
-        // karartıyor (renkler çarpılıyor, o yüzden 0.3 gerçekten karartır).
-        ColorBlock colors = button.colors;
-        colors.disabledColor = new Color(0.3f, 0.3f, 0.32f, 0.75f);
+        // ve basılabilir sanılıyordu.
+        colors.disabledColor = new Color(0.10f, 0.10f, 0.11f, 0.7f);
+        colors.fadeDuration = 0.08f;
         button.colors = colors;
 
         // Kalıcı dinleyici: Inspector'da görünür, elle değiştirilebilir.
         if (action != null)
             UnityEventTools.AddPersistentListener(button.onClick, action);
 
-        SetPreferredHeight(buttonObject, 54f);
+        SetPreferredHeight(buttonObject, 52f);
         return button;
     }
 
