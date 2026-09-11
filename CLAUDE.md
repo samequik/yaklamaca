@@ -369,11 +369,30 @@ Hepsinin ayrıntısı bölüm 23'te; özet:
 
 ### Sıradaki adımlar
 
-#### Bekleyen araç çalıştırması YOK
+#### BEKLEYEN ARAÇ ÇALIŞTIRMASI VAR: `Menü Kur`
 
-`Menü Kur` **2026-09-10'da çalıştırıldı**; skor tablosunun `Not` etiketi artık
-sahnede (beş satırın beşinde de var). 2026-09-06'dan beri bekleyen tek iş
-buydu ve kapandı.
+**Menü arka planındaki karakter sahnesi koda yazıldı ama SAHNEYE
+KURULMADI.** `MenuStageSetup.Build()` `Menü Kur`'dan çağrılıyor (bölüm 13) ve
+o araç kod yazıldıktan sonra bir daha çalıştırılmadı. Sahnede bugün
+`MenuSahnesi` kökü yok, yani menünün arkası hâlâ düz siyah ve `MenuStage`
+sessizce kendini kapatıyor (araç çalıştırılmamışsa öyle davranıyor).
+
+Doğrulama komutu — sıfır dönerse araç çalıştırılmamış demektir:
+
+```
+grep -c "m_Name: MenuSahnesi" Assets/_Scenes/SampleScene.unity
+```
+
+> **Unity dosyaları henüz İÇE AKTARMADI da.** `MenuStage.cs`,
+> `MenuStageCamera.cs` ve `MenuStageSetup.cs` için `.meta` dosyası yok ve
+> `Library/ScriptAssemblies/Assembly-CSharp.dll` kaynaklardan eski. Yani menü
+> aracı Unity'de görünmeden önce projenin bir kez odağa alınması gerekiyor —
+> bölüm 14'ün sonundaki "Unity'nin derlemeyi atlaması" tuzağının aynısı.
+> Derleme kendisi temiz: iki derleme de Unity'nin Roslyn'iyle çevrimdışı
+> denendi ve sıfır hata verdi.
+
+Önceki bekleyen iş kapandı: `Menü Kur` **2026-09-10'da** bir kez çalıştırıldı
+ve skor tablosunun `Not` etiketi sahneye girdi (beş satırın beşinde de var).
 
 > Bir sahne değişikliğinin gerçekten uygulanıp uygulanmadığını **sahne
 > dosyasından** doğrulayabilirsin, tahmin etmeden:
@@ -2426,14 +2445,14 @@ bir ayraç çizgisi.
 
 ### Menü paketinin DURUMU (2026-09-12)
 
-Menü üç parçalı bir iş olarak planlandı (kalan iş 6, 8, 9) ve **yalnızca
-birincisi bitti.** Üçü de aynı canvas'a dokunduğu için birlikte planlandılar;
-sıralama şöyle ilerliyor:
+Menü üç parçalı bir iş olarak planlandı (kalan iş 6, 8, 9) ve **ikisi
+bitti.** Üçü de aynı canvas'a dokunduğu için birlikte planlandılar; sıralama
+şöyle ilerliyor:
 
 | Parça | Durum |
 |---|---|
-| **Görsel dil** (madde 6) | **BİTTİ.** Renk ailesi, çerçeveli kutu, düğme durumları, başlık. Dokuz ekran birden |
-| **Arka plan** (madde 9) | **BAŞLANMADI.** Bugün düz siyah; arkaya karakterler konacak |
+| **Görsel dil** (madde 6) | **BİTTİ ve sahnede.** Renk ailesi, çerçeveli kutu, düğme durumları, başlık. Dokuz ekran birden |
+| **Arka plan** (madde 9) | **KOD BİTTİ, SAHNEDE YOK.** Kaçan ve canavar menünün arkasında duruyor — ama `Menü Kur` çalıştırılana kadar görünmüyor (yukarıdaki bekleyen araç kutusu) |
 | **Karakter seçimi** (madde 8) | **BAŞLANMADI.** Lobide kostüm/canavar seçimi |
 
 **Ayarlar ekranındaki efekt açma/kapama da bu pakete ait** ve hâlâ yok:
