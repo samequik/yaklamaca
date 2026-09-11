@@ -87,6 +87,10 @@ public static class MenuSetup
         // oynanmıyorken açılıyor (bkz. MenuController.ApplyBackdrop).
         GameObject backdrop = CreateBackdrop(canvasObject.transform);
 
+        // Arkaplanın arkasındaki karakter sahnesi. Menü canvas'ından bağımsız
+        // bir sahne kökü kuruyor; `MenuStage` çalışma anında bağlıyor.
+        MenuStageSetup.Build();
+
         // Oyun içi HUD hemen karartmanın üstünde: menü panellerinden ÖNCE
         // geliyor, yani menü açıldığında panel onun üstünü örtüyor. Zaten
         // `GameHud` menü açıkken kendini gizliyor — sıralama ikinci güvence.
@@ -1491,8 +1495,23 @@ public static class MenuSetup
         backdrop.transform.SetParent(parent, false);
         Stretch(backdrop.GetComponent<RectTransform>());
 
-        // Alfa 1: panellerin kendi 0.93'ü ardında sahne görünmesin diye.
-        backdrop.GetComponent<Image>().color = new Color(0.03f, 0.03f, 0.045f, 1f);
+        backdrop.GetComponent<Image>().color = new Color(0.02f, 0.02f, 0.028f, 1f);
+
+        // **Karakter sahnesi arkaplanın ÇOCUĞU.** `MenuController.ApplyBackdrop`
+        // arkaplanı zaten "menü açık ve tur oynanmıyor" kuralıyla açıp
+        // kapatıyor (bölüm 13); çocuğu yapmak sahneyi tam doğru anlarda
+        // gösteriyor ve `MenuController`'a tek satır eklemek gerekmedi.
+        //
+        // Duraklatmada arkada oyunun kendisi görünmeli, orada bu kapalı
+        // olmalı — aynı kural ikisini birden çözüyor.
+        GameObject stage = new GameObject("Sahne",
+            typeof(RectTransform), typeof(RawImage), typeof(MenuStage));
+        stage.transform.SetParent(backdrop.transform, false);
+        Stretch(stage.GetComponent<RectTransform>());
+
+        RawImage stageImage = stage.GetComponent<RawImage>();
+        stageImage.color = Color.white;
+        stageImage.raycastTarget = false;
 
         return backdrop;
     }

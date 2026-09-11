@@ -26,7 +26,7 @@ public static class MonsterSetup
     private const string DollFolder = "Assets/RamsterZ_FreeDoll";
     private const string DollModel = DollFolder + "/Art/Models/KillerDollUnity_BaseBody.fbx";
     private const string DollMaterials = DollFolder + "/Art/Materials";
-    private const string ControllerPath = ModelFolder + "/Canavar.controller";
+    internal const string ControllerPath = ModelFolder + "/Canavar.controller";
     private const string PlayerPrefabPath = "Assets/_Prefabs/NetworkPlayer.prefab";
 
     private const string MonsterRootName = "CanavarGovde";

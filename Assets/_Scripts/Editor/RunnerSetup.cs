@@ -41,15 +41,15 @@ using UnityEngine;
 /// </summary>
 public static class RunnerSetup
 {
-    private const string AnimationFolder = "Assets/_Art/Models/Kacan";
-    private const string MonsterAnimationFolder = "Assets/_Art/Models/Canavar";
-    private const string ControllerPath = AnimationFolder + "/Kacan.controller";
+    internal const string AnimationFolder = "Assets/_Art/Models/Kacan";
+    internal const string MonsterAnimationFolder = "Assets/_Art/Models/Canavar";
+    internal const string ControllerPath = AnimationFolder + "/Kacan.controller";
     private const string PlayerPrefabPath = "Assets/_Prefabs/NetworkPlayer.prefab";
 
-    private const string ModelPath =
+    internal const string ModelPath =
         "Assets/Plugins/Banana Yellow Games/Characters/Banana Man/Banana Man.fbx";
 
-    private const string MonsterModelPath =
+    internal const string MonsterModelPath =
         "Assets/RamsterZ_FreeDoll/Art/Models/KillerDollUnity_BaseBody.fbx";
 
     private const string RunnerRootName = "KacanGovde";

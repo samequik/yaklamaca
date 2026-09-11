@@ -170,6 +170,13 @@ public class NetworkPlayerSetup : NetworkBehaviour
             if (cameras[i].GetComponentInParent<NetworkIdentity>() != null)
                 continue;
 
+            // Menü sahnesinin kamerası ödünç ALINMIYOR: lobide oyuncu çoktan
+            // doğmuş oluyor ve menü arkasındaki karakterlerin orada da
+            // görünmesi gerekiyor. Kendi hedef dokusuna çizdiği için ekrana
+            // karışmıyor (bkz. MenuStage).
+            if (cameras[i].GetComponent<MenuStageCamera>() != null)
+                continue;
+
             if (!cameras[i].gameObject.activeSelf)
                 continue;
 
