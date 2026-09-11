@@ -425,7 +425,7 @@ karşı yeni bir aracı. Ölçülmedi.
 | 6 | **Menü ve ayarlar arayüzü** | **GÖRÜNÜM BİTTİ** (2026-09-12, bölüm 13): renk ailesi, çerçeveli kutu, köşe ayraçları, düğme durumları, başlık — dokuz ekran birden. `Menü Kur` çalıştırıldı ve sahneden doğrulandı. **Kalan:** ayarlar ekranına korku efekti açma/kapama kaydırıcısı (`ScreenEffects.Master` hazır, bağlanmadı) |
 | 7 | ~~**Korku ekran efektleri**~~ | **YAPILDI** (2026-09-10, bölüm 25). Vinyet, gren, renk ayrışması, renk kaybı; canavar yaklaştıkça artıyor. Paket eklenmedi. Kalan: ayarlar ekranında açma/kapama (madde 6 ile birlikte) |
 | 8 | **Karakter seçimi: kostümler ve ikinci canavar** — *başlanmadı* | Üç yeni kaçan kostümü (**yalnızca görsel** — bölüm 17'nin ölçek kuralı gereği çarpan 1 kalmalı, şişirilmiş bir kaçan isabet etmeyen vuruşlar üretir) ve **özelliği olan ikinci bir canavar**. İkincisi kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1), yani ikinci bir profil doğal yol. Seçim lobide yapılacak, yani `RoundParticipant`'a birer SyncVar ve `PlayerBodyVisual`'a üçüncü bir gövde daha. **Canavarın özelliği madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
-| 9 | **Menü arka planı** — *başlanmadı* | Bugün düz siyah (`Arkaplan`, bölüm 13 — tur oynanmıyorken açılıyor). Arkaya karakterler konacak: canavarlar ve kaçanlar, oyunu ilk açan neyin olduğunu görsün. Madde 8'le birlikte yapılacak; madde 6 bitti, yani canvas bir kez daha kurulacak |
+| 9 | ~~**Menü arka planı**~~ | **YAPILDI** (2026-09-12, bölüm 13). Kaçan ve canavar menünün arkasında duruyor; ayrı bir kamera hedef dokuya çiziyor. Yeni modeller gelince aynı sahneye eklenecek |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
@@ -2447,6 +2447,57 @@ sıralama şöyle ilerliyor:
 >
 > Kullanıcının kendi ifadesiyle: bugünkü kaçan modeli de "bir kostüm sayılır",
 > yani liste tek elemanlı başlayıp büyüyecek.
+
+### Menünün arkasındaki karakter sahnesi (2026-09-12)
+
+Menünün arkası düz siyahtı. Artık orada kaçan ve canavar duruyor — oyunu ilk
+açan neyin olduğunu görüyor.
+
+| Parça | İşi |
+|---|---|
+| `Editor/MenuStageSetup.cs` | Sahneyi kuruyor: kamera, üç ışık, iki karakter |
+| `UI/MenuStage.cs` | `RenderTexture`'ı kurup kamerayı açıp kapatıyor, salınımı sürüyor |
+| `UI/MenuStageCamera.cs` | Çizim boyunca sisi kapatıyor |
+
+**Neden `RenderTexture`, neden sahneyi doğrudan göstermiyoruz.** Menü iki
+farklı durumda açılıyor ve ikisinde de farklı bir kamera çiziyor: ana menüde
+sahnedeki menü kamerası, lobide ise çoktan doğmuş oyuncunun kamerası
+(bölüm 13'teki "ödünç alınan kamera"). Arkaya karakter koymanın başka yolu o
+kameralara karışmaktı — yani oyuncunun bakışına. Ayrı bir kamera + hedef doku
+ikisini de bağımsız kılıyor.
+
+**Sahne haritadan 200 m AŞAĞIDA, ayrı bir katman yok.** Beşinci bir katman
+`LayerSetup`'ı, maskeleri ve çarpışma matrisini ilgilendirirdi (bölüm 16);
+uzaklık aynı işi hiçbir şeye dokunmadan yapıyor. Kameranın görüş alanına
+haritadan hiçbir şey girmiyor.
+
+**Görünürlük bedava geldi.** `Sahne` görseli `Arkaplan`'ın ÇOCUĞU ve
+`MenuController.ApplyBackdrop` onu zaten "menü açık ve tur oynanmıyor"
+kuralıyla açıp kapatıyor. Yani `MenuController`'a tek satır eklenmedi ve
+duraklatmada arkada oyunun kendisi görünmeye devam ediyor — aynı kural ikisini
+de doğru çözüyor.
+
+**Hiçbir ışık Directional DEĞİL, bilerek.** Yönlü ışığın konumu yok: 200 m
+öteden bile bütün haritayı aydınlatır ve bölüm 5'in "fenersiz görülmemeli"
+kuralını tek başına delerdi. Üçü de menzilli (bir spot, iki point) ve yalnızca
+sahneyi görüyor. Kenar ışığı kırmızı — canavarın hâlesiyle (bölüm 5) aynı
+kimlik.
+
+**Karakterler tam tur DÖNMÜYOR, salınıyor.** Tam dönüşte sırtları geliyor ve
+menüde sırt görmek kötü duruyor.
+
+**Ayaklar kadraj dışında**, o yüzden zemin koymak gerekmedi: karakterlerin
+havada durduğu görünmüyor ve bir platform modeli eklemeye gerek kalmıyor.
+
+> **Kamera ödünç alınmıyor.** `NetworkPlayerSetup.DisableOtherCameras` yerel
+> oyuncu doğunca sahnedeki bütün kameraları kapatıyor (bölüm 13). Menü sahnesi
+> **lobide de** çalışmak zorunda ve lobide oyuncu çoktan doğmuş oluyor, yani
+> kamera tam da gerektiği anda kapanırdı. `MenuStageCamera` taşıyan kameralar
+> artık atlanıyor; kendi hedef dokusuna çizdiği için ekrana da karışmıyor.
+
+Sahne kökü **kapalı kuruluyor** ve `MenuStage` gerektiğinde açıyor: menü
+kapalıyken küçük bir sahneyi her karede çizmenin ve üç ışığı motorda tutmanın
+karşılığı yok.
 
 ### Kurulum sırası
 
