@@ -32,7 +32,8 @@ ve kilit paneli (bölüm 18) · lightmap + occlusion · **EOS relay'i** ·
 göstergesi ve TAB paneli** (bölüm 19) · **gerçek UI** (bölüm 20) ·
 **fizik motorlu ceset/ragdoll** (bölüm 21) ·
 **ceset taşıma ve diriltme** (bölüm 23) · git · **GitHub** (bölüm 24) ·
-**korku ekran efektleri** (bölüm 25).
+**korku ekran efektleri** (bölüm 25) · **menü arka planı ve karakter seçimi**
+(bölüm 13 — kodu bitti, sahneye girmesi için `Menü Kur` bekliyor).
 
 **Diriltme de bitti** (bölüm 23). Ceset haritada duruyor, taşınıyor, kabine
 konuyor; terminalde 15 saniyelik işlem hatasız biterse kaçan orada diriliyor.
@@ -371,11 +372,14 @@ Hepsinin ayrıntısı bölüm 23'te; özet:
 
 #### BEKLEYEN ARAÇ ÇALIŞTIRMASI VAR: `Menü Kur`
 
-**Menü arka planındaki karakter sahnesi koda yazıldı ama SAHNEYE
-KURULMADI.** `MenuStageSetup.Build()` `Menü Kur`'dan çağrılıyor (bölüm 13) ve
-o araç kod yazıldıktan sonra bir daha çalıştırılmadı. Sahnede bugün
-`MenuSahnesi` kökü yok, yani menünün arkası hâlâ düz siyah ve `MenuStage`
-sessizce kendini kapatıyor (araç çalıştırılmamışsa öyle davranıyor).
+**Menü paketinin son üç parçası koda yazıldı ama SAHNEYE KURULMADI:** arka
+plandaki karakter sahnesi, karakter seçim ekranı ve ayarlardaki korku efekti
+kaydırıcısı. Üçü de `Menü Kur`'dan geliyor ve o araç kod yazıldıktan sonra bir
+daha çalıştırılmadı.
+
+Bunun oynanıştaki karşılığı: menünün arkası hâlâ düz siyah, `KARAKTER` düğmesi
+yok ve seçenekler ekranında kaydırıcı yok. **Hiçbir yerde hata görünmüyor** —
+`MenuStage` sahneyi bulamayınca sessizce kendini kapatıyor.
 
 Doğrulama komutu — sıfır dönerse araç çalıştırılmamış demektir:
 
@@ -441,9 +445,9 @@ karşı yeni bir aracı. Ölçülmedi.
 | 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
 | 4 | **Kapıdan vuruş** | İki oyuncu da kapıya 0.3 m mesafedeyken ışın kapıya varmadan kesiliyor ve isabet sayılıyor |
 | 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
-| 6 | **Menü ve ayarlar arayüzü** | **GÖRÜNÜM BİTTİ** (2026-09-12, bölüm 13): renk ailesi, çerçeveli kutu, köşe ayraçları, düğme durumları, başlık — dokuz ekran birden. `Menü Kur` çalıştırıldı ve sahneden doğrulandı. **Kalan:** ayarlar ekranına korku efekti açma/kapama kaydırıcısı (`ScreenEffects.Master` hazır, bağlanmadı) |
-| 7 | ~~**Korku ekran efektleri**~~ | **YAPILDI** (2026-09-10, bölüm 25). Vinyet, gren, renk ayrışması, renk kaybı; canavar yaklaştıkça artıyor. Paket eklenmedi. Kalan: ayarlar ekranında açma/kapama (madde 6 ile birlikte) |
-| 8 | **Karakter seçimi: kostümler ve ikinci canavar** — *başlanmadı* | Üç yeni kaçan kostümü (**yalnızca görsel** — bölüm 17'nin ölçek kuralı gereği çarpan 1 kalmalı, şişirilmiş bir kaçan isabet etmeyen vuruşlar üretir) ve **özelliği olan ikinci bir canavar**. İkincisi kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1), yani ikinci bir profil doğal yol. Seçim lobide yapılacak, yani `RoundParticipant`'a birer SyncVar ve `PlayerBodyVisual`'a üçüncü bir gövde daha. **Canavarın özelliği madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
+| 6 | ~~**Menü ve ayarlar arayüzü**~~ | **YAPILDI** (2026-09-12, bölüm 13). Görsel dil dokuz ekranda, korku efekti kaydırıcısı seçeneklerde. **Sahneye girmesi için `Menü Kur` çalıştırılmalı** |
+| 7 | ~~**Korku ekran efektleri**~~ | **YAPILDI** (2026-09-10, bölüm 25). Vinyet, gren, renk ayrışması, renk kaybı; canavar yaklaştıkça artıyor. Paket eklenmedi. Ayarlardaki kaydırıcı da geldi (2026-09-12) |
+| 8 | **Kostüm seçimi YAPILDI, ikinci canavar kaldı** | **Kostüm sistemi bitti** (2026-09-12, bölüm 13): katalog, lobiden seçim, canlı önizleme, SyncVar'lar. Liste bugün renk çeşitlemesi; yeni modeller gelince `Costume.Body` doldurulup gövde dizisine ekleniyor. **Kalan: özelliği olan ikinci canavar** — kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1), yani ikinci bir profil doğal yol. **Madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
 | 9 | ~~**Menü arka planı**~~ | **YAPILDI** (2026-09-12, bölüm 13). Kaçan ve canavar menünün arkasında duruyor; ayrı bir kamera hedef dokuya çiziyor. Yeni modeller gelince aynı sahneye eklenecek |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
@@ -1092,7 +1096,7 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Harita Süsle (prop dağıt) | Duvar diplerine varil/kasa dağıtır |
 | Ağ Kurulumu (1. adım) | Oyuncu prefabı + NetworkManager + doğum noktaları |
 | EOS Kurulumu (relay) | EOS transport'unu ve lobi servisini kurar, lobiye bağlar; hiçbir şey silmiyor |
-| Menü Kur | Menü, lobi, ayarlar ve tuş atama ekranları (bkz. bölüm 13) |
+| Menü Kur | Menü, lobi, ayarlar, tuş atamaları, karakter seçimi ve menü arkasındaki sahne (bkz. bölüm 13) |
 | Terminal ve Çıkış Kur | 5 terminali duvarlara, 2 çıkışı en uzak iki gediğe kurar |
 | Sesleri Yerleştir | Sesleri adlandırır, mono yapar, kapılara ve terminallere bağlar |
 | Mağara Yankısı Kur (reverb) | Yankı bölgesi + mesafeye bağlı yankı eğrisi (bkz. bölüm 12) |
@@ -2445,27 +2449,27 @@ bir ayraç çizgisi.
 
 ### Menü paketinin DURUMU (2026-09-12)
 
-Menü üç parçalı bir iş olarak planlandı (kalan iş 6, 8, 9) ve **ikisi
-bitti.** Üçü de aynı canvas'a dokunduğu için birlikte planlandılar; sıralama
-şöyle ilerliyor:
+Menü üç parçalı bir iş olarak planlandı (kalan iş 6, 8, 9) ve **üçü de
+yazıldı.** Üçü de aynı canvas'a dokunuyor, o yüzden birlikte planlanmışlardı:
 
 | Parça | Durum |
 |---|---|
 | **Görsel dil** (madde 6) | **BİTTİ ve sahnede.** Renk ailesi, çerçeveli kutu, düğme durumları, başlık. Dokuz ekran birden |
-| **Arka plan** (madde 9) | **KOD BİTTİ, SAHNEDE YOK.** Kaçan ve canavar menünün arkasında duruyor — ama `Menü Kur` çalıştırılana kadar görünmüyor (yukarıdaki bekleyen araç kutusu) |
-| **Karakter seçimi** (madde 8) | **BAŞLANMADI.** Lobide kostüm/canavar seçimi |
+| **Arka plan** (madde 9) | **KOD BİTTİ, SAHNEDE YOK.** Kaçan ve canavar menünün arkasında duruyor — `Menü Kur` çalıştırılana kadar görünmüyor |
+| **Karakter seçimi** (madde 8) | **KOD BİTTİ, SAHNEDE YOK.** Kostümler, lobiden seçim, canlı önizleme |
+| **Korku efekti kaydırıcısı** (madde 6) | **KOD BİTTİ, SAHNEDE YOK.** Seçenekler ekranında |
 
-**Ayarlar ekranındaki efekt açma/kapama da bu pakete ait** ve hâlâ yok:
-`ScreenEffects.Master` (bölüm 25) hazır duruyor ama menüye bağlanmadı.
+**Dördü de aynı araca bağlı ve o araç henüz çalıştırılmadı** — yukarıdaki
+bekleyen araç kutusu. Kod sahneye girene kadar menü eski hâlinde kalıyor ve
+hiçbir yerde hata görünmüyor.
 
-> **Karakter seçimi için modeller HENÜZ YOK.** Kullanıcı 2026-09-12'de
-> "sonra bulacağım" dedi. Bunun pratik sonucu: seçim ekranı bugün kurulursa
-> tek seçenekli, yani ölü bir ekran olur. Plan, sistemi **bugünkü iki
-> karakterle** (KillerDoll + Banana Man) kurup modeller gelince klasöre
-> atmanın yetmesi.
+> **Yeni MODELLER hâlâ yok, ama seçim ekranı ölü değil.** Kullanıcı
+> 2026-09-12'de "sonra bulacağım" dedi. Tek elemanlı bir liste ekranı
+> anlamsız kılardı, o yüzden liste bugün aynı modelin renk çeşitlemelerinden
+> oluşuyor: altı kaçan, dört canavar, hepsi bugün çalışıyor.
 >
-> Kullanıcının kendi ifadesiyle: bugünkü kaçan modeli de "bir kostüm sayılır",
-> yani liste tek elemanlı başlayıp büyüyecek.
+> Kullanıcının kendi ifadesiyle bugünkü kaçan modeli de "bir kostüm sayılır" —
+> o yüzden listenin ilk elemanı, dokunulmamış hâliyle.
 
 ### Menünün arkasındaki karakter sahnesi (2026-09-12)
 
@@ -2517,6 +2521,140 @@ havada durduğu görünmüyor ve bir platform modeli eklemeye gerek kalmıyor.
 Sahne kökü **kapalı kuruluyor** ve `MenuStage` gerektiğinde açıyor: menü
 kapalıyken küçük bir sahneyi her karede çizmenin ve üç ışığı motorda tutmanın
 karşılığı yok.
+
+### Karakter seçimi: kostümler (2026-09-12)
+
+Kaçan ve canavar artık **kostüm seçiyor.** Seçim ana menüdeki ve lobideki
+`KARAKTER` düğmesinden açılıyor; seçilen figür menünün arkasındaki sahnede
+canlı duruyor.
+
+| Parça | İşi |
+|---|---|
+| `Core/CharacterCatalog.cs` | Listenin kendisi: ad, renk, gövde indeksi |
+| `UI/CharacterSelectPanel.cs` | Seçim ekranı |
+| `UI/PlayerProfile` | Cihazdaki kayıt (`Kostum_Kacan`, `Kostum_Canavar`) |
+| `RoundParticipant` | İki SyncVar + `CmdSetCostume` |
+| `Player/PlayerBodyVisual` | Rengi gövdeye uyguluyor |
+
+**Kostüm YALNIZCA görsel.** Bölüm 17'nin ölçek kuralı gereği kaçanın görünen
+gövdesi çarpışma kutusuyla örtüşmek zorunda: şişirilmiş bir kaçan, isabet
+etmesi gereken vuruşları ıskalatır. Kostüm ne boya ne hıza ne menzile
+dokunuyor.
+
+**İkinci canavar bu listeye ait DEĞİL** (kalan iş 8). O bir kostüm değil
+oynanış: ayrı bir `MovementProfile` ve kendine ait bir özellik. Buradaki
+canavar girdileri aynı canavarın farklı görünüşleri.
+
+#### Liste bugün RENKLERDEN oluşuyor, sebebi var
+
+Elde iki model var ve kullanıcının kendi ifadesiyle bugünkü kaçan modeli de
+"bir kostüm sayılır" — liste oradan başlıyor. Ama **tek elemanlı bir seçim
+ekranı ölü bir ekran** olurdu, yani ekranı kurmak tek başına bir şey
+kazandırmazdı.
+
+Onun yerine aynı modelin renk çeşitlemeleri kondu: bugün gerçekten çalışan,
+gerçekten görünen ve model gerektirmeyen kostümler. Altı kaçan, dört canavar.
+
+**Her iki listenin sıfırıncı girdisi beyaz**, yani modelin dokunulmamış hâli.
+Seçim hiç yapmamış oyuncu da, kaydı bozulmuş oyuncu da oraya düşüyor —
+varsayılan her zaman bugünkü görünüm.
+
+Yeni modeller geldiğinde `Costume.Body` alanı dolduruluyor ve `PlayerBodyVisual`
+o indeksteki gövdeyi açıyor. Renk yolu aynen duruyor: yeni modelin de renk
+çeşitlemesi olabilir.
+
+> **Geçersiz indeks SIFIRA düşüyor, kırpılmıyor.** `Clamp` yanlış olurdu:
+> liste kısalırsa son kostümü seçmiş herkes sessizce yeni son kostüme kayardı
+> ve kimse neden değiştiğini anlamazdı. Sıfır "seçimin artık yok" demek ve
+> oyuncu bunu ekranda görüyor.
+
+#### İKİ kostüm birden seçiliyor, bir "karakter" değil
+
+Rolü sunucu dağıtıyor (bölüm 11.1) ve canavarı oda sahibi seçiyor. Ekran bu
+yüzden "kim olacağım"ı değil **"hangi rolde neye benzeyeceğim"i** soruyor:
+ikisi de önceden seçiliyor, tur başlayınca rolüne uyan gösteriliyor.
+
+Tek bir liste (kaçanlar ve canavarlar yan yana) daha basit görünürdü ama
+yanlış bir söz verirdi: listeden canavarı seçen oyuncu canavar olacağını
+sanardı. Ekran bunu ayrıca yazıyor da.
+
+#### Renk materyale DEĞİL, MaterialPropertyBlock'a yazılıyor
+
+Üç yol vardı ve ikisi yanlış:
+
+| Yol | Ne olurdu |
+|---|---|
+| `renderer.sharedMaterial.color` | Diskteki varlık değişir, **bütün** oyuncular aynı renge boyanır |
+| `renderer.material.color` | Unity her oyuncuya ayrı bir materyal kopyası üretir, batching biter |
+| **`MaterialPropertyBlock`** | Materyale hiç dokunulmuyor, kopya da üretilmiyor |
+
+Beyaz kostümde de yazılıyor, atlanmıyor: kostüm değiştiren oyuncunun eski
+rengi üstünde kalırdı.
+
+Kapsül yer tutucusu kostüm almıyor, bilerek — model takılı değilse seçim
+ekranının gösterecek bir şeyi zaten yok.
+
+#### Önizleme ayrı bir pencere DEĞİL
+
+Seçilen karakter menünün arkasındaki sahnede duruyor ve ekran açılınca kamera
+onun üstüne gidiyor (`MenuStage.SetFocus`), öbür figür gizleniyor. İkinci bir
+kamera, ikinci bir ışık takımı ve ikinci bir `RenderTexture` kurmanın karşılığı
+yoktu.
+
+Seçim paneli bu yüzden ekranın **solunda** ve panelin tam ekran gövdesi
+saydam: seçtiğin kostümü karartılmış bir perdenin ardından göstermek seçimi
+görmeyi zorlaştırırdı. Yazılar sütunun kendi koyu kutusunun üstünde duruyor,
+okunaklılık gövdeden değil kutudan geliyor.
+
+Sütun **oranla** konumlanıyor (ekran genişliğinin %30'u), pikselle değil: her
+çözünürlükte modelin payı aynı kalıyor.
+
+> **İstenen görünüm STATİK bir alanda bekliyor.** `MenuController.Show`
+> panelleri arka plandan ÖNCE açıyor, yani seçim ekranı uyandığında sahne
+> henüz kapalı olabiliyor ve o an gönderilen bir istek kaybolurdu. İstek
+> `MenuStage`'in statik alanında bekliyor ve sahne açılınca kendiliğinden
+> uygulanıyor — bölüm 19'daki `SetOverlayOpen` sırası sorununun aynı çözümü.
+
+> **Figürlerin taban açısı yalnızca BİR KEZ okunuyor.** Her açılışta okumak
+> sessizce kayma üretirdi: `Update` figürlere taban + salınım yazıyor, yani
+> ikinci açılışta okunan değer tabanın kendisi değil salınımın kaldığı yer
+> olurdu ve menü her açıldığında figürler biraz daha dönerdi.
+
+**Salınım her figürün KENDİ ekseninde**, ortak bir tablada değil. Tabla
+dönseydi figürler tablanın merkezi etrafında yay çizerdi ve seçim ekranında
+odaklanılan karakter kadrajdan kayardı.
+
+#### Ağ: seçim SyncVar, karar değil
+
+İki `int` SyncVar (`runnerCostume`, `monsterCostume`). Kostüm bir tur verisi
+değil bir tercih, ama yine de senkron: görünen gövdeyi **herkes** çiziyor, yani
+herkesin bilmesi gerekiyor. Sunucu kendi kararlarında hiç kullanmıyor.
+
+**Sunucu indeksi temizliyor** (`CmdSetCostume`): değiştirilmiş bir istemci
+listenin dışında bir sayı yollarsa her istemcide dizi sınırı hatası üretirdi.
+
+> **Hook'a GÜVENİLMİYOR, `OnStartClient` de uyguluyor.** SyncVar hook'u yalnızca
+> değer DEĞİŞİNCE tetikleniyor; sonradan katılan bir istemciye spawn mesajı
+> zaten doğru değeri getiriyor, yani hiç değişmiyor ve gövde varsayılan renkte
+> kalırdı. Aynı tuzak bölüm 23'te cesedin pozunda da vardı.
+
+**Ceset de kostümü taşıyor.** Öldüğün renkte yatıyorsun. Kurbandan okunmuyor,
+spawn'da `Corpse`'a kopyalanıyor: ceset bilerek kurban objesinden bağımsız
+(bölüm 23) — kurban ayrılmış ya da istemci sonradan katılmış olabilir.
+
+#### Ayarlara korku efekti kaydırıcısı eklendi
+
+Kalan iş 6'nın son parçası. `ScreenEffects.Master` (bölüm 25) artık seçenekler
+ekranındaki kaydırıcıdan sürülüyor ve `PlayerProfile.HorrorEffects`'te
+saklanıyor.
+
+**Açma/kapama değil kaydırıcı:** gren ve sarsıntı bazı oyuncuların gözünü
+yoruyor ama tamamen kapatmak oyunun görünümünü de alıp götürüyor. Arada bir
+yer isteyen oyuncunun seçeneği olmalı.
+
+Kayıt `ScreenEffects.Attach` içinde okunuyor, kaydırıcıda değil: ayarlar
+ekranını hiç açmayan oyuncuda kayıt okunmaz ve efekt her açılışta tam güçte
+gelirdi.
 
 ### Kurulum sırası
 
@@ -4629,7 +4767,8 @@ ekranına bir kaydırıcı eklendiğinde bağlanacak yer orası.
 
 ### Bilinen sınırlar
 
-- **Ayarlar ekranında açma/kapama yok.** `Master` hazır ama menüye bağlanmadı;
-  kalan iş 6'daki menü elden geçirmesiyle birlikte yapılmalı.
+- ~~**Ayarlar ekranında açma/kapama yok.**~~ **ÇÖZÜLDÜ** (2026-09-12):
+  seçenekler ekranında kaydırıcı var, kayıt `PlayerProfile.HorrorEffects`'te.
+  Kaydırıcı `Menü Kur` çalıştırılınca sahneye giriyor.
 - **Kare başına bir blit.** Ölçülebilir bir maliyet değil ama zayıf bir GPU'da
   4K'da fark edilebilir; ayar geldiğinde kapatılabilir olması bu yüzden önemli.

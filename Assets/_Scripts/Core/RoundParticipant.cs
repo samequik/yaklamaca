@@ -86,6 +86,24 @@ public class RoundParticipant : NetworkBehaviour
     private bool spectating;
 
     /// <summary>
+    /// Seçilen kaçan kostümü (bkz. CharacterCatalog).
+    ///
+    /// **Kostüm bir tur verisi değil bir tercih**, ama yine de SyncVar: görünen
+    /// gövdeyi herkes çiziyor, yani herkesin bilmesi gerekiyor. Sunucu kendi
+    /// kararlarında hiç kullanmıyor.
+    ///
+    /// Ayrı bir hook YOK, ikisi de <see cref="ApplyCostume"/>'a gidiyor:
+    /// `PlayerBodyVisual.SetCostume` ikisini birlikte istiyor, çünkü rol tur
+    /// ortasında değişebiliyor ve o anda öbürünün de doğru olması gerekiyor.
+    /// </summary>
+    [SyncVar(hook = nameof(OnCostumeChanged))]
+    private int runnerCostume;
+
+    /// <summary>Seçilen canavar kostümü. Rolü sunucu dağıtıyor; bu yalnızca görünüş.</summary>
+    [SyncVar(hook = nameof(OnCostumeChanged))]
+    private int monsterCostume;
+
+    /// <summary>
     /// Lobide hazır işaretledi mi. Tur başlatma şartı — sunucu hepsini hazır
     /// görmeden başlatmıyor.
     /// </summary>
@@ -101,6 +119,9 @@ public class RoundParticipant : NetworkBehaviour
     public RoundRole Role => role;
     public bool IsAlive => alive;
     public string DisplayName => displayName;
+
+    /// <summary>Ceset bu kostümü kopyalıyor: öldüğün renkte yatmalısın.</summary>
+    public int RunnerCostume => runnerCostume;
 
     /// <summary>Test botu mu — rol dağıtımı buna bakıyor.</summary>
     public bool IsBot => isBot;
@@ -254,6 +275,13 @@ public class RoundParticipant : NetworkBehaviour
 
         if (!all.Contains(this))
             all.Add(this);
+
+        // Kostüm hook'una GÜVENİLMİYOR: hook yalnızca değer DEĞİŞİNCE
+        // tetikleniyor ve sonradan katılan bir istemciye spawn mesajı zaten
+        // doğru değeri getirmiş oluyor — yani hiç değişmiyor ve gövde
+        // varsayılan renkte kalırdı. Burada bir kez uygulamak ikisini de
+        // kapsıyor.
+        ApplyCostume();
     }
 
     public override void OnStopClient()
@@ -268,6 +296,9 @@ public class RoundParticipant : NetworkBehaviour
 
         // Adı istemci bilir, sunucu bilmez; doğar doğmaz bildiriyoruz.
         CmdSetName(PlayerProfile.Name);
+
+        // Kostüm de öyle: cihazda saklı, sunucu bilmiyor.
+        PushCostume();
     }
 
     /// <summary>Adı sunucuya bildirir. Sunucu temizleyip SyncVar'a yazar.</summary>
@@ -306,6 +337,40 @@ public class RoundParticipant : NetworkBehaviour
     {
         if (isLocalPlayer)
             CmdSetName(PlayerProfile.Name);
+    }
+
+    /// <summary>
+    /// Menüden çağrılır: seçilen kostümleri sunucuya bildirir.
+    ///
+    /// Lobide seçim değiştiğinde de çağrılıyor, yani kadrodaki herkes
+    /// değişikliği anında görüyor. Tur ortasında çağrılırsa da çalışıyor ve
+    /// bu bilinçli: kostüm hiçbir kurala girmiyor, en fazla gövden renk
+    /// değiştirir.
+    /// </summary>
+    public void PushCostume()
+    {
+        if (isLocalPlayer)
+            CmdSetCostume(PlayerProfile.RunnerCostume, PlayerProfile.MonsterCostume);
+    }
+
+    /// <summary>
+    /// Kostümü sunucuya yazar. Sunucu indeksi **temizliyor**: değiştirilmiş bir
+    /// istemci listenin dışında bir sayı yollarsa her istemcide dizi sınırı
+    /// hatası üretirdi.
+    /// </summary>
+    [Command]
+    private void CmdSetCostume(int runner, int monster)
+    {
+        runnerCostume = CharacterCatalog.SanitizeRunner(runner);
+        monsterCostume = CharacterCatalog.SanitizeMonster(monster);
+    }
+
+    private void OnCostumeChanged(int oldValue, int newValue) => ApplyCostume();
+
+    private void ApplyCostume()
+    {
+        if (bodyVisual != null)
+            bodyVisual.SetCostume(runnerCostume, monsterCostume);
     }
 
     /// <summary>Menüden çağrılır: canavarı seç. 0 = rastgele. Yetkiyi sunucu doğruluyor.</summary>

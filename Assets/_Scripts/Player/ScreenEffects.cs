@@ -46,9 +46,14 @@ public class ScreenEffects : MonoBehaviour
     /// <summary>
     /// Bütün efektlerin ortak çarpanı; 0 = tamamen kapalı.
     ///
-    /// Ayarlar ekranına bir kaydırıcı eklendiğinde bağlanacak yer burası.
-    /// Statik, çünkü oyuncu her turda prefabtan yeniden doğuyor ve bileşene
-    /// yazılan bir değer orada kaybolurdu (bölüm 13'teki ayar kuralı).
+    /// Ayarlar ekranındaki kaydırıcı buraya yazıyor (`SettingsPanel`). Statik,
+    /// çünkü oyuncu her turda prefabtan yeniden doğuyor ve bileşene yazılan bir
+    /// değer orada kaybolurdu (bölüm 13'teki ayar kuralı).
+    ///
+    /// Kalıcı yeri `PlayerProfile.HorrorEffects`; buraya her bileşen doğarken
+    /// oradan okunuyor. Yalnızca kaydırıcı yazsaydı, ayarlar ekranını hiç
+    /// açmayan bir oyuncuda kayıt okunmaz ve efekt her açılışta tam güçte
+    /// gelirdi.
     /// </summary>
     public static float Master = 1f;
 
@@ -168,6 +173,10 @@ public class ScreenEffects : MonoBehaviour
     {
         if (target == null || target.GetComponent<ScreenEffects>() != null)
             return;
+
+        // Kayıtlı tercih burada okunuyor: bileşen çalışma anında takılıyor ve
+        // Inspector'da serileştirilmiş bir alanı yok.
+        Master = PlayerProfile.HorrorEffects;
 
         target.gameObject.AddComponent<ScreenEffects>();
     }

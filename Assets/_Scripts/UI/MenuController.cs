@@ -23,6 +23,7 @@ public class MenuController : MonoBehaviour
         Controls,    // tuş atamaları
         Lobby,       // oda: kadro, hazır, canavar seçimi, başlat
         JoinLobby,   // kod girme
+        Characters,  // kaçan ve canavar kostümü
         Pause
     }
 
@@ -34,6 +35,7 @@ public class MenuController : MonoBehaviour
     [SerializeField] private GameObject controlsPanel;
     [SerializeField] private GameObject lobbyPanel;
     [SerializeField] private GameObject joinLobbyPanel;
+    [SerializeField] private GameObject characterPanel;
     [SerializeField] private GameObject pausePanel;
 
     [Tooltip("Panellerin arkasındaki tam ekran karartma. Tur oynanmıyorken " +
@@ -62,6 +64,12 @@ public class MenuController : MonoBehaviour
 
     // Seçenekler kapanınca dönülecek ekran.
     private Screen settingsReturn = Screen.Main;
+
+    // Karakter ekranı hem ana menüden hem lobiden açılıyor ve geldiği yere
+    // dönmesi gerekiyor: lobiden girip ana menüye düşmek, bağlantı sürerken
+    // odayı ekrandan kaybetmek olurdu. Seçenekler'deki sorunun aynısı, aynı
+    // çözümle.
+    private Screen charactersReturn = Screen.Main;
 
     /// <summary>Menü açık mı — başka sistemler duraklamayı buradan öğrenebilir.</summary>
     public bool IsOpen => current != Screen.None;
@@ -145,6 +153,10 @@ public class MenuController : MonoBehaviour
                 Show(Screen.Main);
                 break;
 
+            case Screen.Characters:
+                Show(charactersReturn);
+                break;
+
             case Screen.Pause:
                 Show(Screen.None);
                 break;
@@ -196,6 +208,24 @@ public class MenuController : MonoBehaviour
     /// <summary>Tuş atama ekranındaki GERİ düğmesi — her zaman Seçenekler'e döner.</summary>
     public void CloseControls() => Show(Screen.Settings);
     public void ShowJoinLobby() => Show(Screen.JoinLobby);
+
+    /// <summary>
+    /// Karakter seçimi. Seçenekler gibi geldiği yeri hatırlıyor: hem ana
+    /// menüde hem lobide bir düğmesi var.
+    ///
+    /// Kendisi dönüş adresi olarak kaydedilmiyor; kaydedilseydi GERİ tuşu
+    /// ekranı kendine döndürür ve oyuncu orada kilitlenirdi.
+    /// </summary>
+    public void ShowCharacters()
+    {
+        if (current != Screen.Characters)
+            charactersReturn = current;
+
+        Show(Screen.Characters);
+    }
+
+    /// <summary>Karakter ekranındaki GERİ düğmesi.</summary>
+    public void CloseCharacters() => Show(charactersReturn);
     public void ShowPause() => Show(Screen.Pause);
 
     /// <summary>Menüyü kapatıp oyuna döner.</summary>
@@ -223,6 +253,7 @@ public class MenuController : MonoBehaviour
         SetActive(controlsPanel, screen == Screen.Controls);
         SetActive(lobbyPanel, screen == Screen.Lobby);
         SetActive(joinLobbyPanel, screen == Screen.JoinLobby);
+        SetActive(characterPanel, screen == Screen.Characters);
         SetActive(pausePanel, screen == Screen.Pause);
 
         ApplyGameplayState(IsOpen || overlayOpen);

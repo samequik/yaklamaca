@@ -27,6 +27,15 @@ public class SettingsPanel : MonoBehaviour
     [Tooltip("Ters bakış düğmesinin yazısı; durumu üstünde gösteriyor.")]
     [SerializeField] private TMP_Text invertLabel;
 
+    [Header("Korku efektleri")]
+    [Tooltip("Vinyet, gren, bloom, sarsıntı ve parazitin ortak şiddeti " +
+        "(bölüm 25). Kaydırıcı, açma/kapama değil: gren ve sarsıntı bazı " +
+        "oyuncuların gözünü yoruyor ama tamamen kapatmak oyunun görünümünü " +
+        "de alıp götürüyor. Arada bir yer isteyen oyuncunun seçeneği olmalı.")]
+    [SerializeField] private Slider horrorSlider;
+
+    [SerializeField] private TMP_Text horrorLabel;
+
     private void Awake()
     {
         if (sensitivitySlider != null)
@@ -49,8 +58,40 @@ public class SettingsPanel : MonoBehaviour
             nameField.onEndEdit.AddListener(ApplyName);
         }
 
+        if (horrorSlider != null)
+        {
+            horrorSlider.SetValueWithoutNotify(PlayerProfile.HorrorEffects);
+            horrorSlider.onValueChanged.AddListener(_ => ApplyHorror());
+        }
+
         ApplySensitivity();
+        ApplyHorror();
         RefreshInvert();
+    }
+
+    /// <summary>
+    /// Korku efektlerinin şiddeti. Hassasiyetle aynı desen: önce cihaza, sonra
+    /// sahada duran bileşene.
+    ///
+    /// Sahada duran bileşeni aramaya gerek yok — çarpan `ScreenEffects`'te
+    /// **statik** duruyor, çünkü oyuncu her turda prefabtan yeniden doğuyor.
+    /// </summary>
+    private void ApplyHorror()
+    {
+        if (horrorSlider == null)
+            return;
+
+        float value = Mathf.Clamp01(horrorSlider.value);
+
+        PlayerProfile.HorrorEffects = value;
+        ScreenEffects.Master = value;
+
+        if (horrorLabel != null)
+        {
+            horrorLabel.SetText(value <= 0.001f
+                ? "Korku efektleri: KAPALI"
+                : $"Korku efektleri: %{Mathf.RoundToInt(value * 100f)}");
+        }
     }
 
     /// <summary>

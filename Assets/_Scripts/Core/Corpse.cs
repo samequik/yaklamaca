@@ -8,6 +8,14 @@ public class Corpse : NetworkBehaviour, IInteractable
 {
     [SyncVar] private uint victimNetId;
     [SyncVar] private string victimName;
+    /// <summary>
+    /// Kurbanın kaçan kostümü (bkz. CharacterCatalog): öldüğün renkte yatıyorsun.
+    ///
+    /// Kurbanın kendisinden okunmuyor, spawn'da kopyalanıyor. Ceset bilerek
+    /// kurban objesinden BAĞIMSIZ (bölüm 23): kurban ayrılmış ya da istemci
+    /// sonradan katılmış olabilir ve o zaman okunacak bir şey kalmıyor.
+    /// </summary>
+    [SyncVar] private int costume;
     [SyncVar(hook = nameof(OnHolderChanged))] private uint carrierNetId;
     [SyncVar(hook = nameof(OnHolderChanged))] private uint stationNetId;
     [SerializeField] private GameObject bodyPrefab;
@@ -118,6 +126,7 @@ public class Corpse : NetworkBehaviour, IInteractable
         victimNetId = victim;
         var player = Resolve(victim);
         victimName = player != null ? player.DisplayName : "Kaçan";
+        costume = player != null ? player.RunnerCostume : 0;
     }
     public override void OnStartServer() { BuildVisual(); ApplyAuthority(); sync.Publish(); }
     public override void OnStartClient() { BuildVisual(); ApplyAuthority(); }
@@ -150,6 +159,10 @@ public class Corpse : NetworkBehaviour, IInteractable
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             if (renderer is SkinnedMeshRenderer skin) skin.updateWhenOffscreen = true;
         }
+        // Kostüm rengi klona da biniyor; blok materyale dokunmuyor (bkz. PlayerBodyVisual.ApplyTint).
+        MaterialPropertyBlock tint = new MaterialPropertyBlock();
+        tint.SetColor("_Color", CharacterCatalog.Runner(costume).Tint);
+        foreach (Renderer renderer in renderers) renderer.SetPropertyBlock(tint);
         ragdoll = RagdollFactory.Build(ResolveBone, ragdollMass, LayerMask.NameToLayer("Etkilesim"));
         if (ragdoll.Count == 0) { Debug.LogError("Ceset iskeleti kurulamadı.", this); return; }
         RagdollFactory.DisableSelfCollision(ragdoll);

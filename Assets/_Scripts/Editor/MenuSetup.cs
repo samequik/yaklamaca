@@ -107,8 +107,9 @@ public static class MenuSetup
         GameObject settings = BuildSettingsPanel(canvasObject.transform, controller);
         GameObject audio = BuildAudioPanel(canvasObject.transform, controller);
         GameObject controls = BuildControlsPanel(canvasObject.transform, controller);
-        GameObject lobby = BuildLobbyPanel(canvasObject.transform, network);
+        GameObject lobby = BuildLobbyPanel(canvasObject.transform, controller, network);
         GameObject joinLobby = BuildJoinLobbyPanel(canvasObject.transform, controller, network);
+        GameObject characters = BuildCharacterPanel(canvasObject.transform, controller);
         GameObject pause = BuildPausePanel(canvasObject.transform, controller, network);
 
         // HUD parçaları: MenuController'ın panel listesine GİRMİYORLAR, çünkü
@@ -117,7 +118,8 @@ public static class MenuSetup
         BuildVoiceHud(canvasObject.transform);
         BuildScoreboard(canvasObject.transform);
 
-        WireController(controller, nameEntry, main, settings, audio, controls, lobby, joinLobby, pause, backdrop);
+        WireController(controller, nameEntry, main, settings, audio, controls, lobby, joinLobby,
+            characters, pause, backdrop);
 
         SerializedObject serializedNetwork = new SerializedObject(network);
         serializedNetwork.FindProperty("menu").objectReferenceValue = controller;
@@ -132,6 +134,7 @@ public static class MenuSetup
         controls.SetActive(false);
         lobby.SetActive(false);
         joinLobby.SetActive(false);
+        characters.SetActive(false);
         pause.SetActive(false);
 
         // Menü ağ öncesinde kapatılmıştı; artık ağın kendisi menüden yönetiliyor.
@@ -227,6 +230,7 @@ public static class MenuSetup
         // başlangıç. Birini vurgulamak öbürünü ikincil gösteriyordu.
         AddButton(column, "LOBİ KUR", network.HostLobby);
         AddButton(column, "LOBİYE KATIL", controller.ShowJoinLobby);
+        AddButton(column, "KARAKTER", controller.ShowCharacters);
         AddButton(column, "SEÇENEKLER", controller.ShowSettings);
         AddButton(column, "ÇIKIŞ", controller.QuitGame);
 
@@ -262,6 +266,13 @@ public static class MenuSetup
         Button invertButton = AddButton(column, "Ters bakış: kapalı", settings.ToggleInvertLook);
         TMP_Text invertLabel = invertButton.GetComponentInChildren<TextMeshProUGUI>();
 
+        // Korku efektleri (bölüm 25). Kaydırıcı, açma/kapama değil: gren ve
+        // sarsıntı bazı oyuncuların gözünü yoruyor ama tamamen kapatmak oyunun
+        // görünümünü de alıp götürüyor.
+        CreateSpacer(column, 12f);
+        TMP_Text horrorLabel = CreateLabel(column, "Korku efektleri: %100");
+        Slider horrorSlider = CreateSlider(column);
+
         // Ses ve tuşlar birer ALT EKRAN. Hepsi burada dururken ekran alt alta
         // sığmıyordu; seçenekler artık kategori kapısı.
         CreateSpacer(column, 14f);
@@ -280,6 +291,8 @@ public static class MenuSetup
         serialized.FindProperty("sensitivitySlider").objectReferenceValue = sensitivitySlider;
         serialized.FindProperty("sensitivityLabel").objectReferenceValue = sensitivityLabel;
         serialized.FindProperty("nameField").objectReferenceValue = nameField;
+        serialized.FindProperty("horrorSlider").objectReferenceValue = horrorSlider;
+        serialized.FindProperty("horrorLabel").objectReferenceValue = horrorLabel;
         serialized.ApplyModifiedProperties();
 
         return panel;
@@ -1208,7 +1221,8 @@ public static class MenuSetup
         serialized.ApplyModifiedProperties();
     }
 
-    private static GameObject BuildLobbyPanel(Transform parent, LobbyNetwork network)
+    private static GameObject BuildLobbyPanel(Transform parent, MenuController controller,
+        LobbyNetwork network)
     {
         GameObject panel = CreatePanel("Panel_Lobi", parent);
         Transform column = CreateColumn(panel.transform, 720f);
@@ -1252,6 +1266,11 @@ public static class MenuSetup
 
         Button monsterButton = AddButton(column, "Canavar: Rastgele", lobby.CycleMonsterChoice);
         TMP_Text monsterLabel = monsterButton.GetComponentInChildren<TextMeshProUGUI>();
+
+        // Karakter seçimi lobiden de açılıyor: oyuncu odaya girdikten sonra
+        // kostüm değiştirmek isterse ana menüye dönmek bağlantıyı koparmak
+        // olurdu. Seçim anında kadroya yansıyor (RoundParticipant.PushCostume).
+        AddButton(column, "KARAKTER", controller.ShowCharacters);
 
         Button readyButton = AddButton(column, "HAZIRIM", lobby.ToggleReady);
         TMP_Text readyLabel = readyButton.GetComponentInChildren<TextMeshProUGUI>();
@@ -1441,6 +1460,97 @@ public static class MenuSetup
         };
     }
 
+    /// <summary>
+    /// Karakter seçimi: kaçan ve canavar kostümü (bkz. CharacterSelectPanel).
+    ///
+    /// **Sütun ekranın SOLUNDA**, çünkü sağ tarafı arka plandaki modele
+    /// bıraktık. Panelin tam ekran gövdesi de saydam: seçilen kostümü
+    /// karartılmış bir perdenin ardından göstermek, seçimi görmeyi zorlaştırır.
+    /// Yazılar sütunun kendi koyu kutusunun üstünde duruyor, yani okunaklılık
+    /// gövdeden değil kutudan geliyor.
+    ///
+    /// Yön düğmeleri "&lt;" ve "&gt;" — üçgen okların (◀ ▶) temel Latin dışında
+    /// olması ve varsayılan TMP atlasında bulunmaması gerçek bir ihtimal
+    /// (bölüm 20'deki boş kutu sorunu). Burada `GameHud.Glyph` gibi bir yedek
+    /// mekanizma kurmaya değmez: iki karakterin garantili karşılığı zaten var.
+    /// </summary>
+    private static GameObject BuildCharacterPanel(Transform parent, MenuController controller)
+    {
+        GameObject panel = CreatePanel("Panel_Karakter", parent);
+        panel.GetComponent<Image>().color = new Color(0.02f, 0.02f, 0.03f, 0f);
+
+        Transform column = CreateColumn(panel.transform, 520f);
+
+        // Oran kullanılıyor, piksel değil: sütun her çözünürlükte ekranın aynı
+        // yerinde kalıyor ve modelin payı sabit.
+        RectTransform columnRect = column.GetComponent<RectTransform>();
+        columnRect.anchorMin = new Vector2(0.3f, 0.5f);
+        columnRect.anchorMax = new Vector2(0.3f, 0.5f);
+
+        CharacterSelectPanel select = panel.AddComponent<CharacterSelectPanel>();
+
+        CreateTitle(column, "KARAKTER").fontSize = 42f;
+        CreateSpacer(column, 10f);
+
+        Button roleButton = AddButton(column, "KAÇAN KOSTÜMÜ", select.ToggleRole);
+        TMP_Text roleLabel = roleButton.GetComponentInChildren<TextMeshProUGUI>();
+
+        CreateSpacer(column, 8f);
+
+        Transform pickRow = CreateRow(column, 62f);
+        AddRowButton(pickRow, "<", select.Previous, 0.18f);
+        TMP_Text costumeLabel = CreateRowText(pickRow, "MUZ ADAM", 26f, AccentLight, 0.64f);
+        AddRowButton(pickRow, ">", select.Next, 0.18f);
+
+        Transform infoRow = CreateRow(column, 30f);
+        Image swatch = CreateSwatch(infoRow);
+        TMP_Text counterLabel = CreateRowText(infoRow, "1 / 1", 18f, TextColor, 0.85f);
+
+        CreateSpacer(column, 10f);
+        TMP_Text statusLabel = CreateLabel(column, string.Empty);
+        statusLabel.fontSize = 16f;
+        statusLabel.color = new Color(0.66f, 0.66f, 0.72f, 1f);
+
+        CreateSpacer(column, 12f);
+
+        // ShowMain değil: ekran hem ana menüden hem lobiden açılıyor ve
+        // lobiden girip ana menüye düşmek odayı ekrandan kaybetmek olurdu.
+        AddButton(column, "GERİ", controller.CloseCharacters);
+
+        SerializedObject serialized = new SerializedObject(select);
+        serialized.FindProperty("roleLabel").objectReferenceValue = roleLabel;
+        serialized.FindProperty("costumeLabel").objectReferenceValue = costumeLabel;
+        serialized.FindProperty("counterLabel").objectReferenceValue = counterLabel;
+        serialized.FindProperty("swatch").objectReferenceValue = swatch;
+        serialized.FindProperty("statusLabel").objectReferenceValue = statusLabel;
+        serialized.ApplyModifiedProperties();
+
+        return panel;
+    }
+
+    /// <summary>
+    /// Seçili kostümün rengini gösteren küçük kare. Renk adı tek başına ne
+    /// olduğunu anlatmıyor ve modele bakmak da yetmiyor: sahnedeki ışıklar
+    /// rengi kendi tonlarıyla karıştırıyor.
+    /// </summary>
+    private static Image CreateSwatch(Transform row)
+    {
+        GameObject box = new GameObject("Renk", typeof(RectTransform), typeof(Image));
+        box.transform.SetParent(row, false);
+
+        Image image = box.GetComponent<Image>();
+        image.color = Color.white;
+        image.raycastTarget = false;
+
+        AddFrame(box.transform, AccentDim, 1.5f, 10f);
+
+        LayoutElement element = box.AddComponent<LayoutElement>();
+        element.flexibleWidth = 0.15f;
+        element.minWidth = 34f;
+
+        return image;
+    }
+
     private static GameObject BuildPausePanel(Transform parent, MenuController controller,
         LobbyNetwork network)
     {
@@ -1470,7 +1580,7 @@ public static class MenuSetup
     /// </summary>
     private static void WireController(MenuController controller, GameObject nameEntry, GameObject main,
         GameObject settings, GameObject audio, GameObject controls, GameObject lobby,
-        GameObject joinLobby, GameObject pause, GameObject backdrop)
+        GameObject joinLobby, GameObject characters, GameObject pause, GameObject backdrop)
     {
         SerializedObject serialized = new SerializedObject(controller);
         serialized.FindProperty("nameEntryPanel").objectReferenceValue = nameEntry;
@@ -1480,6 +1590,7 @@ public static class MenuSetup
         serialized.FindProperty("controlsPanel").objectReferenceValue = controls;
         serialized.FindProperty("lobbyPanel").objectReferenceValue = lobby;
         serialized.FindProperty("joinLobbyPanel").objectReferenceValue = joinLobby;
+        serialized.FindProperty("characterPanel").objectReferenceValue = characters;
         serialized.FindProperty("pausePanel").objectReferenceValue = pause;
         serialized.FindProperty("backdrop").objectReferenceValue = backdrop;
         serialized.ApplyModifiedProperties();
