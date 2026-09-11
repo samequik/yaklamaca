@@ -218,7 +218,10 @@ public static class MenuSetup
         // "OYNA" düğmesi kalktı: ağ oyununda menüyü kapatmak oyuna girmek
         // değil, oyuncusuz bir sahneye bakmak demekti. Oynamanın tek yolu bir
         // oda kurmak ya da bir odaya katılmak.
-        AddButton(column, "LOBİ KUR", network.HostLobby, AccentColor);
+        // LOBİ KUR bilerek DOLU DEĞİL: ana menüde "sıradaki adım" diye tek bir
+        // doğru yok — oda kurmak da katılmak da eşit derecede geçerli bir
+        // başlangıç. Birini vurgulamak öbürünü ikincil gösteriyordu.
+        AddButton(column, "LOBİ KUR", network.HostLobby);
         AddButton(column, "LOBİYE KATIL", controller.ShowJoinLobby);
         AddButton(column, "SEÇENEKLER", controller.ShowSettings);
         AddButton(column, "ÇIKIŞ", controller.QuitGame);

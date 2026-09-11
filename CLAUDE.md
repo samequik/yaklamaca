@@ -422,10 +422,10 @@ karşı yeni bir aracı. Ölçülmedi.
 | 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
 | 4 | **Kapıdan vuruş** | İki oyuncu da kapıya 0.3 m mesafedeyken ışın kapıya varmadan kesiliyor ve isabet sayılıyor |
 | 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
-| 6 | **Menü ve ayarlar arayüzü** | Oyun içi HUD Canvas'a taşındı (bölüm 20) ama **menü ekranlarının görünümü hiç elden geçmedi**: düz düğmeler, hizasız satırlar, kimliksiz bir görünüm. Terminal ve çıkış kilidi panellerinde kurulan görsel dil (bölüm 18: koyu gövde, ince çerçeve, köşe ayraçları, tek renk ailesi) menüye de taşınmalı. **Kullanıcı 2026-09-10'da açıkça istedi.** Madde 8 ve 9'la birlikte yapılmalı: üçü de aynı canvas'a dokunuyor |
+| 6 | **Menü ve ayarlar arayüzü** | **GÖRÜNÜM BİTTİ** (2026-09-12, bölüm 13): renk ailesi, çerçeveli kutu, köşe ayraçları, düğme durumları, başlık — dokuz ekran birden. `Menü Kur` çalıştırıldı ve sahneden doğrulandı. **Kalan:** ayarlar ekranına korku efekti açma/kapama kaydırıcısı (`ScreenEffects.Master` hazır, bağlanmadı) |
 | 7 | ~~**Korku ekran efektleri**~~ | **YAPILDI** (2026-09-10, bölüm 25). Vinyet, gren, renk ayrışması, renk kaybı; canavar yaklaştıkça artıyor. Paket eklenmedi. Kalan: ayarlar ekranında açma/kapama (madde 6 ile birlikte) |
-| 8 | **Karakter seçimi: kostümler ve ikinci canavar** | Üç yeni kaçan kostümü (**yalnızca görsel** — bölüm 17'nin ölçek kuralı gereği çarpan 1 kalmalı, şişirilmiş bir kaçan isabet etmeyen vuruşlar üretir) ve **özelliği olan ikinci bir canavar**. İkincisi kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1), yani ikinci bir profil doğal yol. Seçim lobide yapılacak, yani `RoundParticipant`'a birer SyncVar ve `PlayerBodyVisual`'a üçüncü bir gövde daha. **Canavarın özelliği madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
-| 9 | **Menü arka planı** | Bugün düz siyah (`Arkaplan`, bölüm 13 — tur oynanmıyorken açılıyor). Arkaya karakterler konacak: canavarlar ve kaçanlar, oyunu ilk açan neyin olduğunu görsün. Madde 6 ve 8'le **birlikte** yapılmalı — menü canvas'ını üç kez yeniden kurmak israf |
+| 8 | **Karakter seçimi: kostümler ve ikinci canavar** — *başlanmadı* | Üç yeni kaçan kostümü (**yalnızca görsel** — bölüm 17'nin ölçek kuralı gereği çarpan 1 kalmalı, şişirilmiş bir kaçan isabet etmeyen vuruşlar üretir) ve **özelliği olan ikinci bir canavar**. İkincisi kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1), yani ikinci bir profil doğal yol. Seçim lobide yapılacak, yani `RoundParticipant`'a birer SyncVar ve `PlayerBodyVisual`'a üçüncü bir gövde daha. **Canavarın özelliği madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
+| 9 | **Menü arka planı** — *başlanmadı* | Bugün düz siyah (`Arkaplan`, bölüm 13 — tur oynanmıyorken açılıyor). Arkaya karakterler konacak: canavarlar ve kaçanlar, oyunu ilk açan neyin olduğunu görsün. Madde 8'le birlikte yapılacak; madde 6 bitti, yani canvas bir kez daha kurulacak |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
@@ -2384,10 +2384,29 @@ tek istisna orası (`framed: false`) — yoksa çift çerçeve çıkardı.
 > kalıyor ve ekranda takılı bir vurgu bırakıyordu.
 
 **Birincil düğme dolu, yazısı koyu.** `AddButton`'a renk verilen çağrılar
-(LOBİ KUR, KATIL, BAŞLAT, DEVAM ET) zaten "o ekrandaki sıradaki adım"
-demekti; artık görsel olarak da öyle. Bölüm 18'deki "sıradaki hücre dolu
-renkte, yazısı koyu" deseninin aynısı — göz sıradakini aramak zorunda
-kalmıyor.
+zaten "o ekrandaki sıradaki adım" demekti; artık görsel olarak da öyle.
+Bölüm 18'deki "sıradaki hücre dolu renkte, yazısı koyu" deseninin aynısı —
+göz sıradakini aramak zorunda kalmıyor.
+
+**Ana menüde birincil düğme YOK** (2026-09-12). İlk sürümde `LOBİ KUR` doluydu
+ve oynanınca "diğerleri gibi olsun" diye geri geldi. Haklı bir istek, çünkü
+**ana menüde "sıradaki adım" diye tek bir doğru yok**: oda kurmak da bir odaya
+katılmak da eşit derecede geçerli bir başlangıç. Birini vurgulamak öbürünü
+sessizce ikincil gösteriyordu.
+
+Dolu düğme kalan dört yerde duruyor ve **hepsinde gerçekten tek bir doğru
+sonraki adım var:**
+
+| Ekran | Dolu düğme | Neden tek doğru |
+|---|---|---|
+| İsim ekranı | DEVAM | Ad girildi, başka yapılacak şey yok |
+| Lobi | BAŞLAT | Oda sahibi için turu açmaktan başka iş kalmıyor |
+| Katılma | KATIL | Kod girildi, tek eylem var |
+| Duraklatma | DEVAM ET | Oyuna dönmek beklenen davranış |
+
+> Ders: **"birincil düğme" bir stil değil, bir İDDİA.** O ekranda yapılacak
+> tek doğru şeyin bu olduğunu söylüyor. İddia yanlışsa vurgu da yanlış oluyor
+> ve oyuncuyu var olmayan bir tercihe itiyor.
 
 Başlık da aileye girdi: vurgu renginde, aralıklı büyük harf ve altında ince
 bir ayraç çizgisi.
@@ -2396,6 +2415,38 @@ bir ayraç çizgisi.
 > sahneyi kuran araç. Çalıştırılmazsa menü eski görünümde kalır ve "hiçbir şey
 > olmadı" gibi durur — bölüm 7'deki "araç çalıştırmayı unutma" tuzağının
 > aynısı.
+>
+> **2026-09-12'de çalıştırıldı ve sahneden doğrulandı:** menü canvas'ında 228
+> köşe ayracı var (`m_Name: Ayrac_Yatay`). Sahne dosyası 144 bin satır
+> değişti — canvas komple yeniden kurulduğu için bütün fileID'ler yenilendi,
+> bu normal.
+>
+> Doğrulama komutu:
+> `grep -c "m_Name: Ayrac_Yatay" Assets/_Scenes/SampleScene.unity`
+
+### Menü paketinin DURUMU (2026-09-12)
+
+Menü üç parçalı bir iş olarak planlandı (kalan iş 6, 8, 9) ve **yalnızca
+birincisi bitti.** Üçü de aynı canvas'a dokunduğu için birlikte planlandılar;
+sıralama şöyle ilerliyor:
+
+| Parça | Durum |
+|---|---|
+| **Görsel dil** (madde 6) | **BİTTİ.** Renk ailesi, çerçeveli kutu, düğme durumları, başlık. Dokuz ekran birden |
+| **Arka plan** (madde 9) | **BAŞLANMADI.** Bugün düz siyah; arkaya karakterler konacak |
+| **Karakter seçimi** (madde 8) | **BAŞLANMADI.** Lobide kostüm/canavar seçimi |
+
+**Ayarlar ekranındaki efekt açma/kapama da bu pakete ait** ve hâlâ yok:
+`ScreenEffects.Master` (bölüm 25) hazır duruyor ama menüye bağlanmadı.
+
+> **Karakter seçimi için modeller HENÜZ YOK.** Kullanıcı 2026-09-12'de
+> "sonra bulacağım" dedi. Bunun pratik sonucu: seçim ekranı bugün kurulursa
+> tek seçenekli, yani ölü bir ekran olur. Plan, sistemi **bugünkü iki
+> karakterle** (KillerDoll + Banana Man) kurup modeller gelince klasöre
+> atmanın yetmesi.
+>
+> Kullanıcının kendi ifadesiyle: bugünkü kaçan modeli de "bir kostüm sayılır",
+> yani liste tek elemanlı başlayıp büyüyecek.
 
 ### Kurulum sırası
 
