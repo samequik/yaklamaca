@@ -94,10 +94,30 @@ public static class RunnerSetup
     /// <summary>Canavardan ödünç alınan boşta klibinin anahtarı (bölüm 17).</summary>
     private const string IdleKey = "idle";
 
-    /// <summary>Havada olma klibi. `falling idle` varsa tercih ediliyor: gerçek
-    /// bir döngü. Yoksa `jumping` kullanılıyor.</summary>
-
-    private static readonly string[] AirborneHints = { "jump00", "falling idle", "falling", "jumping" };
+    /// <summary>
+    /// Havada olma klibi. `falling idle` varsa tercih ediliyor: gerçek bir
+    /// döngü. Yoksa `jumping` kullanılıyor.
+    ///
+    /// **Unity-chan'ın kendi `jump00` klibi BİLEREK YOK.** Bir süre listenin
+    /// başındaydı ve karakter havadayken kollarını yana açıp donuyordu.
+    ///
+    /// Sebep klibin TÜRÜYDÜ. Bu durum SÜREKLİ tutulan bir poz — `Airborne`
+    /// doğru olduğu her karede aynı klip oynuyor ve yalnızca `Airborne` yanlış
+    /// olunca çıkılıyor, klibin bitmesini beklemiyor (aşağıdaki geçişe bak).
+    /// Paketteki `unitychan_JUMP00` ise döngü DEĞİL — çömelme, sıçrama, kollar
+    /// yukarı açılan tam bir zıplama koreografisi, 56 kare (~1.87 sn).
+    /// Gerçek havada kalış süremiz ~0.73 sn (bölüm 7'deki yerçekimi/zıplama
+    /// gücünden hesaplanıyor) — yani karakter neredeyse HER ZAMAN yere klibin
+    /// yalnızca ilk %40'ında, tam da kolların havaya açıldığı sıçrayış anında
+    /// iniyordu. Çıkışta klip orada donmuş kalıyor: "kolları yana açık"
+    /// dediğimiz görüntü buydu.
+    ///
+    /// Ders: **"havada" durumu için klip seçerken döngü mü tek atımlık bir
+    /// performans mı olduğuna bak.** Paylaşılan Mixamo klibi (`falling`/
+    /// `jumping`) sakin bir asılı kalma pozu, hangi karede kesilirse kesilsin
+    /// makul duruyor — `jump00` öyle değil.
+    /// </summary>
+    private static readonly string[] AirborneHints = { "falling idle", "falling", "jumping" };
 
     /// <summary>Yakalanma klibi. Ad uzun ve Türkçe, o yüzden birebir değil
     /// "içeriyor mu" diye aranıyor.</summary>

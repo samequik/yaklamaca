@@ -2945,6 +2945,43 @@ karakter bir saniye boyunca yerinde esnemeye devam ederdi.
 Sayaç HAM hızla sıfırlanıyor, yumuşatılmışla değil: yumuşatma duruşun ilk
 saniyesini hâlâ hareketli gösteriyor ve sayaç geç başlardı.
 
+#### Havada durumu: zıplama performansı bir DÖNGÜ değil
+
+Unity-chan zıplayınca kollarını yana açıp havada donuyordu — üç ayrı animatör
+düzeltmesinden sonra bile. Sebep bu sefer T-poz ya da eşleşme değil, **yanlış
+TÜRDE bir klibin** sürekli tutulan bir durumda kullanılmasıydı.
+
+`unitychan_JUMP00` bir DÖNGÜ değil: çömelme, sıçrama, kollar havaya açılan tam
+bir zıplama koreografisi — 56 kare, ~1.87 saniye. "Havada" durumu ise
+`Airborne` doğru olduğu **her karede** aynı klibi oynatan sürekli bir tutma
+durumu ve tek çıkışı `Airborne` yanlış olması; klibin bitmesini beklemiyor.
+
+Gerçek havada kalış süresi (~0.73 sn, bölüm 1'deki yerçekimi/zıplama
+gücünden) klibin tamamından kısa. Yani karakter neredeyse HER ZAMAN yere
+klibin ilk %40'ında iniyordu — tam da kolların sıçrayış için yukarı açıldığı
+an — ve çıkışta klip orada donmuş kalıyordu. "Kolları yana açık" görüntüsü
+buydu.
+
+`AirborneHints`'ten `jump00` çıkarıldı; havada durumu yine paylaşılan Mixamo
+klibini kullanıyor (`falling`/`jumping`) — sakin bir asılı kalma pozu, hangi
+karede kesilirse kesilsin makul duruyor.
+
+> Ders: **"havada" durumu için klip seçerken döngü mü tek atımlık bir
+> performans mı olduğuna bak.** Bir klibin adı doğru role uysa bile (jump →
+> havada), TÜRÜ uymuyorsa sürekli tutulan bir durumda bozuk görünür. Bölüm
+> 17'nin ölüm klibi de tek atımlık ama orada sorun yok, çünkü ölüm durumunun
+> çıkışı yok — beden klip bitene kadar zaten sahnede duruyor ve kimse yarıda
+> kesmiyor. Havada durumu ise dışarıdan (gerçek fizikten) kesiliyor.
+
+**Unity-chan'ın kendi zıplama klipleri (`JUMP00`, `JUMP00B`, `JUMP01`,
+`JUMP01B`) hâlâ kullanılmıyor** — kullanıcı "zıplamayı da kullan" demişti ve
+bu istek karşılanmadı. Doğru karşılığı sürekli tutma değil, zıplamanın
+BAŞINDA bir kez oynayan kısa bir "sıçrayış" durumu: `Olum`daki gibi tek
+atımlık ama otomatik dönüşü olan, gerçek havada kalış süresine kırpılmış bir
+klip. Bu, ayrı bir animatör durumu ve yeni bir tetik (zıplamanın başladığı
+anı yakalayan) gerektiriyor — canlı test edilmeden eklenmedi, ayrı bir iş
+olarak bekliyor.
+
 #### Ceset de kostümü giyiyor
 
 `Corpse.bodies` — kostüm başına bir gövde prefabı ve kemik yolu takımı;
