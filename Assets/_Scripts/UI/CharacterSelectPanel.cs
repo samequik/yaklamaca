@@ -20,9 +20,18 @@ using UnityEngine.UI;
 ///
 /// Seçilen karakter menünün arkasındaki sahnede duruyor (<see cref="MenuStage"/>)
 /// ve ekran açılınca kamera onun üstüne gidiyor. İkinci bir kamera, ikinci bir
-/// ışık takımı ve ikinci bir `RenderTexture` kurmanın karşılığı yoktu.
+/// ışık takımı ve ikinci bir `RenderTexture` kurmanın karşılığı yoktu. Figürü
+/// fareyle sürükleyerek çevirebiliyorsun.
 ///
 /// Panel bu yüzden ekranın SOLUNDA duruyor: sağ taraf modele ayrıldı.
+///
+/// ### Liste bugün TEK elemanlı
+///
+/// Kullanıcı renk çeşitlemelerini istemedi, gerçek modeller verecek
+/// (bkz. <see cref="CharacterCatalog"/>). Yani ekran bugün bir seçici değil
+/// bir **görüntüleyici**: karakterine bakıyor, çeviriyorsun. Yön düğmeleri
+/// listede tek giriş varken KAPALI — basılabilir görünüp hiçbir şey yapmayan
+/// bir düğme "bozuk" diye okunur (bölüm 19'daki gri kaydırıcı dersi).
 ///
 /// ### Ekran hiçbir şeye karar vermiyor
 ///
@@ -44,9 +53,10 @@ public class CharacterSelectPanel : MonoBehaviour
         "sonuna geldiğini anlamıyor.")]
     [SerializeField] private TMP_Text counterLabel;
 
-    [Tooltip("Seçili kostümün rengini gösteren küçük kare. Renk adı tek " +
-        "başına ne olduğunu anlatmıyor.")]
-    [SerializeField] private Image swatch;
+    [Tooltip("Yön düğmeleri. Listede tek giriş varsa kapatılıyorlar.")]
+    [SerializeField] private Button previousButton;
+
+    [SerializeField] private Button nextButton;
 
     [Header("Durum")]
     [SerializeField] private TMP_Text statusLabel;
@@ -93,10 +103,6 @@ public class CharacterSelectPanel : MonoBehaviour
                 CharacterCatalog.Step(CharacterCatalog.Runners, PlayerProfile.RunnerCostume, delta);
         }
 
-        // Arka plandaki figür anında değişiyor: seçimin karşılığını görmek için
-        // ekranı kapatmak gerekmiyor.
-        MenuStage.ApplyCostumes();
-
         // Odadaysak kadrodaki herkes de anında görüyor. Oda yoksa `Local` null
         // ve hiçbir şey olmuyor — seçim yine cihazda duruyor ve oyuncu objesi
         // doğduğunda `OnStartLocalPlayer` onu bildiriyor.
@@ -132,11 +138,25 @@ public class CharacterSelectPanel : MonoBehaviour
         if (counterLabel != null)
             counterLabel.SetText("{0} / {1}", index + 1, list.Length);
 
-        if (swatch != null)
-            swatch.color = costume.Tint;
+        // Tek girişlik listede yön düğmeleri KAPALI: basılabilir görünüp
+        // hiçbir şey yapmayan bir düğme oyuncuya "bozuk" diye okunuyor.
+        bool many = list.Length > 1;
+
+        if (previousButton != null)
+            previousButton.interactable = many;
+
+        if (nextButton != null)
+            nextButton.interactable = many;
 
         if (statusLabel == null)
             return;
+
+        if (!many)
+        {
+            statusLabel.SetText("Şimdilik tek kostüm var. Yenileri eklenince burada çıkacak. " +
+                "Modeli fareyle sürükleyerek çevirebilirsin.");
+            return;
+        }
 
         // Ekranın tek gerçek sınırı bu ve söylenmesi gerekiyor: oyuncu canavar
         // kostümünü seçip canavar olacağını sanmamalı.

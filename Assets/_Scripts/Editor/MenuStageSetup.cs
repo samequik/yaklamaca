@@ -35,13 +35,15 @@ internal static class MenuStageSetup
         GameObject turntable = new GameObject("Doner");
         turntable.transform.SetParent(root.transform, false);
 
-        // Kaçan solda, canavar sağda ve ikisi de hafifçe içe dönük: birbirine
-        // bakan iki figür, yan yana dizilmiş iki heykelden daha canlı duruyor.
+        // Kaçan solda, canavar sağda. DURUŞ burada verilmiyor: `MenuStage`
+        // her karede yazıyor (kameraya dönük duruş + salınım + seçim
+        // ekranındaki fare dönüşü). İki yerde tutulan bir açı, biri
+        // değişince öbürünün unutulması demekti.
         AddCharacter(turntable.transform, "Kacan", RunnerSetup.ModelPath,
-            RunnerSetup.ControllerPath, new Vector3(-0.62f, 0f, 0f), 16f, 1.40f);
+            RunnerSetup.ControllerPath, new Vector3(-0.62f, 0f, 0f), 1.40f);
 
         AddCharacter(turntable.transform, "Canavar", RunnerSetup.MonsterModelPath,
-            MonsterSetup.ControllerPath, new Vector3(0.68f, 0f, 0.25f), -18f, 1.80f);
+            MonsterSetup.ControllerPath, new Vector3(0.68f, 0f, 0.25f), 1.80f);
 
         root.SetActive(false);
     }
@@ -119,7 +121,7 @@ internal static class MenuStageSetup
     }
 
     private static void AddCharacter(Transform parent, string name, string modelPath,
-        string controllerPath, Vector3 position, float yaw, float targetHeight)
+        string controllerPath, Vector3 position, float targetHeight)
     {
         GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
         if (model == null)
@@ -131,7 +133,6 @@ internal static class MenuStageSetup
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(model, parent);
         instance.name = name;
         instance.transform.localPosition = position;
-        instance.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
 
         ScaleToHeight(instance, targetHeight);
 

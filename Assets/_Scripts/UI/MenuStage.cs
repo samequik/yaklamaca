@@ -26,13 +26,14 @@ using UnityEngine.UI;
 /// satır eklemek gerekmedi. Duraklatmada arkada sahne görünmeli, orada bu
 /// kapalı olmalı — kural zaten öyle diyor.
 ///
-/// ### Sahne aynı zamanda kostüm ÖNİZLEMESİ
+/// ### Sahne aynı zamanda karakter ÖNİZLEMESİ
 ///
-/// Arkadaki iki figür oyuncunun kendi seçtiği kostümleri giyiyor
-/// (<see cref="CharacterCatalog"/>), yani seçim ekranı ayrı bir önizleme
-/// penceresi kurmuyor: <see cref="SetFocus"/> kamerayı seçilen karakterin
-/// üstüne alıyor ve öbürünü gizliyor. Ayrı bir önizleme, ışıkları ve kamerayı
-/// ikinci kez kurmak demekti.
+/// Seçim ekranı ayrı bir önizleme penceresi kurmuyor: <see cref="SetFocus"/>
+/// kamerayı seçilen karakterin üstüne alıyor ve öbürünü gizliyor. Ayrı bir
+/// önizleme, ışıkları ve kamerayı ikinci kez kurmak demekti.
+///
+/// Odaktayken figürü **fareyle sürükleyerek** döndürebiliyorsun; arka planda
+/// ise kendiliğinden salınıyor.
 /// </summary>
 [RequireComponent(typeof(RawImage))]
 public class MenuStage : MonoBehaviour
@@ -68,12 +69,24 @@ public class MenuStage : MonoBehaviour
     /// </summary>
     private static Focus requested = Focus.Pair;
 
-    [Tooltip("Karakterlerin yavaş dönüş hızı (derece/saniye). Sıfır = sabit.")]
+    [Tooltip("Arka plandaki yavaş salınımın hızı (derece/saniye). Sıfır = sabit.")]
     [SerializeField] private float spinSpeed = 6f;
 
-    [Tooltip("Dönüşün genliği (derece). Tam tur yerine sağa sola salınıyor: " +
-        "tam dönüşte karakterin arkası da geliyor ve menüde sırt görmek kötü.")]
+    [Tooltip("Salınımın genliği (derece). Tam tur yerine sağa sola salınıyor: " +
+        "arka planda tam dönüşte karakterin arkası da geliyor ve menüde sırt " +
+        "görmek kötü. Seçim ekranında sınır yok, orada sen döndürüyorsun.")]
     [SerializeField] private float spinRange = 18f;
+
+    [Tooltip("Figürlerin kameraya dönük duruşu (derece). 180 = tam karşıdan; " +
+        "sapma ikisini birbirine hafifçe çeviriyor. Kurulumdan DEĞİL buradan " +
+        "geliyor: duruş bir sunum tercihi ve salınımla aynı yerde durmalı.")]
+    [SerializeField] private float runnerYaw = 164f;
+
+    [SerializeField] private float monsterYaw = 198f;
+
+    [Tooltip("Seçim ekranında fareyi sürüklerken piksel başına dönüş " +
+        "(derece). 0.4 ≈ ekranı bir uçtan bir uca sürükleyince tam tur.")]
+    [SerializeField] private float dragDegreesPerPixel = 0.4f;
 
     [Tooltip("Seçim ekranında karakter kadrajın ortasından ne kadar sağda " +
         "dursun. 0 = tam orta, 1 = kenar. Solunu seçim paneli kaplıyor.")]
@@ -97,23 +110,23 @@ public class MenuStage : MonoBehaviour
     private Camera stageCamera;
     private Transform runner;
     private Transform monster;
-    private Renderer[] runnerRenderers;
-    private Renderer[] monsterRenderers;
-    private float runnerBaseYaw;
-    private float monsterBaseYaw;
+    // Kullanıcının seçim ekranında sürükleyerek eklediği dönüş. Odak
+    // değişince sıfırlanıyor: her karakter sana dönük başlamalı.
+    private float dragYaw;
+    private float lastMouseX;
+    private bool dragging;
 
-    // Taban değerler YALNIZCA BİR KEZ okunuyor. Her açılışta okumak sessizce
-    // kayma üretirdi: `Update` figürlere taban + salınım yazıyor ve kamerayı
-    // hedefe doğru kaydırıyor, yani ikinci açılışta okunan şey tabanın kendisi
-    // değil hareketin kaldığı yer olurdu — menü her açıldığında figürler biraz
-    // daha döner, kamera biraz daha kayardı.
+    // Kameranın taban konumu YALNIZCA BİR KEZ okunuyor. Her açılışta okumak
+    // sessizce kayma üretirdi: `Update` kamerayı hedefe doğru kaydırıyor, yani
+    // ikinci açılışta okunan şey tabanın kendisi değil hareketin kaldığı yer
+    // olurdu ve menü her açıldığında kamera biraz daha kayardı.
+    //
+    // Figürlerin duruşu aynı sebeple transformdan okunmuyor: `runnerYaw` ve
+    // `monsterYaw` alanlarından geliyor.
     private bool basesCaptured;
     private Vector3 pairCameraPosition;
     private Vector3 targetCameraPosition;
     private RenderTexture texture;
-
-    private static MaterialPropertyBlock tintBlock;
-    private static readonly int TintProperty = Shader.PropertyToID("_Color");
 
     private void OnEnable()
     {
@@ -150,21 +163,8 @@ public class MenuStage : MonoBehaviour
         if (!basesCaptured)
         {
             pairCameraPosition = stageCamera.transform.localPosition;
-
-            if (runner != null)
-                runnerBaseYaw = runner.localEulerAngles.y;
-
-            if (monster != null)
-                monsterBaseYaw = monster.localEulerAngles.y;
-
             basesCaptured = true;
         }
-
-        if (runner != null)
-            runnerRenderers = runner.GetComponentsInChildren<Renderer>(true);
-
-        if (monster != null)
-            monsterRenderers = monster.GetComponentsInChildren<Renderer>(true);
 
         texture = new RenderTexture(textureWidth, textureHeight, 24)
         {
@@ -179,7 +179,6 @@ public class MenuStage : MonoBehaviour
         image.texture = texture;
         image.enabled = true;
 
-        ApplyCostumesHere();
         ApplyFocus(instant: true);
     }
 
@@ -251,25 +250,6 @@ public class MenuStage : MonoBehaviour
             instance.ApplyFocus(instant: false);
     }
 
-    /// <summary>
-    /// Sahnedeki iki figüre oyuncunun seçtiği kostümleri giydirir. Seçim
-    /// değişince çağrılıyor, yani arka plan seçimi anında gösteriyor.
-    ///
-    /// Sahne yoksa hiçbir şey yapmıyor: kostüm zaten `PlayerProfile`'da ve
-    /// sahne açılırken oradan okunuyor.
-    /// </summary>
-    public static void ApplyCostumes()
-    {
-        if (instance != null)
-            instance.ApplyCostumesHere();
-    }
-
-    private void ApplyCostumesHere()
-    {
-        ApplyTint(runnerRenderers, CharacterCatalog.Runner(PlayerProfile.RunnerCostume).Tint);
-        ApplyTint(monsterRenderers, CharacterCatalog.Monster(PlayerProfile.MonsterCostume).Tint);
-    }
-
     private void ApplyFocus(bool instant)
     {
         // Odaklanılmayan figür GİZLENİYOR, silinmiyor: seçim ekranından
@@ -283,6 +263,11 @@ public class MenuStage : MonoBehaviour
 
         if (monster != null)
             monster.gameObject.SetActive(requested != Focus.Runner);
+
+        // Sürükleme sıfırlanıyor: her karakter sana dönük başlamalı, önceki
+        // figürü çevirdiğin açıyla değil.
+        dragYaw = 0f;
+        dragging = false;
 
         targetCameraPosition = ComputeCameraPosition();
 
@@ -330,6 +315,43 @@ public class MenuStage : MonoBehaviour
             center.z - distance);
     }
 
+    /// <summary>
+    /// Seçim ekranında fareyle döndürme.
+    ///
+    /// **Piksel farkı kullanılıyor, `Input.GetAxis("Mouse X")` değil.** O eksen
+    /// projedeki fare hassasiyeti ayarından etkileniyor (bölüm 13) ve kare
+    /// hızına göre değişiyor: aynı el hareketi farklı makinelerde farklı açı
+    /// üretirdi. Piksel farkı hem sabit hem de "ekranı baştan sona sürükleyince
+    /// tam tur" gibi anlaşılır bir ayar veriyor.
+    ///
+    /// Sürükleme yalnızca odaktayken çalışıyor; arka planda tıklamak menüyle
+    /// ilgili bir iş ve figürü kazara çevirmemeli.
+    /// </summary>
+    private void TickDrag(bool focused)
+    {
+        if (!focused || !Input.GetMouseButton(0))
+        {
+            dragging = false;
+            return;
+        }
+
+        float x = Input.mousePosition.x;
+
+        // İlk kare yalnızca başlangıç noktasını alıyor: basıldığı anda fark
+        // hesaplamak, imlecin önceki konumundan gelen bir sıçrama üretirdi.
+        if (!dragging)
+        {
+            dragging = true;
+            lastMouseX = x;
+            return;
+        }
+
+        // Sağa sürüklemek figürün yüzünü sağa çeviriyor: model tarayıcılarının
+        // olağan yönü, yakınındaki yüzey sürüklediğin yöne gidiyor.
+        dragYaw -= (x - lastMouseX) * dragDegreesPerPixel;
+        lastMouseX = x;
+    }
+
     private static Bounds MeasureBounds(Transform target)
     {
         Renderer[] renderers = target.GetComponentsInChildren<Renderer>(true);
@@ -347,16 +369,26 @@ public class MenuStage : MonoBehaviour
 
     private void Update()
     {
+        bool focused = requested != Focus.Pair;
+
+        TickDrag(focused);
+
         // Salınım her figüre KENDİ ekseninde uygulanıyor, ortak bir tablaya
         // değil: tabla dönseydi figürler tablanın merkezi etrafında yay
         // çizerdi ve seçim ekranında odaklanılan karakter kadrajdan kayardı.
-        float angle = Mathf.Sin(Time.unscaledTime * spinSpeed * Mathf.Deg2Rad) * spinRange;
+        //
+        // **Odaktayken salınım DURUYOR.** Kendiliğinden dönen bir figürü
+        // fareyle çevirmek, elinden kaçan bir şeyi tutmaya benziyor: bıraktığın
+        // anda kayıyor. Arka planda ise salınım figürleri canlı tutuyor.
+        float angle = focused
+            ? dragYaw
+            : Mathf.Sin(Time.unscaledTime * spinSpeed * Mathf.Deg2Rad) * spinRange;
 
         if (runner != null)
-            runner.localRotation = Quaternion.Euler(0f, runnerBaseYaw + angle, 0f);
+            runner.localRotation = Quaternion.Euler(0f, runnerYaw + angle, 0f);
 
         if (monster != null)
-            monster.localRotation = Quaternion.Euler(0f, monsterBaseYaw - angle, 0f);
+            monster.localRotation = Quaternion.Euler(0f, monsterYaw + (focused ? angle : -angle), 0f);
 
         if (stageCamera == null)
             return;
@@ -364,25 +396,6 @@ public class MenuStage : MonoBehaviour
         stageCamera.transform.localPosition = Vector3.Lerp(
             stageCamera.transform.localPosition, targetCameraPosition,
             1f - Mathf.Exp(-focusLerpSpeed * Time.unscaledDeltaTime));
-    }
-
-    /// <summary>Bkz. PlayerBodyVisual.ApplyTint — aynı gerekçe, aynı yöntem.</summary>
-    private static void ApplyTint(Renderer[] renderers, Color tint)
-    {
-        if (renderers == null)
-            return;
-
-        tintBlock ??= new MaterialPropertyBlock();
-
-        for (int i = 0; i < renderers.Length; i++)
-        {
-            if (renderers[i] == null)
-                continue;
-
-            renderers[i].GetPropertyBlock(tintBlock);
-            tintBlock.SetColor(TintProperty, tint);
-            renderers[i].SetPropertyBlock(tintBlock);
-        }
     }
 
     /// <summary>Sahneden çıkarken kamerayı ve dokuyu bırakmak şart.</summary>

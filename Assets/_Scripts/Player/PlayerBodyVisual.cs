@@ -76,11 +76,6 @@ public class PlayerBodyVisual : MonoBehaviour
     private int runnerCostume;
     private int monsterCostume;
 
-    // Tek blok yeniden kullanılıyor: her renderer için yenisini üretmek
-    // çöp toplayıcıyı boşuna çalıştırır (bölüm 2'nin havuzlama fikri).
-    private static MaterialPropertyBlock tintBlock;
-    private static readonly int TintProperty = Shader.PropertyToID("_Color");
-
     private Vector3 monsterHeadRestScale = Vector3.one;
     private bool monsterHeadCached;
 
@@ -138,42 +133,18 @@ public class PlayerBodyVisual : MonoBehaviour
     /// `RoundParticipant`'ın SyncVar hook'undan çağrılıyor, yani **her
     /// istemcide** çalışıyor — karşındakini de kendi seçtiği kostümde
     /// görüyorsun.
+    ///
+    /// **Bugün görünür bir etkisi YOK ve bu bilinçli:** her listede tek kostüm
+    /// var (bkz. CharacterCatalog), yani seçilecek ikinci bir gövde yok.
+    /// Kullanıcı renk çeşitlemelerini istemedi, gerçek modeller verecek;
+    /// modeller gelince gövde dizisi burada açılıyor ve seçim, ağ, menü
+    /// tarafının hiçbiri değişmiyor.
     /// </summary>
     public void SetCostume(int runner, int monster)
     {
         runnerCostume = runner;
         monsterCostume = monster;
         Refresh();
-    }
-
-    /// <summary>
-    /// Kostüm rengini gövdeye yazar.
-    ///
-    /// **Materyalin kendisine DEĞİL, `MaterialPropertyBlock`'a yazılıyor.**
-    /// `renderer.material` çağırmak Unity'ye materyalin bir kopyasını
-    /// ürettiriyor (her oyuncu için ayrı bir materyal, batching'in sonu) ve
-    /// `sharedMaterial`'a yazmak diskteki varlığı değiştirip **bütün**
-    /// oyuncuları aynı renge boyardı. Blok ikisine de dokunmuyor.
-    ///
-    /// Beyaz kostümde de yazılıyor, atlanmıyor: kostüm değiştiren oyuncunun
-    /// eski rengi üstünde kalırdı.
-    /// </summary>
-    private static void ApplyTint(Renderer[] renderers, Color tint)
-    {
-        if (renderers == null)
-            return;
-
-        tintBlock ??= new MaterialPropertyBlock();
-
-        for (int i = 0; i < renderers.Length; i++)
-        {
-            if (renderers[i] == null)
-                continue;
-
-            renderers[i].GetPropertyBlock(tintBlock);
-            tintBlock.SetColor(TintProperty, tint);
-            renderers[i].SetPropertyBlock(tintBlock);
-        }
     }
 
     /// <summary>
@@ -307,12 +278,6 @@ public class PlayerBodyVisual : MonoBehaviour
         // bacaklarını görmek, hareketi hissettiren şey.
         ApplyRenderers(monsterRenderers, monster && onField, showToSelf: true);
         ApplyRenderers(runnerRenderers, runnerModel && onField, showToSelf: true);
-
-        // Kostüm rengi. Kapsül dışarıda bırakıldı: o bir yer tutucu, kostüm
-        // sistemi ona hiç uğramamalı — model takılı değilse zaten seçim
-        // ekranının gösterecek bir şeyi yok.
-        ApplyTint(monsterRenderers, CharacterCatalog.Monster(monsterCostume).Tint);
-        ApplyTint(runnerRenderers, CharacterCatalog.Runner(runnerCostume).Tint);
 
         // EN SONDA: kafa parçaları renderer listelerinde de var ve yukarıdaki
         // döngüler onları açıyor. Önce çalıştırırsak yaptığımız iş aynı karede

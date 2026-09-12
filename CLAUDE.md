@@ -447,7 +447,7 @@ karşı yeni bir aracı. Ölçülmedi.
 | 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
 | 6 | ~~**Menü ve ayarlar arayüzü**~~ | **YAPILDI** (2026-09-12, bölüm 13). Görsel dil dokuz ekranda, korku efekti kaydırıcısı seçeneklerde. **Sahneye girmesi için `Menü Kur` çalıştırılmalı** |
 | 7 | ~~**Korku ekran efektleri**~~ | **YAPILDI** (2026-09-10, bölüm 25). Vinyet, gren, renk ayrışması, renk kaybı; canavar yaklaştıkça artıyor. Paket eklenmedi. Ayarlardaki kaydırıcı da geldi (2026-09-12) |
-| 8 | **Kostüm seçimi YAPILDI, ikinci canavar kaldı** | **Kostüm sistemi bitti** (2026-09-12, bölüm 13): katalog, lobiden seçim, canlı önizleme, SyncVar'lar. Liste bugün renk çeşitlemesi; yeni modeller gelince `Costume.Body` doldurulup gövde dizisine ekleniyor. **Kalan: özelliği olan ikinci canavar** — kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1), yani ikinci bir profil doğal yol. **Madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
+| 8 | **Kostüm ALTYAPISI yapıldı, modeller ve ikinci canavar kaldı** | **Seçim, ağ ve menü tarafı bitti** (2026-09-12, bölüm 13): katalog, lobiden seçim, canlı önizleme, fareyle döndürme, SyncVar'lar. Liste bugün tek elemanlı. **Kalan iki iş:** (a) **modeller kullanıcıdan gelecek**; geldiğinde `Kaçan Modelini Kur` onları prefaba ikinci gövde olarak kuracak ve `PlayerBodyVisual` gövde dizisine geçecek — ceset prefabı da aynı anda elden geçmeli. (b) **özelliği olan ikinci canavar** — kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1). **Madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
 | 9 | ~~**Menü arka planı**~~ | **YAPILDI** (2026-09-12, bölüm 13). Kaçan ve canavar menünün arkasında duruyor; ayrı bir kamera hedef dokuya çiziyor. Yeni modeller gelince aynı sahneye eklenecek |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
@@ -2456,7 +2456,7 @@ yazıldı.** Üçü de aynı canvas'a dokunuyor, o yüzden birlikte planlanmış
 |---|---|
 | **Görsel dil** (madde 6) | **BİTTİ ve sahnede.** Renk ailesi, çerçeveli kutu, düğme durumları, başlık. Dokuz ekran birden |
 | **Arka plan** (madde 9) | **KOD BİTTİ, SAHNEDE YOK.** Kaçan ve canavar menünün arkasında duruyor — `Menü Kur` çalıştırılana kadar görünmüyor |
-| **Karakter seçimi** (madde 8) | **KOD BİTTİ, SAHNEDE YOK.** Kostümler, lobiden seçim, canlı önizleme |
+| **Karakter seçimi** (madde 8) | **KOD BİTTİ.** Lobiden seçim, canlı önizleme, fareyle döndürme. Liste tek elemanlı: modeller kullanıcıdan bekleniyor |
 | **Korku efekti kaydırıcısı** (madde 6) | **KOD BİTTİ, SAHNEDE YOK.** Seçenekler ekranında |
 
 **Dördü de aynı araca bağlı ve o araç henüz çalıştırılmadı** — yukarıdaki
@@ -2559,7 +2559,7 @@ canlı duruyor.
 | `UI/CharacterSelectPanel.cs` | Seçim ekranı |
 | `UI/PlayerProfile` | Cihazdaki kayıt (`Kostum_Kacan`, `Kostum_Canavar`) |
 | `RoundParticipant` | İki SyncVar + `CmdSetCostume` |
-| `Player/PlayerBodyVisual` | Rengi gövdeye uyguluyor |
+| `Player/PlayerBodyVisual` | Kostümü gövdeye uyguluyor (bugün tek gövde var) |
 
 **Kostüm YALNIZCA görsel.** Bölüm 17'nin ölçek kuralı gereği kaçanın görünen
 gövdesi çarpışma kutusuyla örtüşmek zorunda: şişirilmiş bir kaçan, isabet
@@ -2570,23 +2570,42 @@ dokunuyor.
 oynanış: ayrı bir `MovementProfile` ve kendine ait bir özellik. Buradaki
 canavar girdileri aynı canavarın farklı görünüşleri.
 
-#### Liste bugün RENKLERDEN oluşuyor, sebebi var
+#### Liste bugün TEK elemanlı, renk çeşitlemesi DEĞİL
 
-Elde iki model var ve kullanıcının kendi ifadesiyle bugünkü kaçan modeli de
-"bir kostüm sayılır" — liste oradan başlıyor. Ama **tek elemanlı bir seçim
-ekranı ölü bir ekran** olurdu, yani ekranı kurmak tek başına bir şey
-kazandırmazdı.
+İlk sürüm aynı modelin renk çeşitlemelerini listeliyordu: elde tek model vardı
+ve tek elemanlı bir seçim ekranı ölü bir ekran olurdu. Altı kaçan, dört canavar
+rengi kondu.
 
-Onun yerine aynı modelin renk çeşitlemeleri kondu: bugün gerçekten çalışan,
-gerçekten görünen ve model gerektirmeyen kostümler. Altı kaçan, dört canavar.
+**Oynanınca istenmedi:** kostümler gerçek modeller olacak ve modelleri kullanıcı
+verecek. Renk yolu tamamen kaldırıldı — `MaterialPropertyBlock` uygulayıcıları,
+`Costume.Tint` alanı ve cesede taşınan renk dahil.
 
-**Her iki listenin sıfırıncı girdisi beyaz**, yani modelin dokunulmamış hâli.
-Seçim hiç yapmamış oyuncu da, kaydı bozulmuş oyuncu da oraya düşüyor —
-varsayılan her zaman bugünkü görünüm.
+> Ders: **gelmeyecek bir özelliğin kodunu "dursun, belki işe yarar" diye
+> tutmak, ileride onu okuyan herkesi yanıltıyor.** Renk yolu çalışıyordu ve
+> güzeldi; ama tasarım kararı değişince yanlış bir yola işaret eden çalışan bir
+> kod, hiç kod olmamasından kötü. Aynı gerekçe bölüm 3'teki
+> `indirectScale`/`albedoBoost` kalıntısında da vardı.
 
-Yeni modeller geldiğinde `Costume.Body` alanı dolduruluyor ve `PlayerBodyVisual`
-o indeksteki gövdeyi açıyor. Renk yolu aynen duruyor: yeni modelin de renk
-çeşitlemesi olabilir.
+Bugün her listede tek giriş var: bugünkü iki model. Kullanıcının kendi
+ifadesiyle bugünkü kaçan modeli de "bir kostüm sayılır", yani liste oradan
+başlıyor.
+
+**Ekran bu yüzden bugün bir seçici değil bir GÖRÜNTÜLEYİCİ.** Karakterine
+bakıyor, fareyle çeviriyorsun. Yön düğmeleri listede tek giriş varken kapalı —
+basılabilir görünüp hiçbir şey yapmayan bir düğme "bozuk" diye okunur
+(bölüm 19'daki gri kaydırıcı dersi).
+
+Yeni model geldiğinde üç adım var ve **ikincisinin kodu henüz yazılmadı:**
+
+1. Model `Assets/_Art/Models` altına giriyor.
+2. `Kaçan Modelini Kur` onu oyuncu prefabına **ikinci bir gövde** olarak
+   kuruyor ve `PlayerBodyVisual`'ın gövde dizisine ekliyor.
+3. `CharacterCatalog`'a bir satır: ad ve o gövdenin indeksi.
+
+İkinci adım bilerek bekletiliyor: ortada ikinci bir model yok ve bölüm 5'in
+kuralı soyutlamanın ancak somut bir ikinci kullanımla eklenmesini söylüyor.
+Modeller gelince araç ve `PlayerBodyVisual` birlikte elden geçecek; **seçim, ağ
+ve menü tarafının hiçbiri değişmeyecek.**
 
 > **Geçersiz indeks SIFIRA düşüyor, kırpılmıyor.** `Clamp` yanlış olurdu:
 > liste kısalırsa son kostümü seçmiş herkes sessizce yeni son kostüme kayardı
@@ -2603,21 +2622,35 @@ Tek bir liste (kaçanlar ve canavarlar yan yana) daha basit görünürdü ama
 yanlış bir söz verirdi: listeden canavarı seçen oyuncu canavar olacağını
 sanardı. Ekran bunu ayrıca yazıyor da.
 
-#### Renk materyale DEĞİL, MaterialPropertyBlock'a yazılıyor
+#### Figürler kameraya DÖNÜK duruyor — bir süre sırtları dönüktü
 
-Üç yol vardı ve ikisi yanlış:
+Duruş `MenuStage`'in `runnerYaw` / `monsterYaw` alanlarından geliyor (164° ve
+198°): 180 tam karşıdan demek, sapma ikisini birbirine hafifçe çeviriyor.
 
-| Yol | Ne olurdu |
-|---|---|
-| `renderer.sharedMaterial.color` | Diskteki varlık değişir, **bütün** oyuncular aynı renge boyanır |
-| `renderer.material.color` | Unity her oyuncuya ayrı bir materyal kopyası üretir, batching biter |
-| **`MaterialPropertyBlock`** | Materyale hiç dokunulmuyor, kopya da üretilmiyor |
+İlk kurulum 16° ve -18° yazıyordu, yani ikisi de neredeyse tam **+z** yönüne
+bakıyordu. Kamera ise -z'de durup +z'ye bakıyor: yani ekranda iki sırt vardı.
+Oynanınca "arkaları dönük duruyorlar" diye bildirildi.
 
-Beyaz kostümde de yazılıyor, atlanmıyor: kostüm değiştiren oyuncunun eski
-rengi üstünde kalırdı.
+**Açı artık kurulumda DEĞİL `MenuStage`'de**, çünkü orası duruşu her karede
+zaten yazan yer (salınım ve fare dönüşüyle birlikte). İki yerde tutulan bir açı,
+biri değişince öbürünün unutulması demekti — ve tam olarak öyle olmuştu. Bunun
+pratik bir faydası da var: düzeltme için `Menü Kur` çalıştırmak gerekmiyor.
 
-Kapsül yer tutucusu kostüm almıyor, bilerek — model takılı değilse seçim
-ekranının gösterecek bir şeyi zaten yok.
+#### Fareyle döndürme
+
+Seçim ekranında sol tuşu basılı tutup sürüklemek figürü çeviriyor. **Odaktayken
+salınım duruyor:** kendiliğinden dönen bir figürü fareyle çevirmek, elinden
+kaçan bir şeyi tutmaya benziyor — bıraktığın anda kayıyor. Arka planda salınım
+sürüyor ve figürleri canlı tutuyor.
+
+Odak değişince dönüş sıfırlanıyor: her karakter sana dönük başlamalı, öncekini
+çevirdiğin açıyla değil.
+
+> **Piksel farkı kullanılıyor, `Input.GetAxis("Mouse X")` değil.** O eksen
+> projedeki fare hassasiyeti ayarından etkileniyor (bölüm 13) ve kare hızına
+> göre değişiyor: aynı el hareketi farklı makinelerde farklı açı üretirdi.
+> Piksel farkı hem sabit hem de "ekranı baştan sona sürükleyince tam tur" gibi
+> anlaşılır bir ayar veriyor (`dragDegreesPerPixel` = 0.4).
 
 #### Önizleme ayrı bir pencere DEĞİL
 
@@ -2627,9 +2660,10 @@ kamera, ikinci bir ışık takımı ve ikinci bir `RenderTexture` kurmanın kar�
 yoktu.
 
 Seçim paneli bu yüzden ekranın **solunda** ve panelin tam ekran gövdesi
-saydam: seçtiğin kostümü karartılmış bir perdenin ardından göstermek seçimi
-görmeyi zorlaştırırdı. Yazılar sütunun kendi koyu kutusunun üstünde duruyor,
-okunaklılık gövdeden değil kutudan geliyor.
+saydam: modeli karartılmış bir perdenin ardından göstermek onu görmeyi
+zorlaştırırdı. Yazılar sütunun kendi koyu kutusunun üstünde duruyor,
+okunaklılık gövdeden değil kutudan geliyor. Saydam gövde fare sürüklemesini de
+engellemiyor — model o boşlukta çevriliyor.
 
 Sütun **oranla** konumlanıyor (ekran genişliğinin %30'u), pikselle değil: her
 çözünürlükte modelin payı aynı kalıyor.
@@ -4520,7 +4554,7 @@ Built-in RP'de `OnRenderImage` + `Graphics.Blit` zaten tam ekran efekt
 |---|---|---|
 | Vinyet | 0.45 | 0.78 |
 | Kontrast | **1.0 (nötr)** | 1.15 |
-| Bloom | 0.5 (eşik 0.22) | aynı |
+| Bloom | 0.32 (eşik 0.26) | aynı |
 | Gren | 0.040 | 0.095 |
 | Renk ayrışması | 0.005 | 0.012 |
 | Renk kaybı | 0.30 | 0.70 |
@@ -4687,10 +4721,17 @@ hale (`BloomSample`). İki özelliği bu işi tam olarak çözüyor:
 
 - **Toplamsal**, yani karanlıkta görünen efekt ailesinden (bölüm 25'in ilk
   dersi).
-- **Eşikli** (`_BloomThreshold` = 0.22). Lamba altı ~0.28 ve fener konisi
+- **Eşikli** (`_BloomThreshold` = 0.26). Lamba altı ~0.28 ve fener konisi
   eşiğin üstünde, ambient 0.006 ise çok altında — yani hale yalnızca zaten
   parlak olan yerlerden taşıyor ve **taban aydınlığa hiç dokunmuyor.** Bölüm
   5'in ölçütü kendiliğinden korunuyor.
+
+> **Şiddet 0.5'ten 0.32'ye indirildi, eşik 0.22'den 0.26'ya çıktı**
+> (2026-09-12). Oynanınca "ışık çok göz alıyor" diye geldi. İkisi birlikte
+> çalışıyor: şiddet halenin gücünü, eşik ise nerelerden taşacağını belirliyor.
+> Eşiği 0.26'ya çekmek lamba altındaki zemini (0.28) sınıra yaklaştırıyor, yani
+> hale artık aydınlatılan ALANDAN değil çoğunlukla ışık kaynağının kendisinden
+> taşıyor — şikâyet edilen tam olarak parlayan alanın genişliğiydi.
 
 Örnekler **altın açı sarmalında** dağıtılıyor: düzenli halkalar gözle görülür
 bant üretiyor. Çok geçişli bir bulanık daha yumuşak olurdu ama ayrı

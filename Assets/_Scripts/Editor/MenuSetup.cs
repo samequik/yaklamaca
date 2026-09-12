@@ -1464,8 +1464,9 @@ public static class MenuSetup
     /// Karakter seçimi: kaçan ve canavar kostümü (bkz. CharacterSelectPanel).
     ///
     /// **Sütun ekranın SOLUNDA**, çünkü sağ tarafı arka plandaki modele
-    /// bıraktık. Panelin tam ekran gövdesi de saydam: seçilen kostümü
-    /// karartılmış bir perdenin ardından göstermek, seçimi görmeyi zorlaştırır.
+    /// bıraktık. Panelin tam ekran gövdesi de saydam: modeli karartılmış bir
+    /// perdenin ardından göstermek onu görmeyi zorlaştırır. Saydam gövde
+    /// ayrıca fare sürüklemesini de engellemiyor — model o boşlukta çevriliyor.
     /// Yazılar sütunun kendi koyu kutusunun üstünde duruyor, yani okunaklılık
     /// gövdeden değil kutudan geliyor.
     ///
@@ -1498,13 +1499,12 @@ public static class MenuSetup
         CreateSpacer(column, 8f);
 
         Transform pickRow = CreateRow(column, 62f);
-        AddRowButton(pickRow, "<", select.Previous, 0.18f);
+        Button previousButton = AddRowButton(pickRow, "<", select.Previous, 0.18f);
         TMP_Text costumeLabel = CreateRowText(pickRow, "MUZ ADAM", 26f, AccentLight, 0.64f);
-        AddRowButton(pickRow, ">", select.Next, 0.18f);
+        Button nextButton = AddRowButton(pickRow, ">", select.Next, 0.18f);
 
-        Transform infoRow = CreateRow(column, 30f);
-        Image swatch = CreateSwatch(infoRow);
-        TMP_Text counterLabel = CreateRowText(infoRow, "1 / 1", 18f, TextColor, 0.85f);
+        TMP_Text counterLabel = CreateLabel(column, "1 / 1");
+        counterLabel.fontSize = 18f;
 
         CreateSpacer(column, 10f);
         TMP_Text statusLabel = CreateLabel(column, string.Empty);
@@ -1521,34 +1521,12 @@ public static class MenuSetup
         serialized.FindProperty("roleLabel").objectReferenceValue = roleLabel;
         serialized.FindProperty("costumeLabel").objectReferenceValue = costumeLabel;
         serialized.FindProperty("counterLabel").objectReferenceValue = counterLabel;
-        serialized.FindProperty("swatch").objectReferenceValue = swatch;
+        serialized.FindProperty("previousButton").objectReferenceValue = previousButton;
+        serialized.FindProperty("nextButton").objectReferenceValue = nextButton;
         serialized.FindProperty("statusLabel").objectReferenceValue = statusLabel;
         serialized.ApplyModifiedProperties();
 
         return panel;
-    }
-
-    /// <summary>
-    /// Seçili kostümün rengini gösteren küçük kare. Renk adı tek başına ne
-    /// olduğunu anlatmıyor ve modele bakmak da yetmiyor: sahnedeki ışıklar
-    /// rengi kendi tonlarıyla karıştırıyor.
-    /// </summary>
-    private static Image CreateSwatch(Transform row)
-    {
-        GameObject box = new GameObject("Renk", typeof(RectTransform), typeof(Image));
-        box.transform.SetParent(row, false);
-
-        Image image = box.GetComponent<Image>();
-        image.color = Color.white;
-        image.raycastTarget = false;
-
-        AddFrame(box.transform, AccentDim, 1.5f, 10f);
-
-        LayoutElement element = box.AddComponent<LayoutElement>();
-        element.flexibleWidth = 0.15f;
-        element.minWidth = 34f;
-
-        return image;
     }
 
     private static GameObject BuildPausePanel(Transform parent, MenuController controller,

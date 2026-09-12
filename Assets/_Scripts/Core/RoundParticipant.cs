@@ -120,9 +120,6 @@ public class RoundParticipant : NetworkBehaviour
     public bool IsAlive => alive;
     public string DisplayName => displayName;
 
-    /// <summary>Ceset bu kostümü kopyalıyor: öldüğün renkte yatmalısın.</summary>
-    public int RunnerCostume => runnerCostume;
-
     /// <summary>Test botu mu — rol dağıtımı buna bakıyor.</summary>
     public bool IsBot => isBot;
 

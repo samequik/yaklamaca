@@ -87,12 +87,12 @@ public class ScreenEffects : MonoBehaviour
     [Tooltip("Taşmanın gücü. 0 = kapalı. Karanlık bir oyunda ışıkları " +
         "'patlatmanın' doğru yolu bu: toplamsal ve eşikli olduğu için " +
         "yalnızca zaten parlak yerleri etkiliyor, karanlığa dokunmuyor.")]
-    [SerializeField] private float bloom = 0.5f;
+    [SerializeField] private float bloom = 0.32f;
 
     [Tooltip("Bu parlaklığın ÜSTÜ taşıyor. Lamba altı ~0.28, fener konisi " +
         "daha yüksek, ambient 0.006 — eşiği ambient'in çok üstünde tutmak " +
         "karanlığın korunmasını garanti ediyor.")]
-    [SerializeField] private float bloomThreshold = 0.22f;
+    [SerializeField] private float bloomThreshold = 0.26f;
 
     [Tooltip("Halenin yarıçapı (ekran genişliğinin oranı).")]
     [SerializeField] private float bloomRadius = 0.018f;
