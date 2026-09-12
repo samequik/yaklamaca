@@ -2844,6 +2844,43 @@ gerek kalmasın diye araç listeyi basıyor.
 boyunca dağıtıyor; kapalıyken yürüme çevrimi her turda gözle görülür bir
 sıçrama yapıyor ve döngü açık olduğu hâlde "takılıyor" gibi duruyor.
 
+> ### Yön değerleri METRE/SANİYE, normalleştirilmiş değil
+>
+> İlk sürüm değerleri `clipRunSpeed`'e bölüyordu ve sayılar hiç tutmuyordu: o
+> alan **klibin** hızı (4 m/s), karakterinki ise 7.62. Yürüme hızı (3.81)
+> bölününce 0.95 çıkıyor, yani ağaçtaki KOŞMA örneğinin tam üstüne düşüyordu —
+> yürürken koşma animasyonu oynuyordu. Koşarken de 1.9 çıkıp ağacın tamamen
+> dışına taşıyordu.
+>
+> Ham hız kullanmak eşikleri tek eksenli ağaçtakiyle aynı dile sokuyor
+> (`Speed` de m/s): yürüme 1.8, koşma 6. İki ağaç aynı sayıları konuşuyor.
+>
+> Ders: **bir değeri normalleştirirken neye böldüğüne bak.** "Koşu hızı" diye
+> okunan alan klibin hızıydı, karakterin değil; ikisi arasında iki kat fark
+> var ve arada hiçbir hata çıkmıyor.
+
+> ### Denetleyici dosyası SİLİNMİYOR — GUID korunuyor
+>
+> Araç eskiden `.controller` dosyasını silip yeniden yaratıyordu. Silinen
+> varlığın GUID'i de gidiyor, yani menü sahnesindeki figürlerin ve oyuncu
+> prefabının denetleyici referansları **kopuk** kalıyordu. Denetleyicisi
+> olmayan bir `Animator` hiçbir şey oynatmıyor: ekranda T-poz. Hiçbir yerde
+> hata yazmıyor, çünkü Unity için boş referans geçerli bir durum.
+>
+> Oynanınca "karakter seçim ekranında T-poz ile duruyor" diye bildirildi ve
+> önce animasyonlarda sanıldı — klipler de denetleyici de doğruydu, kopuk olan
+> aradaki bağdı.
+>
+> Bunun asıl bedeli aracın **iki kez çalıştırılamaz** olmasıydı: arkasından
+> `Menü Kur` çalıştırmayı unutmak bozulmaya yetiyordu. GUID korununca sıra da
+> önemini yitiriyor.
+>
+> Varlığın içi temizleniyor (durumlar, ağaçlar, geçişler ayrı alt varlıklar ve
+> silinmezlerse dosyada birikirler), ama dosyanın kendisi yerinde kalıyor.
+>
+> `MenuStage` ayrıca denetleyicisi boş bir figür bulursa **hata yazıyor**: aynı
+> arıza bir daha çıkarsa sahne kendisi söylesin.
+
 **Yön klibi olmayan kostümde parametreler HİÇ eklenmiyor.** Olmayan bir
 parametreye yazmak Unity'de her karede konsola uyarı bastırıyor; bileşen
 denetleyicinin parametre listesini bir kez okuyup yazmadan önce bakıyor.

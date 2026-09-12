@@ -476,8 +476,7 @@ public static class RunnerSetup
     private static AnimatorController BuildController(Dictionary<string, AnimationClip> clips,
         string controllerPath, string costumeName)
     {
-        AssetDatabase.DeleteAsset(controllerPath);
-        AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
+        AnimatorController controller = LoadOrCreateController(controllerPath);
 
         controller.AddParameter(CharacterAnimatorBase.SpeedParameter, AnimatorControllerParameterType.Float);
         controller.AddParameter(CharacterAnimatorBase.SpeedScaleParameter, AnimatorControllerParameterType.Float);
@@ -710,13 +709,16 @@ public static class RunnerSetup
         if (idle != null)
             tree.AddChild(idle, new Vector2(0f, 0f));
 
-        AddDirectional(tree, walk, new Vector2(0f, 0.45f));
-        AddDirectional(tree, run, new Vector2(0f, 1f));
-        AddDirectional(tree, walkBack, new Vector2(0f, -0.45f));
-        AddDirectional(tree, walkLeft, new Vector2(-0.45f, 0f));
-        AddDirectional(tree, walkRight, new Vector2(0.45f, 0f));
-        AddDirectional(tree, runLeft, new Vector2(-1f, 0f));
-        AddDirectional(tree, runRight, new Vector2(1f, 0f));
+        // Konumlar METRE/SANİYE. Tek eksenli ağacın eşikleriyle aynı dil:
+        // yürüme 1.8, koşma 6. Karakterin gerçek hızları 3.81 ve 7.62 olduğu
+        // için ikisi de kendi örneğine oturuyor.
+        AddDirectional(tree, walk, new Vector2(0f, 1.8f));
+        AddDirectional(tree, run, new Vector2(0f, 6f));
+        AddDirectional(tree, walkBack, new Vector2(0f, -1.8f));
+        AddDirectional(tree, walkLeft, new Vector2(-1.8f, 0f));
+        AddDirectional(tree, walkRight, new Vector2(1.8f, 0f));
+        AddDirectional(tree, runLeft, new Vector2(-6f, 0f));
+        AddDirectional(tree, runRight, new Vector2(6f, 0f));
 
         AnimatorState state = machine.AddState(name);
         state.motion = tree;
@@ -735,6 +737,63 @@ public static class RunnerSetup
     /// hata vermiyor: animatör sessizce hiçbir şey oynatmıyor. Bir kez
     /// yaşandı ve sebebi bulmak bir tur sürdü; artık araç söylüyor.
     /// </summary>
+    /// <summary>
+    /// Denetleyiciyi var olan dosyanın ÜSTÜNE kuruyor; yoksa yenisini açıyor.
+    ///
+    /// > **Eskiden dosya silinip yeniden yaratılıyordu ve bu sahneyi sessizce
+    /// > bozuyordu.** Silinen varlığın GUID'i de gidiyor, yani menü
+    /// > sahnesindeki figürlerin ve prefabın denetleyici referansları **kopuk**
+    /// > kalıyordu. Denetleyicisi olmayan bir `Animator` hiçbir şey oynatmıyor:
+    /// > ekranda T-poz. Hiçbir yerde hata yazmıyor, çünkü Unity için "boş
+    /// > referans" geçerli bir durum.
+    /// >
+    /// > Oynanınca "karakter seçim ekranında T-poz ile duruyor" diye
+    /// > bildirildi ve önce animasyonlarda sanıldı — klipler de denetleyici de
+    /// > doğruydu, kopuk olan aradaki bağdı.
+    /// >
+    /// > Bu, aracın **iki kez çalıştırılamaz** olması demekti: `Menü Kur`'u
+    /// > her seferinde arkasından çalıştırmayı unutmak bozulmaya yetiyordu.
+    /// > GUID korununca sıra da önemini yitiriyor.
+    ///
+    /// Varlığın İÇİ temizleniyor: alt varlıklar (durumlar, ağaçlar, geçişler)
+    /// ayrı nesneler ve silinmezlerse dosyada birikip büyürler.
+    /// </summary>
+    private static AnimatorController LoadOrCreateController(string path)
+    {
+        AnimatorController existing = AssetDatabase.LoadAssetAtPath<AnimatorController>(path);
+
+        if (existing == null)
+            return AnimatorController.CreateAnimatorControllerAtPath(path);
+
+        foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(path))
+        {
+            if (asset != existing && asset != null)
+                Object.DestroyImmediate(asset, true);
+        }
+
+        existing.parameters = new AnimatorControllerParameter[0];
+
+        AnimatorStateMachine machine = new AnimatorStateMachine
+        {
+            name = "Base Layer",
+            hideFlags = HideFlags.HideInHierarchy,
+        };
+
+        AssetDatabase.AddObjectToAsset(machine, existing);
+
+        existing.layers = new[]
+        {
+            new AnimatorControllerLayer
+            {
+                name = "Base Layer",
+                defaultWeight = 1f,
+                stateMachine = machine,
+            }
+        };
+
+        return existing;
+    }
+
     private static string Name(Motion motion) => motion != null ? motion.name : "YOK";
 
     private static void VerifyStates(AnimatorController controller, string costumeName)

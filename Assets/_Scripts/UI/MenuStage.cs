@@ -204,6 +204,19 @@ public class MenuStage : MonoBehaviour
                 break;
 
             found.Add(figure);
+
+            // Denetleyicisi olmayan bir `Animator` hiçbir şey oynatmıyor ve
+            // ekranda T-poz olarak görünüyor. Unity bunu hata saymıyor: boş
+            // referans geçerli bir durum. Bir kez yaşandı ve sebebi bulmak
+            // birkaç tur sürdü — artık sahne kendisi söylüyor.
+            Animator animator = figure.GetComponent<Animator>();
+
+            if (animator == null || animator.runtimeAnimatorController == null)
+            {
+                Debug.LogError($"Menü sahnesi: '{figure.name}' figürünün animatör denetleyicisi " +
+                    "YOK, ekranda T-poz duracak. `Yakalamaca > Menü Kur` çalıştır — " +
+                    "denetleyici dosyası `Kaçan Modelini Kur`'dan sonra bağlanıyor.", figure);
+            }
         }
 
         runners = found.ToArray();

@@ -237,10 +237,18 @@ public abstract class CharacterAnimatorBase : MonoBehaviour
             return;
 
         Vector3 velocity = new Vector3(delta.x, 0f, delta.z) * inverseDelta;
-        Vector3 local = transform.InverseTransformDirection(velocity);
 
-        float reference = clipRunSpeed > 0.01f ? clipRunSpeed : 1f;
-        Vector3 target = new Vector3(local.x / reference, 0f, local.z / reference);
+        // Değerler METRE/SANİYE olarak yazılıyor, normalleştirilmeden.
+        //
+        // İlk sürüm `clipRunSpeed`'e bölüyordu ve sayılar tutmuyordu: o alan
+        // KLİBİN hızı (4 m/s), karakterinki ise 7.62. Yürüme hızı (3.81 m/s)
+        // bölündüğünde 0.95 çıkıyor, yani ağaçtaki KOŞMA örneğinin tam üstüne
+        // düşüyordu — yürürken koşma animasyonu oynuyordu. Koşarken de 1.9
+        // çıkıp ağacın tamamen dışına taşıyordu.
+        //
+        // Ham hız kullanmak eşikleri tek eksenli ağaçtakiyle aynı dile
+        // sokuyor (`Speed` de m/s): iki ağaç aynı sayıları konuşuyor.
+        Vector3 target = transform.InverseTransformDirection(velocity);
 
         smoothedLocalVelocity = Vector3.Lerp(smoothedLocalVelocity, target,
             1f - Mathf.Exp(-speedSmoothing * Time.deltaTime));
