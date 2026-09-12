@@ -103,6 +103,10 @@ public class CharacterSelectPanel : MonoBehaviour
                 CharacterCatalog.Step(CharacterCatalog.Runners, PlayerProfile.RunnerCostume, delta);
         }
 
+        // Arka plandaki figür anında değişiyor: seçimin karşılığını görmek
+        // için ekranı kapatmak gerekmiyor.
+        MenuStage.ApplyCostumes();
+
         // Odadaysak kadrodaki herkes de anında görüyor. Oda yoksa `Local` null
         // ve hiçbir şey olmuyor — seçim yine cihazda duruyor ve oyuncu objesi
         // doğduğunda `OnStartLocalPlayer` onu bildiriyor.

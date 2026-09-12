@@ -2,12 +2,12 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 /// <summary>
-/// Oyuncunun görünen gövdesi. Üç gövde tutuyor ve hangisinin görüneceğine tek
-/// yerden karar veriyor:
+/// Oyuncunun görünen gövdesi. Hangi gövdenin görüneceğine tek yerden karar
+/// veriyor:
 ///
 /// - **Canavar** → canavar modeli
-/// - **Kaçan** → kaçan modeli (Banana Man)
-/// - **Kaçan modeli takılı değilse** → kapsül (eski yer tutucu)
+/// - **Kaçan** → seçilen KOSTÜMÜN gövdesi (bkz. CharacterCatalog)
+/// - **Kostüm gövdesi yoksa** → kapsül (eski yer tutucu)
 ///
 /// Kapsül bilerek duruyor: model bağlanmadan da oyun oynanabilsin, ve
 /// `Kaçan Modelini Kur` hiç çalıştırılmamış bir projede kimse görünmez olmasın.
@@ -21,16 +21,42 @@ using UnityEngine.Rendering;
 /// Üçünü ayrı ayrı açıp kapatmak sıraya bağımlı hatalar üretiyordu (bkz.
 /// RoundParticipant.RefreshBodyState); burada da aynı desen kullanılıyor.
 ///
-/// **Kaçan alanları canavarınkilerin kopyası gibi duruyor, bilerek.** Ortak bir
-/// "gövde takımı" sınıfına çekmek alan adlarını değiştirirdi ve prefabtaki
-/// mevcut canavar bağlantıları kopardı; MonsterSetup da yeniden yazılmak
-/// zorunda kalırdı. Kazancı olmayan bir risk.
+/// ### Kaçan bir DİZİ, canavar tek — bilerek
+///
+/// Kaçanın birden çok kostümü var ve hepsi prefabta hazır duruyor; aynı anda
+/// yalnızca biri açık. Canavarınki hâlâ tek alan: orada seçilecek ikinci bir
+/// gövde yok ve alan adlarını değiştirmek prefabtaki mevcut bağlantıları
+/// koparıp `MonsterSetup`'ı da yeniden yazdırırdı. Kazancı olmayan bir risk.
 /// </summary>
 public class PlayerBodyVisual : MonoBehaviour
 {
+    /// <summary>
+    /// Tek bir kaçan kostümünün gövdesi. `Kaçan Modelini Kur` her kostüm için
+    /// bir tane kuruyor ve sıraları `CharacterCatalog.Runners` ile aynı.
+    /// </summary>
+    [System.Serializable]
+    public class RunnerBody
+    {
+        [Tooltip("Gövdenin kökü. Kapatınca Animator da durur.")]
+        public GameObject root;
+
+        public Renderer[] renderers;
+
+        [Tooltip("Kafa kemiği. Birinci şahısta sıfıra ölçekleniyor.")]
+        public Transform headBone;
+
+        [Tooltip("Kafaya ait AYRI renderer'lar (göz, saç gibi). Kemik ölçeği " +
+            "bunları toplamıyor — kendi iskeletleri var.")]
+        public Renderer[] headRenderers;
+
+        [Tooltip("Bu gövdenin animatörü. Kostüm değişince RunnerAnimator buna " +
+            "yönlendiriliyor.")]
+        public Animator animator;
+    }
+
     [Header("Kaçan — yer tutucu")]
     [Tooltip("Kapsül mesh — CapsuleBodyVisual boyunu hull'a eşitliyor. " +
-        "Yalnızca kaçan modeli takılı DEĞİLSE kullanılıyor.")]
+        "Yalnızca hiçbir kostüm gövdesi takılı DEĞİLSE kullanılıyor.")]
     [SerializeField] private Renderer capsuleRenderer;
 
     [Header("Canavar")]
@@ -48,21 +74,19 @@ public class PlayerBodyVisual : MonoBehaviour
         "doğrudan kapatılıyorlar.")]
     [SerializeField] private Renderer[] headRenderers;
 
-    [Header("Kaçan — model")]
-    [Tooltip("Kaçan modelinin kökü. Boş bırakılırsa kapsüle düşülüyor.")]
-    [SerializeField] private GameObject runnerRoot;
+    [Header("Kaçan — kostümler")]
+    [Tooltip("Kostüm gövdeleri. Sıra CharacterCatalog.Runners ile AYNI olmalı; " +
+        "`Kaçan Modelini Kur` ikisini birlikte kuruyor.")]
+    [SerializeField] private RunnerBody[] runnerBodies;
 
-    [SerializeField] private Renderer[] runnerRenderers;
-
-    [Tooltip("Kaçan modelinin kafa kemiği — canavarınkiyle aynı gerekçe.")]
-    [SerializeField] private Transform runnerHeadBone;
-
-    [SerializeField] private Renderer[] runnerHeadRenderers;
+    [Tooltip("Kostüm değişince hangi animatörü süreceğini bilmesi gereken " +
+        "bileşen. Oyuncunun kökünde duruyor, gövdenin içinde değil.")]
+    [SerializeField] private RunnerAnimator runnerAnimator;
 
     [Header("Ölüm pozu")]
     [Tooltip("Kurbanın gövdesi ölüm klibi boyunca bu çarpanla ölçekleniyor. " +
-        "Canavar hull boyunun 1.18 katı çiziliyor (MonsterSetup.ExtraScale), " +
-        "kaçan 1 katı; yani canavarın yakalama koreografisi %18 daha büyük " +
+        "Canavar hull boyunun 1.30 katı çiziliyor (MonsterSetup.ExtraScale), " +
+        "kaçan 1 katı; yani canavarın yakalama koreografisi daha büyük " +
         "oynuyor ve elleri kurbanın gövdesinin olmadığı yere iniyor. Çarpan " +
         "ikisini ölüm süresince aynı ölçeğe getiriyor. 1 = kapalı. " +
         "`Kaçan Modelini Kur` bunu iki aracın ExtraScale oranından yazıyor — " +
@@ -90,9 +114,11 @@ public class PlayerBodyVisual : MonoBehaviour
     private Vector3 monsterNeckRestScale = Vector3.one;
     private bool monsterNeckCached;
 
+    // Kaçanın boynu KOSTÜM BAŞINA çözülüyor: her modelin kendi iskeleti var.
     private Transform runnerNeckBone;
     private Vector3 runnerNeckRestScale = Vector3.one;
     private bool runnerNeckCached;
+    private int neckCachedFor = -1;
 
     private Transform posedBody;
     private Vector3 posedLocalPosition;
@@ -133,18 +159,53 @@ public class PlayerBodyVisual : MonoBehaviour
     /// `RoundParticipant`'ın SyncVar hook'undan çağrılıyor, yani **her
     /// istemcide** çalışıyor — karşındakini de kendi seçtiği kostümde
     /// görüyorsun.
-    ///
-    /// **Bugün görünür bir etkisi YOK ve bu bilinçli:** her listede tek kostüm
-    /// var (bkz. CharacterCatalog), yani seçilecek ikinci bir gövde yok.
-    /// Kullanıcı renk çeşitlemelerini istemedi, gerçek modeller verecek;
-    /// modeller gelince gövde dizisi burada açılıyor ve seçim, ağ, menü
-    /// tarafının hiçbiri değişmiyor.
     /// </summary>
     public void SetCostume(int runner, int monster)
     {
-        runnerCostume = runner;
+        if (runnerCostume != runner)
+        {
+            // Boyun kemiği önbelleği kostüme bağlı: her modelin kendi iskeleti
+            // var ve eski kemiği yeni gövdede kullanmak yanlış kemiği
+            // sıfırlamak olurdu.
+            ReleaseRunnerBones();
+            runnerCostume = runner;
+        }
+
         monsterCostume = monster;
         Refresh();
+    }
+
+    /// <summary>
+    /// Kostüm değişirken eski gövdenin gizlenen kemiklerini ESKİ HÂLİNE
+    /// döndürüyor. Yapılmasaydı kapatılan gövde sıfır ölçekli bir kafayla
+    /// kalır ve oyuncu o kostüme geri döndüğünde kafasız görünürdü.
+    /// </summary>
+    private void ReleaseRunnerBones()
+    {
+        RunnerBody body = ActiveRunner();
+
+        if (body != null)
+        {
+            HideBone(body.headBone, false, ref runnerHeadRestScale, ref runnerHeadCached);
+            HideBone(runnerNeckBone, false, ref runnerNeckRestScale, ref runnerNeckCached);
+        }
+
+        runnerHeadCached = false;
+        runnerNeckCached = false;
+        runnerNeckBone = null;
+        neckCachedFor = -1;
+    }
+
+    /// <summary>Seçili kostümün gövdesi; dizi boşsa ya da indeks dışarıdaysa null.</summary>
+    private RunnerBody ActiveRunner()
+    {
+        if (runnerBodies == null || runnerBodies.Length == 0)
+            return null;
+
+        int index = runnerCostume >= 0 && runnerCostume < runnerBodies.Length ? runnerCostume : 0;
+        RunnerBody body = runnerBodies[index];
+
+        return body != null && body.root != null ? body : null;
     }
 
     /// <summary>
@@ -213,14 +274,14 @@ public class PlayerBodyVisual : MonoBehaviour
         if (role == RoundRole.Monster)
             return monsterRoot != null ? monsterRoot.transform : null;
 
-        return runnerRoot != null ? runnerRoot.transform : null;
+        RunnerBody body = ActiveRunner();
+        return body != null ? body.root.transform : null;
     }
 
     /// <summary>
-    /// Ceset sistemi için: kaçanın şu an gösterilen gövdesi (Banana Man kökü,
-    /// model kurulu değilse kapsül). Yalnızca kaçanlar ölüyor, canavar hiç
-    /// sorulmuyor — bu yüzden <see cref="ActiveBody"/>'nin rol dallanmasını
-    /// tekrarlamıyor.
+    /// Ceset sistemi için: kaçanın şu an gösterilen gövdesi (seçili kostüm,
+    /// hiçbiri yoksa kapsül). Yalnızca kaçanlar ölüyor, canavar hiç sorulmuyor
+    /// — bu yüzden <see cref="ActiveBody"/>'nin rol dallanmasını tekrarlamıyor.
     ///
     /// `Corpse` bunu ölüm klibinin TAM BİTTİĞİ anda (deathHoldDuration
     /// sonunda, `ClearDeathPose` çağrılmadan hemen ÖNCE) okuyor: o anda
@@ -229,9 +290,18 @@ public class PlayerBodyVisual : MonoBehaviour
     /// pozisyonunu/rotasyonunu kopyalıyor — ayrı bir kemik/poz taşıma kodu
     /// gerekmiyor.
     /// </summary>
-    public Transform RunnerBodyForCorpse =>
-        runnerRoot != null ? runnerRoot.transform
-        : (capsuleRenderer != null ? capsuleRenderer.transform : null);
+    public Transform RunnerBodyForCorpse
+    {
+        get
+        {
+            RunnerBody body = ActiveRunner();
+
+            if (body != null)
+                return body.root.transform;
+
+            return capsuleRenderer != null ? capsuleRenderer.transform : null;
+        }
+    }
 
     /// <summary>
     /// Ceset için: gövdenin ölüm pozundan ÖNCEKİ yerel ölçeği.
@@ -240,8 +310,8 @@ public class PlayerBodyVisual : MonoBehaviour
     /// şişiriyor (canavarın koreografisiyle örtüşsün diye, bölüm 10). Ceset
     /// klonu tam o pencerede alınıyor, yani şişmiş hâli kopyalanır. Kalıcı
     /// ceset normal boyunda olmalı: `1` yazmak da yanlış olurdu, çünkü modelin
-    /// kendi ölçeği hull'a oranlanarak hesaplanıyor (`RunnerSetup.ResolveScale`,
-    /// Banana Man'de ~0.9). Doğru cevap, poz uygulanmadan önce saklanan değer.
+    /// kendi ölçeği hull'a oranlanarak hesaplanıyor (`RunnerSetup.ResolveScale`).
+    /// Doğru cevap, poz uygulanmadan önce saklanan değer.
     /// </summary>
     public Vector3 RunnerBodyRestScale
     {
@@ -259,16 +329,31 @@ public class PlayerBodyVisual : MonoBehaviour
     private void Refresh()
     {
         bool monster = role == RoundRole.Monster;
-        bool runnerModel = !monster && runnerRoot != null;
-        bool capsule = !monster && runnerRoot == null;
+        RunnerBody runner = monster ? null : ActiveRunner();
+        bool capsule = !monster && runner == null;
 
         // Kullanılmayan model kökü tamamen kapalı: Animator ve SkinnedMesh
-        // boşuna çalışmasın.
+        // boşuna çalışmasın. Kostüm dizisinin TAMAMI geziliyor, yalnızca
+        // seçili olan değil — yoksa önceki kostüm açık kalır ve iki gövde üst
+        // üste görünürdü.
         if (monsterRoot != null)
             monsterRoot.SetActive(monster && onField);
 
-        if (runnerRoot != null)
-            runnerRoot.SetActive(runnerModel && onField);
+        if (runnerBodies != null)
+        {
+            for (int i = 0; i < runnerBodies.Length; i++)
+            {
+                RunnerBody body = runnerBodies[i];
+
+                if (body != null && body.root != null)
+                    body.root.SetActive(body == runner && onField);
+            }
+        }
+
+        // Animatör seçili gövdeyi sürüyor. Kapalı bir animatöre yazmak sessizce
+        // hiçbir şey yapmaz ve karakter T-pozunda donardı.
+        if (runnerAnimator != null && runner != null && runner.animator != null)
+            runnerAnimator.UseAnimator(runner.animator);
 
         // Kapsül kendine gösterilmiyor: suratının önünde duran bir kapsül
         // kimseye bir şey anlatmıyor, sadece görüşü kapatıyor.
@@ -277,7 +362,9 @@ public class PlayerBodyVisual : MonoBehaviour
         // Modeller birinci şahısta da çiziliyor: aşağı bakınca kendi ellerini ve
         // bacaklarını görmek, hareketi hissettiren şey.
         ApplyRenderers(monsterRenderers, monster && onField, showToSelf: true);
-        ApplyRenderers(runnerRenderers, runnerModel && onField, showToSelf: true);
+
+        if (runner != null)
+            ApplyRenderers(runner.renderers, onField, showToSelf: true);
 
         // EN SONDA: kafa parçaları renderer listelerinde de var ve yukarıdaki
         // döngüler onları açıyor. Önce çalıştırırsak yaptığımız iş aynı karede
@@ -285,22 +372,44 @@ public class PlayerBodyVisual : MonoBehaviour
         ApplyHead(headBone, headRenderers, monster && onField,
             ref monsterHeadRestScale, ref monsterHeadCached);
 
-        ApplyHead(runnerHeadBone, runnerHeadRenderers, runnerModel && onField,
-            ref runnerHeadRestScale, ref runnerHeadCached);
+        if (runner != null)
+        {
+            ApplyHead(runner.headBone, runner.headRenderers, onField,
+                ref runnerHeadRestScale, ref runnerHeadCached);
+        }
 
         // Boyun da gizleniyor — kafayı sıfırlamak tek başına yetmiyordu.
         HideBone(ResolveNeck(monsterRoot, ref monsterNeckBone), monster && onField && firstPerson,
             ref monsterNeckRestScale, ref monsterNeckCached);
 
-        HideBone(ResolveNeck(runnerRoot, ref runnerNeckBone), runnerModel && onField && firstPerson,
-            ref runnerNeckRestScale, ref runnerNeckCached);
+        if (runner != null)
+        {
+            HideBone(ResolveRunnerNeck(runner), onField && firstPerson,
+                ref runnerNeckRestScale, ref runnerNeckCached);
+        }
+    }
+
+    /// <summary>
+    /// Seçili kostümün boyun kemiği. Önbellek KOSTÜME bağlı: her modelin kendi
+    /// iskeleti var ve indeks değiştiğinde yeniden çözülmesi gerekiyor.
+    /// </summary>
+    private Transform ResolveRunnerNeck(RunnerBody body)
+    {
+        if (neckCachedFor != runnerCostume)
+        {
+            runnerNeckBone = null;
+            neckCachedFor = runnerCostume;
+        }
+
+        return ResolveNeck(body.root, ref runnerNeckBone);
     }
 
     /// <summary>
     /// Modelin boyun kemiğini Animator'dan bulur ve saklar.
     ///
     /// Humanoid rig'te kemiğe **adıyla değil rolüyle** ulaşılıyor: model
-    /// değişirse kemik adı değişir ama `HumanBodyBones.Neck` değişmez.
+    /// değişirse kemik adı değişir ama `HumanBodyBones.Neck` değişmez. Yeni bir
+    /// kostüm eklemek bu yüzden hiçbir ad listesi güncellemiyor.
     /// </summary>
     private static Transform ResolveNeck(GameObject modelRoot, ref Transform cache)
     {
@@ -344,9 +453,9 @@ public class PlayerBodyVisual : MonoBehaviour
     /// (NetworkTransform yalnızca kökü taşıyor), yani bu yalnızca kendi
     /// ekranını etkiliyor — karşıdakiler seni kafanla görüyor.
     ///
-    /// Kafaya ait ayrı renderer'lar (gözler) kemik ölçeğini toplamıyor: kendi
-    /// iskeletlerine bağlı ayrı mesh'ler. Ekranda havada duran iki küre olarak
-    /// kalıyorlardı, o yüzden ayrıca kapatılıyorlar.
+    /// Kafaya ait ayrı renderer'lar (gözler, saç) kemik ölçeğini toplamıyor:
+    /// kendi iskeletlerine bağlı ayrı mesh'ler. Ekranda havada duran parçalar
+    /// olarak kalıyorlardı, o yüzden ayrıca kapatılıyorlar.
     ///
     /// > **Kafayı sıfırlamak tek başına YETMİYOR** (2026-09-05). Canavar
     /// > koşarken kendi kafasının içini görüyordu. Sebep, sıfırlanan kemiğin

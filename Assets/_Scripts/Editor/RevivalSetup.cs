@@ -59,60 +59,96 @@ public static class RevivalSetup
         EditorSceneManager.SaveOpenScenes();
         AssetDatabase.SaveAssets();
     }
+    /// <summary>
+    /// Her kostüm için bir ceset gövdesi üretir (`CorpseBody_0`, `_1`, ...) ve
+    /// `Corpse.prefab`'a bağlar.
+    ///
+    /// Kostüm başına ayrı gövde ŞART: oyuncu hangi kostümde öldüyse cesedi de
+    /// o olmalı. Tek gövde tutulsaydı Unity-chan olarak ölen biri muz adam
+    /// cesedi bırakırdı.
+    ///
+    /// Gövde kurbanın canlı objesinden DEĞİL, prefabtan üretiliyor — ceset
+    /// bilerek kurban objesinden bağımsız (bölüm 23).
+    /// </summary>
     private static void BuildBodyTemplate()
     {
         const string playerPath = "Assets/_Prefabs/NetworkPlayer.prefab";
         const string corpsePath = "Assets/_Prefabs/Corpse.prefab";
         GameObject player = PrefabUtility.LoadPrefabContents(playerPath);
-        GameObject template = null;
         GameObject corpse = null;
         try
         {
             var bodyVisual = player.GetComponent<PlayerBodyVisual>();
+            if (bodyVisual == null) throw new InvalidOperationException("Oyuncu prefabında PlayerBodyVisual yok.");
             var serialized = new SerializedObject(bodyVisual);
-            var source = serialized.FindProperty("runnerRoot").objectReferenceValue as GameObject;
-            if (source == null) throw new InvalidOperationException("Kaçan modeli bulunamadı.");
-            template = Object.Instantiate(source);
-            template.name = "CorpseBody"; template.SetActive(true);
-            template.transform.position = Vector3.zero; template.transform.rotation = Quaternion.identity;
-            foreach (Transform t in template.GetComponentsInChildren<Transform>(true))
-                if (t.localScale == Vector3.zero) t.localScale = Vector3.one;
-            var animator = template.GetComponentInChildren<Animator>(true);
-            if (animator == null || animator.avatar == null) throw new InvalidOperationException("İnsan avatarı bulunamadı.");
-            var paths = new string[(int)HumanBodyBones.LastBone];
-            var transforms = template.GetComponentsInChildren<Transform>(true);
-            HumanBone[] human = animator.avatar.humanDescription.human;
-            for (int i = 0; i < paths.Length; i++)
-            {
-                string role = HumanTrait.BoneName[i];
-                var mapping = human.FirstOrDefault(h => h.humanName == role || h.humanName == ((HumanBodyBones)i).ToString());
-                Transform bone = transforms.FirstOrDefault(t => t.name == mapping.boneName);
-                if (bone == null)
-                {
-                    try { bone = animator.GetBoneTransform((HumanBodyBones)i); } catch { }
-                }
-                if (bone != null) paths[i] = AnimationUtility.CalculateTransformPath(bone, template.transform);
-            }
-            if (string.IsNullOrEmpty(paths[(int)HumanBodyBones.Hips])) throw new InvalidOperationException("Kalça kemiği eşlenemedi.");
-            foreach (Animator a in template.GetComponentsInChildren<Animator>(true)) a.enabled = false;
-            foreach (Renderer r in template.GetComponentsInChildren<Renderer>(true))
-            {
-                r.enabled = true; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
-                if (r is SkinnedMeshRenderer skin) skin.updateWhenOffscreen = true;
-            }
-            GameObject savedBody = PrefabUtility.SaveAsPrefabAsset(template, "Assets/_Prefabs/CorpseBody.prefab");
+            var sources = serialized.FindProperty("runnerBodies");
+            if (sources == null || sources.arraySize == 0)
+                throw new InvalidOperationException("Kaçan gövdesi yok; önce Yakalamaca > Kaçan Modelini Kur.");
+
             corpse = PrefabUtility.LoadPrefabContents(corpsePath);
             var data = new SerializedObject(corpse.GetComponent<Corpse>());
-            data.FindProperty("bodyPrefab").objectReferenceValue = savedBody;
-            var array = data.FindProperty("bonePaths"); array.arraySize = paths.Length;
-            for (int i = 0; i < paths.Length; i++) array.GetArrayElementAtIndex(i).stringValue = paths[i] ?? "";
+            var variants = data.FindProperty("bodies");
+            variants.arraySize = sources.arraySize;
+
+            for (int c = 0; c < sources.arraySize; c++)
+            {
+                var source = sources.GetArrayElementAtIndex(c)
+                    .FindPropertyRelative("root").objectReferenceValue as GameObject;
+                if (source == null) throw new InvalidOperationException($"{c}. kostümün gövdesi boş.");
+
+                GameObject template = Object.Instantiate(source);
+                try
+                {
+                    template.name = "CorpseBody";
+                    // KAPALI kaynaktan Instantiate kapalı kopya üretiyor ve
+                    // kapalı bir Animator'da GetBoneTransform null dönüyor
+                    // (bölüm 21.1). Sıfırıncı dışındaki gövdeler prefabta
+                    // kapalı duruyor, yani bu satır şart.
+                    template.SetActive(true);
+                    template.transform.position = Vector3.zero; template.transform.rotation = Quaternion.identity;
+                    foreach (Transform t in template.GetComponentsInChildren<Transform>(true))
+                        if (t.localScale == Vector3.zero) t.localScale = Vector3.one;
+                    var animator = template.GetComponentInChildren<Animator>(true);
+                    if (animator == null || animator.avatar == null) throw new InvalidOperationException($"{c}. kostümde insan avatarı bulunamadı.");
+                    var paths = new string[(int)HumanBodyBones.LastBone];
+                    var transforms = template.GetComponentsInChildren<Transform>(true);
+                    HumanBone[] human = animator.avatar.humanDescription.human;
+                    for (int i = 0; i < paths.Length; i++)
+                    {
+                        string role = HumanTrait.BoneName[i];
+                        var mapping = human.FirstOrDefault(h => h.humanName == role || h.humanName == ((HumanBodyBones)i).ToString());
+                        Transform bone = transforms.FirstOrDefault(t => t.name == mapping.boneName);
+                        if (bone == null)
+                        {
+                            try { bone = animator.GetBoneTransform((HumanBodyBones)i); } catch { }
+                        }
+                        if (bone != null) paths[i] = AnimationUtility.CalculateTransformPath(bone, template.transform);
+                    }
+                    if (string.IsNullOrEmpty(paths[(int)HumanBodyBones.Hips])) throw new InvalidOperationException($"{c}. kostümde kalça kemiği eşlenemedi.");
+                    foreach (Animator a in template.GetComponentsInChildren<Animator>(true)) a.enabled = false;
+                    foreach (Renderer r in template.GetComponentsInChildren<Renderer>(true))
+                    {
+                        r.enabled = true; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+                        if (r is SkinnedMeshRenderer skin) skin.updateWhenOffscreen = true;
+                    }
+                    GameObject savedBody = PrefabUtility.SaveAsPrefabAsset(template, $"Assets/_Prefabs/CorpseBody_{c}.prefab");
+                    var element = variants.GetArrayElementAtIndex(c);
+                    element.FindPropertyRelative("prefab").objectReferenceValue = savedBody;
+                    var array = element.FindPropertyRelative("bonePaths"); array.arraySize = paths.Length;
+                    for (int i = 0; i < paths.Length; i++) array.GetArrayElementAtIndex(i).stringValue = paths[i] ?? "";
+                }
+                finally { Object.DestroyImmediate(template); }
+            }
+
             data.ApplyModifiedPropertiesWithoutUndo();
             PrefabUtility.SaveAsPrefabAsset(corpse, corpsePath);
+
+            // Tek gövdeli sürümün artığı: artık kimse referans vermiyor.
+            AssetDatabase.DeleteAsset("Assets/_Prefabs/CorpseBody.prefab");
         }
         finally
         {
             if (corpse != null) PrefabUtility.UnloadPrefabContents(corpse);
-            if (template != null) Object.DestroyImmediate(template);
             PrefabUtility.UnloadPrefabContents(player);
         }
     }

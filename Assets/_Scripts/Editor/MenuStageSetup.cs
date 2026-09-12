@@ -75,8 +75,15 @@ internal static class MenuStageSetup
         // her karede yazıyor (kameraya dönük duruş + salınım + seçim
         // ekranındaki fare dönüşü). İki yerde tutulan bir açı, biri
         // değişince öbürünün unutulması demekti.
-        AddCharacter(turntable.transform, "Kacan", RunnerSetup.ModelPath,
-            RunnerSetup.ControllerPath, new Vector3(-0.62f, 0f, 0f), 1.40f);
+        // Kaçanın HER kostümü aynı noktaya kuruluyor; `MenuStage` yalnızca
+        // seçili olanı açıyor. Tek figür koyup modelini çalışma anında
+        // değiştirmek mümkün değil: her modelin kendi iskeleti ve kendi
+        // animatörü var, prefab örneğini yerinde dönüştürmenin yolu yok.
+        for (int i = 0; i < CharacterCatalog.Runners.Length; i++)
+        {
+            AddCharacter(turntable.transform, $"Kacan_{i}", CharacterCatalog.Runners[i].ModelPath,
+                RunnerSetup.ControllerPath, new Vector3(-0.62f, 0f, 0f), 1.40f);
+        }
 
         AddCharacter(turntable.transform, "Canavar", RunnerSetup.MonsterModelPath,
             MonsterSetup.ControllerPath, new Vector3(0.68f, 0f, 0.25f), 1.80f);

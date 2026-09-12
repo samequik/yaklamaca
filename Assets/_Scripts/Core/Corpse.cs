@@ -10,8 +10,29 @@ public class Corpse : NetworkBehaviour, IInteractable
     [SyncVar] private string victimName;
     [SyncVar(hook = nameof(OnHolderChanged))] private uint carrierNetId;
     [SyncVar(hook = nameof(OnHolderChanged))] private uint stationNetId;
-    [SerializeField] private GameObject bodyPrefab;
-    [SerializeField] private string[] bonePaths;
+    /// <summary>
+    /// Kurbanın kaçan kostümü (bkz. CharacterCatalog): öldüğün kostümde
+    /// yatıyorsun.
+    ///
+    /// Kurbandan okunmuyor, spawn'da kopyalanıyor. Ceset bilerek kurban
+    /// objesinden BAĞIMSIZ (bölüm 23): kurban ayrılmış ya da istemci sonradan
+    /// katılmış olabilir ve o zaman okunacak bir şey kalmıyor.
+    /// </summary>
+    [SyncVar] private int costume;
+
+    /// <summary>Tek bir kostümün ceset gövdesi. `Diriltme Sistemini Kur` kuruyor.</summary>
+    [System.Serializable]
+    private class BodyVariant
+    {
+        public GameObject prefab;
+
+        /// <summary>Kemik yolları, `HumanBodyBones` indeksiyle.</summary>
+        public string[] bonePaths;
+    }
+
+    [Tooltip("Kostüm başına bir ceset gövdesi. Sıra CharacterCatalog.Runners " +
+        "ile AYNI: kostüm indeksi doğrudan gövde indeksi.")]
+    [SerializeField] private BodyVariant[] bodies;
     [SerializeField] private float ragdollMass = 70f;
     [SerializeField] private float maxSpeed = 6f;
     [SerializeField] private float pushStrength = 0.3f;
@@ -118,6 +139,7 @@ public class Corpse : NetworkBehaviour, IInteractable
         victimNetId = victim;
         var player = Resolve(victim);
         victimName = player != null ? player.DisplayName : "Kaçan";
+        costume = player != null ? player.RunnerCostume : 0;
     }
     public override void OnStartServer() { BuildVisual(); ApplyAuthority(); sync.Publish(); }
     public override void OnStartClient() { BuildVisual(); ApplyAuthority(); }
@@ -125,12 +147,18 @@ public class Corpse : NetworkBehaviour, IInteractable
     private void BuildVisual()
     {
         if (ragdoll != null) return;
-        if (bodyPrefab == null || bonePaths == null)
+        // Kostüm indeksi temizleniyor: liste kısalmış olabilir ve dizi sınırı
+        // hatası ceset görselini komple yok ederdi.
+        BodyVariant variant = bodies != null && bodies.Length > 0
+            ? bodies[costume >= 0 && costume < bodies.Length ? costume : 0]
+            : null;
+        if (variant == null || variant.prefab == null || variant.bonePaths == null)
         {
             Debug.LogError("Ceset görseli bağlı değil: Diriltme Sistemini Kur aracını çalıştır.", this);
             return;
         }
-        GameObject clone = Instantiate(bodyPrefab, transform.position, transform.rotation, transform);
+        string[] bonePaths = variant.bonePaths;
+        GameObject clone = Instantiate(variant.prefab, transform.position, transform.rotation, transform);
         clone.SetActive(true);
         foreach (Animator animator in clone.GetComponentsInChildren<Animator>(true)) animator.enabled = false;
         // Sunucu ölüm klibinin son pozunu alır. İstemci kurban objesine ihtiyaç duymaz.

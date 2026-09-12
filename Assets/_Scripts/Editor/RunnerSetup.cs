@@ -46,11 +46,14 @@ public static class RunnerSetup
     internal const string ControllerPath = AnimationFolder + "/Kacan.controller";
     private const string PlayerPrefabPath = "Assets/_Prefabs/NetworkPlayer.prefab";
 
-    internal const string ModelPath =
-        "Assets/Plugins/Banana Yellow Games/Characters/Banana Man/Banana Man.fbx";
+    /// <summary>
+    /// Birincil kaçan modeli — animasyonların içe aktarıldığı ve materyali
+    /// onarılan model. Yol `CharacterCatalog`'dan geliyor: kostüm listesi tek
+    /// yerde dursun diye (bkz. o dosyadaki "tek kaynak" notu).
+    /// </summary>
+    internal static string ModelPath => CharacterCatalog.Runners[0].ModelPath;
 
-    internal const string MonsterModelPath =
-        "Assets/RamsterZ_FreeDoll/Art/Models/KillerDollUnity_BaseBody.fbx";
+    internal static string MonsterModelPath => CharacterCatalog.Monsters[0].ModelPath;
 
     private const string RunnerRootName = "KacanGovde";
 
@@ -592,10 +595,23 @@ public static class RunnerSetup
     /// </summary>
     private static int FixMaterials()
     {
-        int count = ModelMaterialFix.RemapExternalMaterials(ModelPath);
+        int count = 0;
+
+        // HER kostüm modeli geziliyor, yalnızca birincisi değil: yeni bir
+        // kostüm de aynı üç tuzağa düşebilir ve "model düz gri" şikâyeti
+        // hangi modelden geldiğini söylemiyor.
+        foreach (CharacterCatalog.Costume costume in CharacterCatalog.Runners)
+            count += FixModelMaterials(costume.ModelPath);
+
+        return count;
+    }
+
+    private static int FixModelMaterials(string modelPath)
+    {
+        int count = ModelMaterialFix.RemapExternalMaterials(modelPath);
 
         // Remap SaveAndReimport çağırıyor: model referansı bayatlıyor.
-        GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(ModelPath);
+        GameObject model = AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
         if (model == null)
             return count;
 
@@ -646,38 +662,91 @@ public static class RunnerSetup
             if (capsule == null)
                 return "UYARI: prefabta CharacterController yok, model bağlanmadı.";
 
-            Transform existing = contents.transform.Find(RunnerRootName);
-            if (existing != null)
-                Object.DestroyImmediate(existing.gameObject);
+            // Eski gövdeler siliniyor: hem tek gövdeli sürümün adı
+            // (`KacanGovde`) hem kostüm adları (`KacanGovde_0`). Ad değiştiği
+            // için eskisini tek adla aramak yetmiyordu ve eski gövde prefabta
+            // asılı kalırdı.
+            for (int i = contents.transform.childCount - 1; i >= 0; i--)
+            {
+                Transform child = contents.transform.GetChild(i);
 
-            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(model, contents.transform);
-            instance.name = RunnerRootName;
+                if (child.name == RunnerRootName || child.name.StartsWith(RunnerRootName + "_"))
+                    Object.DestroyImmediate(child.gameObject);
+            }
 
-            // Ölçek tahmin edilmiyor, ÖLÇÜLÜYOR: gerçek renderer sınırları
-            // okunup hull yüksekliğine oranlanıyor. Pivotun nerede olduğunu
-            // bilmek zorunda kalmıyoruz.
-            float scale = ResolveScale(instance, capsule.height) * ExtraScale;
-            instance.transform.localScale = Vector3.one * scale;
+            List<GameObject> bodies = new List<GameObject>();
+            List<Animator> animators = new List<Animator>();
 
-            // Ayaklar hull'un tabanına: kök objenin merkezi controller.center'da,
-            // taban ondan height/2 aşağıda.
-            instance.transform.localPosition = capsule.center + Vector3.down * (capsule.height / 2f);
-            instance.transform.localRotation = Quaternion.identity;
+            for (int i = 0; i < CharacterCatalog.Runners.Length; i++)
+            {
+                CharacterCatalog.Costume costume = CharacterCatalog.Runners[i];
+                GameObject source = AssetDatabase.LoadAssetAtPath<GameObject>(costume.ModelPath);
 
-            Animator animator = instance.GetComponentInChildren<Animator>();
-            if (animator == null)
-                animator = instance.AddComponent<Animator>();
+                if (source == null)
+                {
+                    Debug.LogWarning($"Kostüm '{costume.Name}': {costume.ModelPath} bulunamadı, " +
+                        "gövde kurulmadı. Seçim ekranında görünür ama görsel karşılığı olmaz.");
+                    continue;
+                }
 
-            animator.runtimeAnimatorController = controller;
-            animator.applyRootMotion = false; // hareketi PlayerController veriyor
-            animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+                GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(source, contents.transform);
+                instance.name = $"{RunnerRootName}_{i}";
 
-            WireComponents(contents, instance, animator, clips, deathSeconds);
+                // Ölçek tahmin edilmiyor, ÖLÇÜLÜYOR: gerçek renderer sınırları
+                // okunup hull yüksekliğine oranlanıyor.
+                //
+                // HER kostüm aynı hull boyuna çekiliyor. Model kendi içinde
+                // kısa ya da uzun olabilir, ekrandaki boyu aynı: bölüm 17'nin
+                // kuralı gereği görünen gövde çarpışma kutusuyla örtüşmeli,
+                // yoksa isabet etmesi gereken vuruşlar ıskalıyor. Aynı şey
+                // kamerayı da yerinde tutuyor — göz hizası hull'dan geliyor,
+                // yani kısa bir modelde kamera kafanın üstünde kalmıyor.
+                float scale = ResolveScale(instance, capsule.height) * ExtraScale;
+                instance.transform.localScale = Vector3.one * scale;
 
-            LayerSetup.Apply(instance, LayerSetup.Oyuncu);
+                // Ayaklar hull'un tabanına: kök objenin merkezi controller.center'da,
+                // taban ondan height/2 aşağıda.
+                instance.transform.localPosition = capsule.center + Vector3.down * (capsule.height / 2f);
+                instance.transform.localRotation = Quaternion.identity;
+
+                Animator animator = instance.GetComponentInChildren<Animator>();
+                if (animator == null)
+                    animator = instance.AddComponent<Animator>();
+
+                animator.runtimeAnimatorController = controller;
+                animator.applyRootMotion = false; // hareketi PlayerController veriyor
+                animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+
+                LayerSetup.Apply(instance, LayerSetup.Oyuncu);
+
+                bodies.Add(instance);
+                animators.Add(animator);
+
+                // Sıfırıncı dışındakiler KAPALI kuruluyor. Prefabta hepsi açık
+                // kalsaydı üst üste binmiş modeller görünür ve prefabı açan
+                // herkes "bozuk" diye okurdu. Çalışma anında PlayerBodyVisual
+                // zaten seçiliyi açıyor.
+            }
+
+            if (bodies.Count == 0)
+                return "UYARI: hiçbir kostüm modeli bulunamadı, gövde kurulmadı.";
+
+            WireComponents(contents, bodies, animators, clips, deathSeconds);
+
+            // Gövdeler ANCAK kablolama bittikten sonra kapanıyor. Kapalı bir
+            // `Animator`'da `GetBoneTransform` null dönüyor (bölüm 21.1'deki
+            // yedi tuzaktan biri) — önce kapatsaydık ikinci kostümün kafa
+            // kemiği boş kalır ve birinci şahısta kafası gizlenmezdi.
+            //
+            // Sıfırıncı dışındakiler prefabta kapalı duruyor: hepsi açık
+            // kalsaydı üst üste binmiş modeller görünür ve prefabı açan herkes
+            // "bozuk" diye okurdu. Çalışma anında PlayerBodyVisual seçiliyi
+            // zaten açıyor.
+            for (int i = 0; i < bodies.Count; i++)
+                bodies[i].SetActive(i == 0);
 
             PrefabUtility.SaveAsPrefabAsset(contents, PlayerPrefabPath);
-            return $"Model prefaba bağlandı (ölçek {scale:0.###}).";
+            return $"{bodies.Count} kostüm gövdesi prefaba bağlandı.";
         }
         finally
         {
@@ -740,7 +809,11 @@ public static class RunnerSetup
         animator.applyRootMotion = false;
         animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 
-        WireComponents(root, instance, animator, new Dictionary<string, AnimationClip>(), 0f);
+        // Bot yalnızca BİRİNCİ kostümü giyiyor: işi kadroyu doldurmak, kaçanı
+        // taklit etmek değil (bölüm 17). Kostüm seçimi bir oyuncu tercihi ve
+        // botun tercihi yok.
+        WireComponents(root, new List<GameObject> { instance }, new List<Animator> { animator },
+            new Dictionary<string, AnimationClip>(), 0f);
 
         LayerSetup.Apply(instance, LayerSetup.Oyuncu);
 
@@ -760,8 +833,15 @@ public static class RunnerSetup
         return bounds.size.y > 0.01f ? targetHeight / bounds.size.y : 1f;
     }
 
-    private static void WireComponents(GameObject root, GameObject runnerRoot, Animator animator,
-        Dictionary<string, AnimationClip> clips, float deathSeconds)
+    /// <summary>
+    /// Kurulan gövdeleri `PlayerBodyVisual`'a ve tur sistemine bağlar.
+    ///
+    /// Gövdeler bir DİZİ ve sırası `CharacterCatalog.Runners` ile aynı: kostüm
+    /// indeksi doğrudan gövde indeksi oluyor, yani eşlemeyi tutan üçüncü bir
+    /// sayı yok (bkz. o dosyadaki not).
+    /// </summary>
+    private static void WireComponents(GameObject root, List<GameObject> bodies,
+        List<Animator> animators, Dictionary<string, AnimationClip> clips, float deathSeconds)
     {
         PlayerBodyVisual visual = root.GetComponent<PlayerBodyVisual>()
             ?? root.AddComponent<PlayerBodyVisual>();
@@ -770,33 +850,49 @@ public static class RunnerSetup
             ?? root.AddComponent<RunnerAnimator>();
 
         SerializedObject serializedVisual = new SerializedObject(visual);
-        serializedVisual.FindProperty("runnerRoot").objectReferenceValue = runnerRoot;
 
-        serializedVisual.FindProperty("runnerHeadBone").objectReferenceValue =
-            animator != null ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
+        SerializedProperty bodyArray = serializedVisual.FindProperty("runnerBodies");
+        bodyArray.arraySize = bodies.Count;
 
-        Renderer[] runnerRenderers = runnerRoot.GetComponentsInChildren<Renderer>(true);
-        SerializedProperty array = serializedVisual.FindProperty("runnerRenderers");
-        array.arraySize = runnerRenderers.Length;
-        for (int i = 0; i < runnerRenderers.Length; i++)
-            array.GetArrayElementAtIndex(i).objectReferenceValue = runnerRenderers[i];
-
-        List<Renderer> headParts = new List<Renderer>();
-        foreach (Renderer renderer in runnerRenderers)
+        for (int i = 0; i < bodies.Count; i++)
         {
-            if (IsHeadPart(renderer))
-                headParts.Add(renderer);
+            SerializedProperty element = bodyArray.GetArrayElementAtIndex(i);
+            Animator bodyAnimator = animators[i];
+
+            element.FindPropertyRelative("root").objectReferenceValue = bodies[i];
+            element.FindPropertyRelative("animator").objectReferenceValue = bodyAnimator;
+
+            element.FindPropertyRelative("headBone").objectReferenceValue =
+                bodyAnimator != null ? bodyAnimator.GetBoneTransform(HumanBodyBones.Head) : null;
+
+            Renderer[] renderers = bodies[i].GetComponentsInChildren<Renderer>(true);
+            SerializedProperty rendererArray = element.FindPropertyRelative("renderers");
+            rendererArray.arraySize = renderers.Length;
+
+            for (int r = 0; r < renderers.Length; r++)
+                rendererArray.GetArrayElementAtIndex(r).objectReferenceValue = renderers[r];
+
+            List<Renderer> headParts = new List<Renderer>();
+            foreach (Renderer renderer in renderers)
+            {
+                if (IsHeadPart(renderer))
+                    headParts.Add(renderer);
+            }
+
+            SerializedProperty headArray = element.FindPropertyRelative("headRenderers");
+            headArray.arraySize = headParts.Count;
+
+            for (int h = 0; h < headParts.Count; h++)
+                headArray.GetArrayElementAtIndex(h).objectReferenceValue = headParts[h];
         }
 
-        SerializedProperty headArray = serializedVisual.FindProperty("runnerHeadRenderers");
-        headArray.arraySize = headParts.Count;
-        for (int i = 0; i < headParts.Count; i++)
-            headArray.GetArrayElementAtIndex(i).objectReferenceValue = headParts[i];
+        // Kostüm değişince animatörü yeniden yönlendirecek olan bileşen.
+        serializedVisual.FindProperty("runnerAnimator").objectReferenceValue = runnerAnimator;
 
         // Ölüm pozunda kurbanı canavarın ölçeğine çıkaran oran. İki modelin
         // ikisi de hull boyuna normalleniyor, üstüne kendi ExtraScale'i
-        // geliyor — yani ekrandaki boy oranı sadece bu ikisinin oranı.
-        // Sayıyı burada yazmak, iki aracın sabitlerini tek kaynak yapıyor.
+        // geliyor — yani ekrandaki boy oranı sadece bu ikisinin oranı. Kostüm
+        // sayısından bağımsız: hepsi aynı hull boyunda.
         SerializedProperty scaleMatch = serializedVisual.FindProperty("deathScaleMatch");
         if (scaleMatch != null)
             scaleMatch.floatValue = MonsterSetup.ExtraScale / ExtraScale;
@@ -804,7 +900,10 @@ public static class RunnerSetup
         serializedVisual.ApplyModifiedProperties();
 
         SerializedObject serializedAnimator = new SerializedObject(runnerAnimator);
-        serializedAnimator.FindProperty("animator").objectReferenceValue = animator;
+        // Başlangıçta sıfırıncı kostüm sürülüyor; kostüm değişince
+        // `PlayerBodyVisual` bunu yeniden yönlendiriyor.
+        serializedAnimator.FindProperty("animator").objectReferenceValue =
+            animators.Count > 0 ? animators[0] : null;
         serializedAnimator.FindProperty("controller").objectReferenceValue =
             root.GetComponent<PlayerController>();
 
@@ -883,7 +982,12 @@ public static class RunnerSetup
         bool Matches(string value)
         {
             string lower = value.ToLowerInvariant();
-            return lower.Contains("eye") || lower.Contains("head") || lower.Contains("goz");
+            // "hair"/"sac" da listede: bazı modellerde saç ayrı bir
+            // SkinnedMeshRenderer ve kendi iskeletine bağlı, yani kafa
+            // kemiğini sıfırlamak onu toplamıyor. Birinci şahısta havada duran
+            // bir saç kalırdı.
+            return lower.Contains("eye") || lower.Contains("head") || lower.Contains("goz")
+                || lower.Contains("hair") || lower.Contains("sac");
         }
     }
 }

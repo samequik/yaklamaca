@@ -85,6 +85,31 @@ public abstract class CharacterAnimatorBase : MonoBehaviour
 
     protected virtual void OnEnable() => lastPosition = transform.position;
 
+    /// <summary>
+    /// Sürülecek `Animator`'ı değiştirir — kostüm değişince çağrılıyor
+    /// (bkz. PlayerBodyVisual).
+    ///
+    /// Her kostümün kendi modeli, kendi iskeleti ve kendi `Animator`'ı var;
+    /// aynı anda yalnızca biri açık. Bileşen oyuncunun KÖKÜNDE duruyor ve
+    /// gövdenin içindeki animatöre bir alanla bakıyor, yani kostüm
+    /// değiştiğinde o alanın da yeni gövdeyi göstermesi gerekiyor. Alan
+    /// güncellenmezse kapalı bir animatöre yazılır ve karakter T-pozunda
+    /// donar — hiçbir yerde hata yazmadan.
+    /// </summary>
+    public void UseAnimator(Animator value)
+    {
+        if (animator == value)
+            return;
+
+        animator = value;
+
+        // Hız yumuşatması sıfırlanıyor: yeni animatör eskisinin biriktirdiği
+        // hızla başlarsa kostüm değiştiren oyuncu bir an koşuyormuş gibi
+        // görünür.
+        smoothedSpeed = 0f;
+        lastPosition = transform.position;
+    }
+
     protected virtual void Update()
     {
         if (animator == null || !animator.isActiveAndEnabled)

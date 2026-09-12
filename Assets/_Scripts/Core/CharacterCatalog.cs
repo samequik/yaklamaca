@@ -5,37 +5,30 @@ using UnityEngine;
 ///
 /// ### Kostüm bir MODEL, renk değil
 ///
-/// İlk sürüm aynı modelin renk çeşitlemelerini listeliyordu: elde tek model
-/// vardı ve tek elemanlı bir seçim ekranı ölü bir ekran olurdu. Oynanınca
-/// kullanıcı bunu istemedi — kostümler gerçek modeller olacak ve modelleri
-/// kendisi verecek. Renk yolu tamamen kaldırıldı; tutulsaydı gelmeyecek bir
-/// özelliğin kodu ortada kalırdı.
+/// İlk sürüm aynı modelin renk çeşitlemelerini listeliyordu. Oynanınca
+/// istenmedi: kostümler gerçek modeller olacak. Renk yolu tamamen kaldırıldı.
 ///
-/// Bugün her listede **tek giriş** var: bugünkü iki model. Kullanıcının kendi
-/// ifadesiyle bugünkü kaçan modeli de "bir kostüm sayılır", yani liste oradan
-/// başlıyor.
+/// ### Liste hem ÇALIŞMA ANININ hem ARACIN tek kaynağı
+///
+/// `ModelPath` yalnızca editör aracının (`Kaçan Modelini Kur`) okuduğu bir
+/// alan; çalışma anında kimse ona bakmıyor. Yine de burada duruyor, çünkü
+/// alternatifi listeyi iki yerde tutmaktı: araçta modeller, burada adlar. İki
+/// liste er ya da geç birbirini tutmaz (bölüm 5) — ad eklenir model eklenmez
+/// ve seçim ekranı var olmayan bir gövdeyi açmaya çalışır.
+///
+/// **Kostümün indeksi gövdenin indeksi.** `PlayerBodyVisual`'ın gövde dizisi
+/// bu listeyle aynı sırada kuruluyor, yani ayrı bir "hangi gövde" alanı yok —
+/// olsaydı senkronlanması gereken üçüncü bir sayı olurdu.
 ///
 /// ### Kostüm YALNIZCA görsel
 ///
-/// Bölüm 17'nin ölçek kuralı gereği kaçanın görünen gövdesi çarpışma kutusuyla
-/// örtüşmek zorunda: şişirilmiş bir kaçan, isabet etmesi gereken vuruşları
-/// ıskalatır. Kostüm ne boyu ne hızı ne menzili değiştiriyor.
+/// Bölüm 17'nin ölçek kuralı gereği her kaçan gövdesi **hull boyuna**
+/// normalleniyor (`RunnerSetup.ResolveScale`): görünen gövde çarpışma
+/// kutusuyla örtüşmeli, yoksa isabet etmesi gereken vuruşlar ıskalar. Model
+/// kendi içinde kısa ya da uzun olabilir, ekrandaki boyu aynı.
 ///
 /// **İkinci canavar bu listeye AİT DEĞİL.** O bir kostüm değil oynanış: ayrı
 /// bir `MovementProfile` ve kendine ait bir özellik (bölüm 1, kalan iş 8).
-/// Buradaki canavar girdileri aynı canavarın farklı görünüşleri.
-///
-/// ### Yeni model nasıl ekleniyor
-///
-/// 1. Model `Assets/_Art/Models` altına giriyor.
-/// 2. `Kaçan Modelini Kur` (ya da canavar aracı) onu oyuncu prefabına ikinci
-///    bir gövde olarak kuruyor ve `PlayerBodyVisual`'ın gövde dizisine ekliyor.
-/// 3. Buraya bir satır: ad ve o gövdenin indeksi.
-///
-/// İkinci adımın kodu **henüz yazılmadı**, çünkü ortada ikinci bir model yok
-/// (bölüm 5'in kuralı: soyutlama ancak somut bir ikinci kullanım varsa
-/// eklenir). Model geldiğinde araç ve `PlayerBodyVisual` birlikte elden
-/// geçecek; seçim, ağ ve menü tarafı zaten hazır.
 /// </summary>
 public static class CharacterCatalog
 {
@@ -46,23 +39,30 @@ public static class CharacterCatalog
         public readonly string Name;
 
         /// <summary>
-        /// Oyuncu prefabındaki hangi gövde. Bugün tek gövde var, yani hepsi 0.
-        /// Yeni bir model eklendiğinde `PlayerBodyVisual`'ın gövde dizisindeki
-        /// indeksi buraya yazılıyor.
+        /// Modelin proje içindeki yolu. **Yalnızca editör aracı okuyor.**
+        /// Çalışma anında gövdeler prefabta hazır duruyor, dosya yoluna
+        /// ihtiyaç yok.
         /// </summary>
-        public readonly int Body;
+        public readonly string ModelPath;
 
-        public Costume(string name, int body = 0)
+        public Costume(string name, string modelPath)
         {
             Name = name;
-            Body = body;
+            ModelPath = modelPath;
         }
     }
 
-    /// <summary>Kaçan kostümleri. Bugün yalnızca Banana Man.</summary>
+    /// <summary>
+    /// Kaçan kostümleri. Sıralama ÖNEMLİ: `PlayerBodyVisual`'ın gövde dizisi
+    /// ve cesedin gövde çeşitleri aynı indeksi kullanıyor.
+    /// </summary>
     public static readonly Costume[] Runners =
     {
-        new Costume("MUZ ADAM"),
+        new Costume("MUZ ADAM",
+            "Assets/Plugins/Banana Yellow Games/Characters/Banana Man/Banana Man.fbx"),
+
+        new Costume("UNITY-CHAN",
+            "Assets/unity-chan!/Unity-chan! Model/Art/Models/unitychan.fbx"),
     };
 
     /// <summary>
@@ -72,7 +72,8 @@ public static class CharacterCatalog
     /// </summary>
     public static readonly Costume[] Monsters =
     {
-        new Costume("KUKLA"),
+        new Costume("KUKLA",
+            "Assets/RamsterZ_FreeDoll/Art/Models/KillerDollUnity_BaseBody.fbx"),
     };
 
     /// <summary>

@@ -388,6 +388,17 @@ Doğrulama komutu — sıfır dönerse oda kurulmamış demektir:
 grep -c "m_Name: Zemin_0_0" Assets/_Scenes/SampleScene.unity
 ```
 
+**Ayrıca ikinci kostüm (Unity-chan) geldi ve ÜÇ araç gerekiyor, bu sırayla:**
+
+| Sıra | Araç | Neden |
+|---|---|---|
+| 1 | `Kaçan Modelini Kur` | İki kostüm gövdesini oyuncu prefabına kuruyor |
+| 2 | `Diriltme Sistemini Kur` | O gövdelerden kostüm başına ceset üretiyor |
+| 3 | `Menü Kur` | Önizleme figürleri, oda, beyaz kutu |
+
+Sıra önemli: ikincisi birincinin çıktısını, üçüncüsü ikisininkini okuyor.
+Atlanırsa anlaşılır bir hata veriyor, sessiz kalmıyor.
+
 > **Unity dosyaları henüz İÇE AKTARMADI da.** `MenuStage.cs`,
 > `MenuStageCamera.cs` ve `MenuStageSetup.cs` için `.meta` dosyası yok ve
 > `Library/ScriptAssemblies/Assembly-CSharp.dll` kaynaklardan eski. Yani menü
@@ -448,7 +459,7 @@ karşı yeni bir aracı. Ölçülmedi.
 | 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
 | 6 | ~~**Menü ve ayarlar arayüzü**~~ | **YAPILDI** (2026-09-12, bölüm 13). Görsel dil dokuz ekranda, korku efekti kaydırıcısı seçeneklerde. **Sahneye girmesi için `Menü Kur` çalıştırılmalı** |
 | 7 | ~~**Korku ekran efektleri**~~ | **YAPILDI** (2026-09-10, bölüm 25). Vinyet, gren, renk ayrışması, renk kaybı; canavar yaklaştıkça artıyor. Paket eklenmedi. Ayarlardaki kaydırıcı da geldi (2026-09-12) |
-| 8 | **Kostüm ALTYAPISI yapıldı, modeller ve ikinci canavar kaldı** | **Seçim, ağ ve menü tarafı bitti** (2026-09-12, bölüm 13): katalog, lobiden seçim, canlı önizleme, fareyle döndürme, SyncVar'lar. Liste bugün tek elemanlı. **Kalan iki iş:** (a) **modeller kullanıcıdan gelecek**; geldiğinde `Kaçan Modelini Kur` onları prefaba ikinci gövde olarak kuracak ve `PlayerBodyVisual` gövde dizisine geçecek — ceset prefabı da aynı anda elden geçmeli. (b) **özelliği olan ikinci canavar** — kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1). **Madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
+| 8 | **Kostüm sistemi ÇALIŞIYOR, ikinci canavar kaldı** | **YAPILDI** (2026-09-12, bölüm 13): katalog, çoklu gövde, lobiden seçim, canlı önizleme, kostüme göre ceset. İki kaçan kostümü var (muz adam, Unity-chan); üçüncüsü bir satır ve üç araç çalıştırmak. **Kalan: özelliği olan ikinci canavar** — kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1). **Madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
 | 9 | ~~**Menü arka planı**~~ | **YAPILDI** (2026-09-12, bölüm 13). Kaçan ve canavar menünün arkasında duruyor; ayrı bir kamera hedef dokuya çiziyor. Yeni modeller gelince aynı sahneye eklenecek |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
@@ -2457,7 +2468,7 @@ yazıldı.** Üçü de aynı canvas'a dokunuyor, o yüzden birlikte planlanmış
 |---|---|
 | **Görsel dil** (madde 6) | **BİTTİ ve sahnede.** Renk ailesi, çerçeveli kutu, düğme durumları, başlık. Dokuz ekran birden |
 | **Arka plan** (madde 9) | **BİTTİ, odası SAHNEDE YOK.** Kaçan ve canavar menünün arkasında duruyor; arkalarındaki oda ve yeni ışık değerleri `Menü Kur` bekliyor |
-| **Karakter seçimi** (madde 8) | **KOD BİTTİ.** Lobiden seçim, canlı önizleme, fareyle döndürme. Liste tek elemanlı: modeller kullanıcıdan bekleniyor |
+| **Karakter seçimi** (madde 8) | **BİTTİ, sahneye girmeyi bekliyor.** İki kostüm, lobiden seçim, canlı önizleme, fareyle döndürme |
 | **Korku efekti kaydırıcısı** (madde 6) | **BİTTİ ve sahnede.** Seçenekler ekranında |
 
 **Dördü de aynı araca bağlı ve o araç henüz çalıştırılmadı** — yukarıdaki
@@ -2646,7 +2657,7 @@ dokunuyor.
 oynanış: ayrı bir `MovementProfile` ve kendine ait bir özellik. Buradaki
 canavar girdileri aynı canavarın farklı görünüşleri.
 
-#### Liste bugün TEK elemanlı, renk çeşitlemesi DEĞİL
+#### Liste renk çeşitlemesi DEĞİL, gerçek model
 
 İlk sürüm aynı modelin renk çeşitlemelerini listeliyordu: elde tek model vardı
 ve tek elemanlı bir seçim ekranı ölü bir ekran olurdu. Altı kaçan, dört canavar
@@ -2666,27 +2677,95 @@ Bugün her listede tek giriş var: bugünkü iki model. Kullanıcının kendi
 ifadesiyle bugünkü kaçan modeli de "bir kostüm sayılır", yani liste oradan
 başlıyor.
 
-**Ekran bu yüzden bugün bir seçici değil bir GÖRÜNTÜLEYİCİ.** Karakterine
-bakıyor, fareyle çeviriyorsun. Yön düğmeleri listede tek giriş varken kapalı —
-basılabilir görünüp hiçbir şey yapmayan bir düğme "bozuk" diye okunur
-(bölüm 19'daki gri kaydırıcı dersi).
-
-Yeni model geldiğinde üç adım var ve **ikincisinin kodu henüz yazılmadı:**
-
-1. Model `Assets/_Art/Models` altına giriyor.
-2. `Kaçan Modelini Kur` onu oyuncu prefabına **ikinci bir gövde** olarak
-   kuruyor ve `PlayerBodyVisual`'ın gövde dizisine ekliyor.
-3. `CharacterCatalog`'a bir satır: ad ve o gövdenin indeksi.
-
-İkinci adım bilerek bekletiliyor: ortada ikinci bir model yok ve bölüm 5'in
-kuralı soyutlamanın ancak somut bir ikinci kullanımla eklenmesini söylüyor.
-Modeller gelince araç ve `PlayerBodyVisual` birlikte elden geçecek; **seçim, ağ
-ve menü tarafının hiçbiri değişmeyecek.**
+**Liste bir süre tek elemanlıydı ve ekran bir seçici değil görüntüleyiciydi.**
+2026-09-12'de ikinci model geldi (Unity-chan) ve seçim gerçekten çalışır oldu.
+Yön düğmeleri listede tek giriş kalırsa hâlâ kapanıyor — basılabilir görünüp
+hiçbir şey yapmayan bir düğme "bozuk" diye okunur (bölüm 19'daki gri kaydırıcı
+dersi).
 
 > **Geçersiz indeks SIFIRA düşüyor, kırpılmıyor.** `Clamp` yanlış olurdu:
 > liste kısalırsa son kostümü seçmiş herkes sessizce yeni son kostüme kayardı
 > ve kimse neden değiştiğini anlamazdı. Sıfır "seçimin artık yok" demek ve
 > oyuncu bunu ekranda görüyor.
+
+#### İkinci kostüm geldi: Unity-chan (2026-09-12)
+
+`Assets/unity-chan!` altındaki model ikinci kaçan kostümü olarak bağlandı.
+Animasyonları **kullanılmadı**: klipler zaten humanoid ve kas uzayında
+saklanıyor (bölüm 17), yani bizim kliplerimiz onda da oynuyor. Yeni bir klip
+takımı hem gereksiz hem de iki ayrı hareket hissi demekti.
+
+**Her kostüm hull boyuna normalleniyor** (`RunnerSetup.ResolveScale`). Model
+kendi içinde kısa ya da uzun olabilir, ekrandaki boyu aynı. İki sebebi var ve
+ikisi de oynanış:
+
+- Bölüm 17'nin kuralı: görünen gövde çarpışma kutusuyla örtüşmeli. Şişirilmiş
+  bir kaçan isabet etmeyen vuruşlar üretir, küçültülmüş olan da canavarın
+  boşluğa vurmasına yol açar.
+- **Kamera göz hizası hull'dan geliyor.** Kısa bir modeli olduğu gibi bıraksak
+  kamera kafasının üstünde kalırdı — oyuncunun "kamera açısını kafasına göre
+  ayarla" dediği şey tam olarak bu ve normalleme onu kendiliğinden çözüyor.
+  Ayrı bir "bu kostümün göz hizası" alanı gerekmedi.
+
+#### Gövdeler bir DİZİ, hepsi prefabta hazır
+
+`PlayerBodyVisual.runnerBodies` — kostüm başına bir kayıt: kök, renderer'lar,
+kafa kemiği, kafa renderer'ları ve **animatör**. `Kaçan Modelini Kur` hepsini
+kuruyor (`KacanGovde_0`, `KacanGovde_1`, …) ve sıraları `CharacterCatalog.
+Runners` ile aynı: **kostüm indeksi doğrudan gövde indeksi**, eşlemeyi tutan
+üçüncü bir sayı yok.
+
+Aynı anda yalnızca biri açık. `Refresh` dizinin TAMAMINI geziyor, yalnızca
+seçiliyi değil — yoksa önceki kostüm açık kalır ve iki gövde üst üste görünür.
+
+**Animatör de yeniden yönlendiriliyor** (`CharacterAnimatorBase.UseAnimator`).
+Bileşen oyuncunun kökünde duruyor ve gövdenin içindeki animatöre bir alanla
+bakıyor; alan güncellenmezse kapalı bir animatöre yazılır ve karakter
+**T-pozunda donar** — hiçbir yerde hata yazmadan.
+
+> **Gövdeler kablolama bittikten SONRA kapatılıyor.** Kapalı bir `Animator`'da
+> `GetBoneTransform` null dönüyor (bölüm 21.1'deki yedi tuzaktan biri). Önce
+> kapatsaydık ikinci kostümün kafa kemiği boş kalır ve birinci şahısta kafası
+> gizlenmezdi. Aynı tuzak `Diriltme Sistemini Kur`'da da var ve orada
+> `SetActive(true)` ile aşılıyor.
+
+**Saç da kafa parçası sayılıyor artık** (`IsHeadPart`). Bazı modellerde saç
+ayrı bir `SkinnedMeshRenderer` ve kendi iskeletine bağlı, yani kafa kemiğini
+sıfırlamak onu toplamıyor — birinci şahısta havada duran bir saç kalırdı.
+
+#### Ceset de kostümü giyiyor
+
+`Corpse.bodies` — kostüm başına bir gövde prefabı ve kemik yolu takımı;
+`Diriltme Sistemini Kur` üretiyor (`CorpseBody_0`, `CorpseBody_1`, …).
+Tek gövde tutulsaydı Unity-chan olarak ölen biri muz adam cesedi bırakırdı.
+
+Kostüm indeksi cesede **spawn'da kopyalanıyor**, kurbandan okunmuyor: ceset
+bilerek kurban objesinden bağımsız (bölüm 23) — kurban ayrılmış ya da istemci
+sonradan katılmış olabilir.
+
+#### Menü önizlemesi de seçili kostümü gösteriyor
+
+`MenuStageSetup` sahneye her kostüm için bir figür koyuyor (`Kacan_0`,
+`Kacan_1`, …), hepsi aynı noktada; `MenuStage` yalnızca seçili olanı açıyor.
+
+Tek figür koyup modelini çalışma anında değiştirmek mümkün değil: her modelin
+kendi iskeleti ve kendi animatörü var, prefab örneğini yerinde dönüştürmenin
+yolu yok. Oyuncu prefabındaki çözümün aynısı.
+
+> ### Yeni kostüm eklemenin tam listesi
+>
+> 1. Modeli projeye at, **Rig sekmesinde Animation Type = Humanoid** olsun.
+> 2. `CharacterCatalog.Runners`'a bir satır: ad ve model yolu.
+> 3. Sırayla çalıştır — **sıra önemli**, her biri öncekinin çıktısını okuyor:
+>
+> | Sıra | Araç | Ne yapıyor |
+> |---|---|---|
+> | 1 | `Kaçan Modelini Kur` | Gövdeyi oyuncu prefabına kuruyor, materyalini onarıyor |
+> | 2 | `Diriltme Sistemini Kur` | O gövdeden ceset prefabını üretiyor |
+> | 3 | `Menü Kur` | Seçim ekranının önizleme figürünü kuruyor |
+>
+> Başka hiçbir yere dokunmak gerekmiyor: seçim, ağ ve kayıt tarafı kostüm
+> sayısından bağımsız.
 
 #### İKİ kostüm birden seçiliyor, bir "karakter" değil
 

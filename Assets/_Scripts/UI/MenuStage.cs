@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -108,6 +109,9 @@ public class MenuStage : MonoBehaviour
     private RawImage image;
     private GameObject stageRoot;
     private Camera stageCamera;
+    // Kaçanın kostüm figürleri; hepsi aynı noktada, yalnızca seçili olan
+    // açık. `runner` o an seçili olanı gösteriyor.
+    private Transform[] runners;
     private Transform runner;
     private Transform monster;
     // Kullanıcının seçim ekranında sürükleyerek eklediği dönüş. Odak
@@ -154,7 +158,7 @@ public class MenuStage : MonoBehaviour
             return;
         }
 
-        runner = turntable.Find("Kacan");
+        ResolveRunners(turntable);
         monster = turntable.Find("Canavar");
 
         // Taban açılar KURULUMDAN okunuyor, koda yazılmıyor: iki figür
@@ -179,7 +183,58 @@ public class MenuStage : MonoBehaviour
         image.texture = texture;
         image.enabled = true;
 
+        ApplyCostumesHere();
         ApplyFocus(instant: true);
+    }
+
+    /// <summary>
+    /// Sahnedeki kostüm figürlerini toplar. Adları `Kacan_0`, `Kacan_1`, …
+    /// ve sıraları `CharacterCatalog.Runners` ile aynı — araç ikisini birlikte
+    /// kuruyor.
+    /// </summary>
+    private void ResolveRunners(Transform turntable)
+    {
+        List<Transform> found = new List<Transform>();
+
+        for (int i = 0; ; i++)
+        {
+            Transform figure = turntable.Find("Kacan_" + i);
+
+            if (figure == null)
+                break;
+
+            found.Add(figure);
+        }
+
+        runners = found.ToArray();
+    }
+
+    /// <summary>
+    /// Seçili kostümün figürünü öne alır, öbürlerini gizler. Seçim ekranı her
+    /// değişiklikte çağırıyor, yani önizleme anında güncelleniyor.
+    ///
+    /// Sahne yoksa hiçbir şey yapmıyor: seçim zaten `PlayerProfile`'da ve
+    /// sahne açılırken oradan okunuyor.
+    /// </summary>
+    public static void ApplyCostumes()
+    {
+        if (instance != null)
+        {
+            instance.ApplyCostumesHere();
+            instance.ApplyFocus(instant: false);
+        }
+    }
+
+    private void ApplyCostumesHere()
+    {
+        if (runners == null || runners.Length == 0)
+        {
+            runner = null;
+            return;
+        }
+
+        int index = CharacterCatalog.SanitizeRunner(PlayerProfile.RunnerCostume);
+        runner = index < runners.Length ? runners[index] : runners[0];
     }
 
     /// <summary>
@@ -258,8 +313,16 @@ public class MenuStage : MonoBehaviour
         //
         // Gizleme ÖLÇÜMDEN ÖNCE: hedef figürün açık olduğundan emin olmalıyız,
         // yoksa `Renderer.bounds` bayat bir değer dönebiliyor.
-        if (runner != null)
-            runner.gameObject.SetActive(requested != Focus.Monster);
+        // SEÇİLİ OLMAYAN kostümler her durumda kapalı: açık kalsalardı
+        // hepsi aynı noktada durduğu için iç içe geçmiş figürler görünürdü.
+        if (runners != null)
+        {
+            for (int i = 0; i < runners.Length; i++)
+            {
+                if (runners[i] != null)
+                    runners[i].gameObject.SetActive(runners[i] == runner && requested != Focus.Monster);
+            }
+        }
 
         if (monster != null)
             monster.gameObject.SetActive(requested != Focus.Runner);
