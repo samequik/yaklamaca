@@ -4989,7 +4989,7 @@ Built-in RP'de `OnRenderImage` + `Graphics.Blit` zaten tam ekran efekt
 |---|---|---|
 | Vinyet | 0.45 | 0.78 |
 | Kontrast | **1.0 (nötr)** | 1.15 |
-| Bloom | 0.32 (eşik 0.26) | aynı |
+| Bloom | 0.20 (eşik 0.32, yarıçap 0.012) | aynı |
 | Gren | 0.040 | 0.095 |
 | Renk ayrışması | 0.005 | 0.012 |
 | Renk kaybı | 0.30 | 0.70 |
@@ -5172,6 +5172,28 @@ hale (`BloomSample`). İki özelliği bu işi tam olarak çözüyor:
 bant üretiyor. Çok geçişli bir bulanık daha yumuşak olurdu ama ayrı
 RenderTexture'lar ve ek blit'ler demek — bir lamba halesi için gereğinden
 pahalı.
+
+> **Üçüncü tur (2026-09-13): "hâlâ çok parlak ve blurlu" — iki ayrı şikâyetti,
+> üç ayrı kaldıraç oynatıldı.**
+>
+> - **Şiddet 0.32 → 0.20.** Parlaklığın kendisi.
+> - **Eşik 0.26 → 0.32.** 0.26'da lamba altındaki ZEMİN (0.28) hâlâ eşiği
+>   geçip bloom veriyordu — "çok parlak" şikâyetinin bir kısmı sayının
+>   kendisinden değil, taşan ALANIN hâlâ geniş olmasındandı. 0.32 zemini
+>   dışarıda bırakıyor.
+> - **Yarıçap (`_BloomRadius`) 0.018 → 0.012.** "Blurlu" ayrı bir şikâyetti ve
+>   şiddet/eşikle çözülmüyordu: 12 örnek geniş bir yarıçapa (0.018) yayılınca
+>   hale sisli bir bulanıklık gibi görünüyor, dar bir yarıçapa (0.012) toplanınca
+>   keskin bir parlama gibi duruyor. **Parlaklık ile bulanıklık iki ayrı ayar —
+>   biri diğerini düzeltmez**, ders bölüm 25'in "aynı yöne çalışan iki ayarı
+>   birlikte açma" dersinin tersi: burada aynı SEMPTOM ("kötü görünüyor") iki
+>   FARKLI sebepten geliyordu ve her biri kendi kaldıracını istiyordu.
+>
+> Sayılar yine tahmin — `Player/ScreenEffects.cs`'te `bloom`, `bloomThreshold`,
+> `bloomRadius` alanları (yerel kameraya çalışma anında takılıyor, bölüm 25'in
+> "kurulum gerekmiyor" notu). Play modunda Hierarchy'de yerel oyuncunun
+> kamerasını seçip `Screen Effects` bileşeninden canlı oynatılabilir — ama
+> **Play bitince kaybolur**, beğenilen sayı koda geri yazılmalı.
 
 Bloom kontrasttan SONRA, doygunluktan ÖNCE uygulanıyor: renk kaybı ikisine
 birden işliyor.

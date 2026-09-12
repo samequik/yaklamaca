@@ -87,15 +87,22 @@ public class ScreenEffects : MonoBehaviour
     [Tooltip("Taşmanın gücü. 0 = kapalı. Karanlık bir oyunda ışıkları " +
         "'patlatmanın' doğru yolu bu: toplamsal ve eşikli olduğu için " +
         "yalnızca zaten parlak yerleri etkiliyor, karanlığa dokunmuyor.")]
-    [SerializeField] private float bloom = 0.32f;
+    [SerializeField] private float bloom = 0.20f;
 
     [Tooltip("Bu parlaklığın ÜSTÜ taşıyor. Lamba altı ~0.28, fener konisi " +
-        "daha yüksek, ambient 0.006 — eşiği ambient'in çok üstünde tutmak " +
-        "karanlığın korunmasını garanti ediyor.")]
-    [SerializeField] private float bloomThreshold = 0.26f;
+        "daha yüksek, ambient 0.006. 0.32'ye çekildi (2026-09-13): 0.26'da " +
+        "lamba altındaki ZEMİN de eşiği geçip bloom veriyordu, 'çok parlak' " +
+        "şikâyetinin bir kısmı bundandı. 0.32 zemini (0.28) dışarıda " +
+        "bırakıyor, hale artık neredeyse yalnızca ışık kaynağının kendisinden " +
+        "taşıyor.")]
+    [SerializeField] private float bloomThreshold = 0.32f;
 
-    [Tooltip("Halenin yarıçapı (ekran genişliğinin oranı).")]
-    [SerializeField] private float bloomRadius = 0.018f;
+    [Tooltip("Halenin yarıçapı (ekran genişliğinin oranı). 0.018'den 0.012'ye " +
+        "indirildi (2026-09-13): 'blurlu görünüyor' şikâyeti buradandı — geniş " +
+        "yarıçap örnekleri ekranda daha uzağa yayıp haleyi sisli bir bulanıklık " +
+        "gibi gösteriyordu. Dar yarıçap aynı 12 örneği daha yakın topluyor, " +
+        "hale sisten çok bir parlama gibi duruyor.")]
+    [SerializeField] private float bloomRadius = 0.012f;
 
     [Tooltip("Dehşet tavanındaki piksel blok boyutu. 0 veya 1 = pikselleme " +
         "kapalı. Dehşetle birlikte artıyor, yani canavar uzaktayken görüntü " +
