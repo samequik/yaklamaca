@@ -55,7 +55,6 @@ public class RoundManager : NetworkBehaviour
     // Sunucuda tutulan, bir sonraki turda temizlenecek cesetler. İstemcide
     // boş kalır — spawn/destroy kararı yalnızca sunucudan gidiyor.
     private readonly List<GameObject> spawnedCorpses = new List<GameObject>();
-    private readonly HashSet<uint> terminalDiscountedVictims = new HashSet<uint>();
 
     [Header("Test (lobi arayüzü bağlanınca kaldırılacak)")]
     [Tooltip("Sunucuda tur başlatır.")]
@@ -375,7 +374,23 @@ public class RoundManager : NetworkBehaviour
             return;
         }
 
-        if (participant.Role != RoundRole.Runner || !participant.IsAlive)
+        if (participant.Role != RoundRole.Runner)
+            return;
+
+        // AYRILMAK gereken terminal sayısını 1 düşürüyor — ölüm artık
+        // düşürmüyor (bkz. ReportCaught). Hayatta mı ölü mü fark etmez:
+        // kaçmışsa (`IsEscaped`) zaten sayıya dahil değildi, geri kalan her
+        // durumda kalıcı bir kayıp. Ölü bir kaçanın cesedi de bir daha
+        // dirilemez — bağlantısı giden `RoundParticipant` Mirror tarafından
+        // yok ediliyor ve `ServerRevive` `participants.Contains(victim)`'e
+        // bakıyor, artık orada değil.
+        if (!participant.IsEscaped)
+        {
+            requiredTerminals = Mathf.Max(1, requiredTerminals - 1);
+            Debug.Log($"{participant.DisplayName} ayrıldı. Gereken terminal {requiredTerminals}.");
+        }
+
+        if (!participant.IsAlive)
             return;
 
         aliveRunnerCount--;
@@ -532,7 +547,6 @@ public class RoundManager : NetworkBehaviour
         // başlarken, harita ve roller sıfırlanırken onunla birlikte gidiyor.
         // Aksi hâlde her oyun oturumu boyunca ceset sayısı sınırsız birikir.
         ServerClearCorpses();
-        terminalDiscountedVictims.Clear();
 
         AssignRoles();
 
@@ -825,11 +839,13 @@ public class RoundManager : NetworkBehaviour
         victim.ServerSetAlive(false);
         aliveRunnerCount--;
 
-        // Ölüm, kalanlara iş yükü bindirmesin: gereken sayı da bir azalıyor.
-        // Kaçmakta bu indirim yok — sadece ölümde (bkz. CLAUDE.md 11.1).
-        if (terminalDiscountedVictims.Add(victim.netId))
-            requiredTerminals = Mathf.Max(1, requiredTerminals - 1);
-
+        // Ölüm ARTIK gereken sayıyı düşürmüyor (2026-09-13). Diriltme
+        // olduğu için ölmek kalıcı değil — kurban kabine taşınıp geri
+        // gelebilir. Sayıyı düşürmek diriltmeyi cezalandırırdı: kurtarılan
+        // kaçan geri döndüğünde sayı geri artmıyor (bkz. bölüm 23, soru 1),
+        // yani "ölünce düş" ile "dirilince düşme" bir arada tutulamazdı —
+        // biri diğerini yalanlardı. İndirim artık yalnızca oyundan
+        // AYRILMADA uygulanıyor (bkz. ServerUnregister): o kalıcı.
         Debug.Log($"{victim.DisplayName} yakalandı. Sahada {aliveRunnerCount} kaçan kaldı, " +
             $"gereken terminal {requiredTerminals}.");
 

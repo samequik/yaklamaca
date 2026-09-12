@@ -1612,24 +1612,34 @@ değiştirirken kodu da güncelle.
   (haritadaki toplam terminal sayısıyla sınırlı). İki kişilik bir turda tek
   kaçanın dört terminali doldurması imkânsıza yakındı; bu hem ölçekleniyor hem
   de hangi terminali yapacağın seçimini bırakıyor.
-- Bir kaçan **öldüğünde gereken sayı 1 azalır** (her seferinde).
-  Kartopunu bu dengeliyor: ölüm, kalanlara iş yükü bindirmiyor.
-  Kaçan **kaçtığında** sayı azalmaz — sadece ölümde.
+- **Ölüm artık gereken sayıyı düşürmüyor.** Kaçan **oyundan tamamen
+  AYRILDIĞINDA** (bağlantı kesilince) 1 azalır — ölmekte değil.
 
-**Hedeflenen kadro 5 oyuncu: 1 canavar + 4 kaçan.** Gereken sayının dolu
-kadrodaki seyri:
+> **Kural 2026-09-13'te değişti — diriltme yüzünden.** Eskiden bir kaçan
+> öldüğünde gereken sayı 1 düşüyordu ("kartopunu dengeliyor, ölüm kalanlara
+> iş yükü bindirmiyor" gerekçesiyle). Diriltme sistemi geldikten sonra
+> (bölüm 23) bu iki kural birbirini yalanlıyordu: ölünce düşen sayı,
+> dirilince GERİ ARTMIYORDU (bölüm 23'teki bilinçli karar) — yani bir kaçan
+> ölüp dirilirse indirim kalıcı oluyor, hatta bir de diriltmenin kendisi
+> boşa gitmiş oluyordu (indirim zaten alınmış). Ölmek geçici bir durum artık
+> (ceset taşınıp kabine konunca geri geliyor), o yüzden geçici bir duruma
+> kalıcı bir indirim bağlamak yanlıştı.
+>
+> Doğrusu: indirim **kalıcı olan olaya** bağlı olmalı. Oyundan ayrılmak
+> (bağlantı kopması) budur — ölmekten farklı olarak geri dönüşü yok.
+> Ayrılan bir kaçanın cesedi de bir daha dirilemez: `RoundParticipant`
+> objesi Mirror tarafından yok ediliyor ve `RoundManager.ServerRevive`
+> `participants.Contains(victim)`'e bakıyor, artık orada değil. Yani
+> "hayatta mı ölü mü" fark etmeksizin, AYRILAN her kaçan kalıcı bir kayıp —
+> indirim onu ölçüyor, ölümü değil.
+>
+> Kaçtığında (`IsEscaped`) hâlâ indirim yok — kaçan zaten başarılı sayılıyor,
+> onu bir daha "kayıp" gibi düşmek anlamsız olurdu.
 
-| Durum | Hayattaki kaçan | Gereken terminal |
-|---|---|---|
-| Tur başı | 4 | **5** (4+1, tavan 5) |
-| 1 ölü | 3 | 4 |
-| 2 ölü | 2 | 3 |
-| 3 ölü | 1 | **2** |
-
-**Dolu kadroda beş terminalin beşi de zorunlu** — "+1" kuralının bıraktığı seçim
-tur başında yok. Bilinçli kabul edildi: ölümler geldikçe gereken sayı düşüyor ve
-son kaçan tek kaldığında 2'ye iniyor. O noktaya gelene kadar zaten en az 2
-terminal yapılmış oluyor, yani "tek başına 2 terminal" cezası pratikte oluşmuyor.
+**Hedeflenen kadro 5 oyuncu: 1 canavar + 4 kaçan.** Dolu kadroda beş
+terminalin beşi de tur başında zorunlu — kimse ayrılmadığı sürece gereken
+sayı 5'te sabit kalıyor. Yalnızca birileri gerçekten bağlantıyı keserse
+düşüyor, ölmek/dirilmek onu hiç etkilemiyor.
 
 Seçim tur başında da olsun istenirse `ObjectiveSetup.TerminalCount` 6 yapılır;
 `terminalGoal` kendini ona göre günceller.
@@ -4619,7 +4629,7 @@ YOK — bilinen eksik.
 
 | Soru | Durum |
 |---|---|
-| 1. `requiredTerminals` geri artacak mı | **Cevaplandı:** artmıyor. Ayrıca indirim kurban başına BİR KEZ uygulanıyor (`terminalDiscountedVictims`), yani ölüp dirilip tekrar ölmek sayıyı ikinci kez düşürmüyor |
+| 1. `requiredTerminals` geri artacak mı | **Cevap DEĞİŞTİ (2026-09-13).** İlk cevap "ölünce düşüyor, dirilince artmıyor"dı; iki kural birbirini yalanladığı için indirim ölümden tamamen kaldırıldı. Artık yalnızca kaçan oyundan AYRILINCA (bağlantı kopunca) düşüyor — ölmek/dirilmek sayıyı hiç etkilemiyor. Ayrıntı bölüm 11.1'de |
 | 5. Kabinler haritaya nasıl konacak | **Cevaplandı.** Araç ilk kurulumda otomatik yerleştirdi; **2026-09-10'da ikisi de ELLE taşındı** ve artık orada kalacak (aşağıdaki kutu) |
 | 2. Bilgi sızıntısı | **Cevaplandı (2026-09-08).** İzleyici zaten YALNIZCA hayattaki kaçanları izleyebiliyor, canavarı asla (`SpectatorController.RefreshTargets` — bölüm 5'ten beri böyle). Kullanıcı bunu yeterli buldu, ek kısıt getirilmedi |
 | 3. Canavarın karşı hamlesi | **AÇIK.** Canavar kabini kilitleyemiyor, cesedi taşıyamıyor, diriltmeyi kesintiye uğratamıyor. Diriltme şu an tek taraflı bir kazanç |
