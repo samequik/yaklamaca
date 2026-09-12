@@ -372,19 +372,20 @@ Hepsinin ayrıntısı bölüm 23'te; özet:
 
 #### BEKLEYEN ARAÇ ÇALIŞTIRMASI VAR: `Menü Kur`
 
-**Menü paketinin son üç parçası koda yazıldı ama SAHNEYE KURULMADI:** arka
-plandaki karakter sahnesi, karakter seçim ekranı ve ayarlardaki korku efekti
-kaydırıcısı. Üçü de `Menü Kur`'dan geliyor ve o araç kod yazıldıktan sonra bir
-daha çalıştırılmadı.
+**Menü sahnesinin arka odası ve yeni ışık değerleri SAHNEYE GİRMEDİ.**
+`MenuStageSetup` figürlerin arkasına oyunun kendi zemini ve duvarını kuruyor,
+ışık şiddetleri de üçte bire indi — ikisi de `Menü Kur` çalıştırılana kadar
+görünmüyor.
 
-Bunun oynanıştaki karşılığı: menünün arkası hâlâ düz siyah, `KARAKTER` düğmesi
-yok ve seçenekler ekranında kaydırıcı yok. **Hiçbir yerde hata görünmüyor** —
-`MenuStage` sahneyi bulamayınca sessizce kendini kapatıyor.
+Aynı çalıştırma **seçim ekranındaki beyaz kutuyu da temizliyor.** O kutu eski
+kostüm renginin göstergesiydi; renk yolu kaldırılınca kimse ona renk yazmaz
+oldu ve `Image`'in varsayılanı beyaz olduğu için ekranda boş beyaz bir kare
+kaldı. Panel yeniden kurulunca obje de gidiyor.
 
-Doğrulama komutu — sıfır dönerse araç çalıştırılmamış demektir:
+Doğrulama komutu — sıfır dönerse oda kurulmamış demektir:
 
 ```
-grep -c "m_Name: MenuSahnesi" Assets/_Scenes/SampleScene.unity
+grep -c "m_Name: Zemin_0_0" Assets/_Scenes/SampleScene.unity
 ```
 
 > **Unity dosyaları henüz İÇE AKTARMADI da.** `MenuStage.cs`,
@@ -2455,9 +2456,9 @@ yazıldı.** Üçü de aynı canvas'a dokunuyor, o yüzden birlikte planlanmış
 | Parça | Durum |
 |---|---|
 | **Görsel dil** (madde 6) | **BİTTİ ve sahnede.** Renk ailesi, çerçeveli kutu, düğme durumları, başlık. Dokuz ekran birden |
-| **Arka plan** (madde 9) | **KOD BİTTİ, SAHNEDE YOK.** Kaçan ve canavar menünün arkasında duruyor — `Menü Kur` çalıştırılana kadar görünmüyor |
+| **Arka plan** (madde 9) | **BİTTİ, odası SAHNEDE YOK.** Kaçan ve canavar menünün arkasında duruyor; arkalarındaki oda ve yeni ışık değerleri `Menü Kur` bekliyor |
 | **Karakter seçimi** (madde 8) | **KOD BİTTİ.** Lobiden seçim, canlı önizleme, fareyle döndürme. Liste tek elemanlı: modeller kullanıcıdan bekleniyor |
-| **Korku efekti kaydırıcısı** (madde 6) | **KOD BİTTİ, SAHNEDE YOK.** Seçenekler ekranında |
+| **Korku efekti kaydırıcısı** (madde 6) | **BİTTİ ve sahnede.** Seçenekler ekranında |
 
 **Dördü de aynı araca bağlı ve o araç henüz çalıştırılmadı** — yukarıdaki
 bekleyen araç kutusu. Kod sahneye girene kadar menü eski hâlinde kalıyor ve
@@ -2507,10 +2508,85 @@ sahneyi görüyor. Kenar ışığı kırmızı — canavarın hâlesiyle (bölü
 kimlik.
 
 **Karakterler tam tur DÖNMÜYOR, salınıyor.** Tam dönüşte sırtları geliyor ve
-menüde sırt görmek kötü duruyor.
+menüde sırt görmek kötü duruyor. (Seçim ekranında sınır yok, orada fareyle
+sen döndürüyorsun.)
 
-**Ayaklar kadraj dışında**, o yüzden zemin koymak gerekmedi: karakterlerin
-havada durduğu görünmüyor ve bir platform modeli eklemeye gerek kalmıyor.
+#### Arkada oyunun kendi odası var (2026-09-12)
+
+İlk sürümde arka plan düz siyahtı ve oynanınca "karakter boşlukta duruyor"
+diye geldi. Artık figürlerin arkasında küçük bir oda var: **haritanın
+kullandığı kit parçalarının aynısı** (`Wall Plain`, `Floor Tile 01`), yani menü
+oyunla aynı yerde geçiyormuş gibi duruyor.
+
+> **Kitin materyalini düz bir küpe vermek İŞE YARAMAZDI.** `walls_a.png` bir
+> atlas: dört ayrı panel çeşidi tek dokuda ve ikisinde pencere boşluğu var.
+> Bir küpün UV'si 0-1 olduğu için atlasın tamamı tek yüze sıkışır, ortaya
+> pencereli ve bölünmüş bir yüzey çıkardı. Prefabın kendi UV'leri atlasın
+> doğru köşesini gösteriyor — o yüzden prefab kullanılıyor.
+
+Duvar paneli **kameraya dönük** konuyor. `MapDressWindow` panelleri
+`LookRotation(normal)` ile yerleştiriyor ve oradaki `normal` duvar hücresinden
+oyuncuya doğru bakıyor, yani panelin +Z'si göreni görüyor. Kamera -Z'de
+durduğu için buradaki panel `LookRotation(back)` ile dönüyor.
+
+Parçalar **ölçülüp hizalanıyor**, pivotları varsayılmıyor — `MapDressWindow.
+Place` ile aynı yöntem. Collider'ları siliniyor: arka plan fiziğe girmemeli.
+
+**Yan duvar ve tavan yok, bilerek.** Kameranın en geniş açısında bile görünen
+alan zeminin ve duvarın içinde kalıyor; olmayanı kurmak boş yere altı parça
+daha demekti.
+
+**Ayaklar artık kadrajın içinde.** Önceki kadraj tabanı 0.19 m'de kesiyordu ve
+o zaman doğruydu: zemin yoktu, ayakları göstermek karakteri havada bırakırdı.
+Zemin gelince şart tersine döndü — ayakları kesmek figürü zeminden koparıyordu.
+Kamera geri çekildi (y 1.35 → 1.25, z -3.1 → -3.7).
+
+**Gölge yalnızca anahtar ışıkta açık.** Gölgesiz bir figür zeminin üstünde
+değil önünde duruyor gibi görünüyor. Üç ışığın üçünde birden açmak aynı sahneyi
+üç kez çizdirirdi; öbür ikisi zaten dolgu.
+
+#### Işık şiddetleri: ilk değerler karakteri BEYAZA patlatıyordu
+
+Oynanınca "çok parlaklar, kaçanın rengi sarı ama beyaz duruyor" diye geldi.
+
+İlk değerler (9 / 7 / 2.2) karakterin üstünde toplam **~3.4 birim** aydınlık
+üretiyordu. Built-in'de bu kamerada HDR kapalı, yani 1'in üstündeki her şey
+doğrudan beyaza kırpılıyor: muz sarısı (1, 0.85, 0.2) üçle çarpılınca kırmızı
+ve yeşil kanalı taşıyor ve geriye beyaz kalıyor. **Model yanlış değildi, sayı
+yanlıştı.**
+
+| Işık | Eski | Yeni |
+|---|---|---|
+| Anahtar (spot) | 9 | **2.2** |
+| Kenar (kırmızı) | 7 | **1.8** |
+| Dolgu | 2.2 | **0.6** |
+| Oda (yeni) | — | **0.8** |
+
+Hedef toplam **1'in biraz altı**: renk doygun kalıyor ama karakter karanlıkta
+kaybolmuyor.
+
+> **Ayarlamak isteyene:** sayılar `MenuStageSetup.cs`'in en başında, adlarıyla
+> duruyor (`KeyIntensity`, `RimIntensity`, `FillIntensity`, `RoomIntensity`).
+> Değiştirip `Menü Kur` çalıştırmak gerekiyor.
+>
+> Denemenin hızlı yolu başka: Play'e bas, Hierarchy'den
+> `MenuSahnesi > Isik_Anahtar` seç, Inspector'dan Intensity'yi canlı oynat.
+> Play bitince kaybolur — beğenilen sayı koda yazılmalı. Aynı tuzak bölüm
+> 25'te de var: çalışma anında kurulan bir şeyin Inspector değeri kalıcı değil.
+
+Bu sayılar **hesapla bulundu, ölçümle değil**: Unity'nin nokta ışığı
+`1/(1 + 25·(d/r)²)` ile sönüyor ve karakterin mesafeleri buradan biliniyor.
+Gerçek görüntüde fazla sönük ya da fazla parlak gelirse yukarıdaki yoldan
+ayarlanacak.
+
+> **`Menü Kur` ikinci kez çalıştırılsa İKİNCİ bir sahne kuruyordu.** Araç eski
+> kökü `GameObject.Find` ile arıyordu ve o metot kapalı objeleri bulmuyor; kök
+> ise bilerek kapalı kuruluyor. Yani ikinci çalıştırmada eskisi bulunamıyor,
+> siliniyor sanılıyor ve sahnede aynı adı taşıyan iki `MenuSahnesi` kalıyordu —
+> `MenuStage` hangisini bulacağını bilemezdi.
+>
+> `MenuStage.OnEnable` aynı tuzağa düşmüştü ve orada düzeltilmişti; araç tarafı
+> gözden kaçmıştı. **Aynı hata iki yerde varsa biri düzeltilince öbürü aranmalı.**
 
 > **Kamera ödünç alınmıyor.** `NetworkPlayerSetup.DisableOtherCameras` yerel
 > oyuncu doğunca sahnedeki bütün kameraları kapatıyor (bölüm 13). Menü sahnesi
