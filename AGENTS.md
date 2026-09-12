@@ -1193,9 +1193,24 @@ seçebiliyorsun ama "beni canavar YAPMA" diyemiyorsun.
 | **2** | Turu, sen kaçan olacak şekilde başlatır — tek başına test için |
 | **3** | Kendini elendirir (izleyici modunu denemek için) |
 | **4** | Test botlarını önüne ışınlar |
+| **5** | Sahnedeki bütün test botlarını kaldırır (2026-09-13) |
 
 `minimumPlayers = 2`. Tek başına test ederken sahnedeki `TestBot` ikinci
 katılımcı sayılıyor.
+
+> **[5] neden gerekti: editördeki `Test Botu Kaldır` Play SIRASINDA
+> çalışmıyor.** O menü öğesi bilerek yalnızca Play DIŞINDA aktif
+> (`CanRemove`) — sahne nesnesini doğrudan silmek Mirror'ın ağ durumuyla
+> çakışabilir. Gerçek oyuncularla kurulmuş bir oturumda (ör. beş kişilik bir
+> test) daha önce solo test için eklenmiş bir bot unutulmuşsa, host'u
+> yeniden başlatmadan temizlemenin yolu yoktu.
+>
+> `NetworkServer.Destroy(bot.gameObject)` çağırıyor — sahneden elle silmek
+> değil. Bot bir `RoundParticipant` olduğu için bu, `OnStopServer` →
+> `ServerUnregister` zincirinden geçiyor: normal bir oyuncunun ayrılmasıyla
+> AYNI temizlik yolu (`aliveRunnerCount` düşüyor, gereken terminal sayısı
+> güncelleniyor — bölüm 11.1). Faz gözetmiyor, `[4]` gibi: lobide de tur
+> ortasında da çalışıyor.
 
 **Bot rastgele seçimde canavar adayı değil** — kovalayamayan bir canavar turu
 sürüncemede bırakır. Ama lobide **elle seçilebiliyor**: kaçan olarak oynayıp

@@ -72,6 +72,12 @@ public class RoundManager : NetworkBehaviour
         "aramak testi şansa bırakıyordu.")]
     [SerializeField] private KeyCode summonBotsKey = KeyCode.Alpha4;
 
+    [Tooltip("Sahnedeki bütün test botlarını (canlı + ölü) kaldırır. " +
+        "Editördeki 'Test Botu Kaldır' yalnızca Play DIŞINDA çalışıyor — " +
+        "gerçek oyuncularla oynanan bir oturumda unutulmuş bir bot bu tuşla " +
+        "ÇALIŞMA ANINDA temizlenebilir.")]
+    [SerializeField] private KeyCode removeBotsKey = KeyCode.Alpha5;
+
     [Tooltip("AÇIKSA tur, kaçan kalmayınca BİTMEZ — yalnızca test için. Tek bot " +
         "kaçan olduğu bir turda onu öldürmek/kaçırmak normalde turu anında " +
         "kapatıyor; bu, bot üstünde hareket/animasyon/ceset denerken sürekli " +
@@ -234,9 +240,13 @@ public class RoundManager : NetworkBehaviour
 
     private void HandleTestKeys()
     {
-        // Faz gözetmiyor: botu lobide de tur ortasında da çağırabilmek lazım.
+        // İkisi de faz gözetmiyor: botu lobide de tur ortasında da
+        // çağırabilmek/kaldırabilmek lazım.
         if (Input.GetKeyDown(summonBotsKey))
             SummonBots();
+
+        if (Input.GetKeyDown(removeBotsKey))
+            RemoveBots();
 
         if (phase == RoundPhase.Waiting)
         {
@@ -291,6 +301,35 @@ public class RoundManager : NetworkBehaviour
         Debug.Log(bots.Length > 0
             ? $"{bots.Length} bot yanına çağrıldı."
             : "Sahnede test botu yok. Yakalamaca > Test Botu Ekle (kaçan).");
+    }
+
+    /// <summary>
+    /// Test: sahnedeki bütün test botlarını (canlı ve ölü — ceset testi
+    /// botu dahil) kaldırır.
+    ///
+    /// **Editördeki `Test Botu Kaldır` bunun için YETMEZ**: o menü Play
+    /// DIŞINDAYKEN çalışıyor (`CanRemove` bunu şart koşuyor) çünkü sahne
+    /// nesnesini doğrudan silmek Mirror'ın ağ durumuyla çakışabilir. Gerçek
+    /// oyuncularla bir oturum ortasındayken unutulmuş bir bota rastlarsan
+    /// turu/host'u yeniden başlatmadan bunu kullan.
+    ///
+    /// `NetworkServer.Destroy` — sahneden elle silmek değil. Bot bir
+    /// `RoundParticipant`, yani bu çağrı `OnStopServer` → `ServerUnregister`
+    /// zincirinden geçiyor: normal bir oyuncunun ayrılmasıyla AYNI temizlik
+    /// yolundan (aliveRunnerCount düşüyor, gereken terminal sayısı
+    /// güncelleniyor, canavarsa tur iptal oluyor — bölüm 11.1).
+    /// </summary>
+    [Server]
+    private void RemoveBots()
+    {
+        TestRunnerBot[] bots = FindObjectsOfType<TestRunnerBot>();
+
+        for (int i = 0; i < bots.Length; i++)
+            NetworkServer.Destroy(bots[i].gameObject);
+
+        Debug.Log(bots.Length > 0
+            ? $"{bots.Length} test botu kaldırıldı."
+            : "Sahnede test botu yok.");
     }
 
     /// <summary>Test: kendini yakalanmış say.</summary>
