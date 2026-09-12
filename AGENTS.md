@@ -2844,6 +2844,47 @@ gerek kalmasın diye araç listeyi basıyor.
 boyunca dağıtıyor; kapalıyken yürüme çevrimi her turda gözle görülür bir
 sıçrama yapıyor ve döngü açık olduğu hâlde "takılıyor" gibi duruyor.
 
+> ### "İçinde geçiyor" araması YANLIŞ klibi yakalıyordu
+>
+> Oynanınca "muz adam eğilmiş pozda donuyor, karakter yerinde" diye
+> bildirildi. Sebep animasyonda değil **arama kuralındaydı**.
+>
+> Boşta durma klibi `idle` ipucuyla aranıyor ve bizim klasörümüzde `idle` diye
+> bir klip YOK — canavarınki ödünç alınıyor (bölüm 17). Ama `crouching idle`
+> "idle" içeriyor, yani arama onu yakalıyordu: karakter dururken eğilme
+> klibini oynuyordu.
+>
+> Aynı tuzak yürümede de vardı: `crouched walking` "walking" içeriyor.
+>
+> Roller artık bir **dışlama listesi** taşıyor: ayakta roller `crouch` geçen
+> hiçbir anahtarı kabul etmiyor.
+>
+> Ders: **"içinde geçiyor" araması tek başına bir eşleştirme kuralı değil.**
+> Roller birbirinin adını kapsıyorsa neyin DIŞARIDA kalacağını da söylemek
+> gerekiyor. Bu proje aynı hatayı bir kez de ses dosyalarında yapmıştı.
+
+> ### Tüketilmeyen tetik ASILI KALIYOR
+>
+> Esneme varyantını kod seçiyordu ve seçtiği sayı denetleyicideki durum
+> sayısından büyük olabiliyordu: iki ipucu aynı klibe düşerse durum sayısı
+> azalıyor. Eşleşen geçiş bulunmayınca **tetik sönmüyor**; oyuncu yürümeye
+> başlayınca ilk fırsatta ateşliyor ve karakter yürürken esniyor. "Yürürken
+> kolları havaya kalkıyor" diye bildirilen şey buydu.
+>
+> Son durum artık "bundan büyük" şartıyla aralığın dışını da yakalıyor, yani
+> her sayı bir geçişe bağlı ve tetik her zaman tüketiliyor.
+>
+> Ders: **bir tetiği ateşlemeden önce onu tüketecek bir geçişin var olduğundan
+> emin ol.** Unity tüketilmeyen tetiği sıfırlamıyor ve hiçbir yerde
+> söylemiyor.
+
+> ### Loop Pose'a dokunulmuyor
+>
+> Bir sürümde açılmıştı. Sonra ölçüldü: iki pakette de zaten açıktı
+> (`loopBlend: 1`), yani satır hiçbir şey yapmıyordu ve kaldırıldı. Hiçbir şey
+> yapmayan bir satır, ileride onu okuyanı "demek ki bu gerekliymiş" diye
+> yanıltıyor.
+
 > ### Yön değerleri METRE/SANİYE, normalleştirilmiş değil
 >
 > İlk sürüm değerleri `clipRunSpeed`'e bölüyordu ve sayılar hiç tutmuyordu: o

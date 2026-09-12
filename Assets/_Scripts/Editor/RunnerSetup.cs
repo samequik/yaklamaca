@@ -107,6 +107,13 @@ public static class RunnerSetup
     // ortak addan önce geliyor. Tek liste iki paketi birden karşılıyor —
     // ayrı bir "bu pakette şu klip şuna denk" tablosu tutmak, her yeni
     // kostümde güncellenmesi gereken üçüncü bir yer olurdu.
+    /// <summary>
+    /// Ayakta roller için dışlanan adlar: eğilme klipleri ayakta rollerin
+    /// adını kapsıyor (`crouching idle` → "idle", `crouched walking` →
+    /// "walking") ve dışlanmazsa karakter dururken eğilmiş duruyor.
+    /// </summary>
+    private static readonly string[] UprightOnly = { "crouch", "egilme", "eğilme" };
+
     private static readonly string[] IdleHints = { "wait00", "idle" };
     private static readonly string[] WalkHints = { "walk00_f", "walking" };
     private static readonly string[] RunHints = { "run00_f", "running" };
@@ -325,15 +332,11 @@ public static class RunnerSetup
                     changed = true;
                 }
 
-                // Loop Pose da açılıyor: başlangıç ve bitiş pozu arasındaki
-                // farkı klip boyunca dağıtıyor. Kapalıyken yürüme çevrimi her
-                // turda gözle görülür bir sıçrama yapıyor — döngü açık olduğu
-                // hâlde "takılıyor" gibi duruyor ve sebebi görünmüyor.
-                if (takes[i].loopPose != loop)
-                {
-                    takes[i].loopPose = loop;
-                    changed = true;
-                }
+                // **Loop Pose'a DOKUNULMUYOR.** Bir sürümde açılmıştı; sonra
+                // ölçüldü ve iki pakette de zaten açık çıktı (`loopBlend: 1`),
+                // yani satır hiçbir şey yapmıyordu. Hiçbir şey yapmayan bir
+                // satır, ileride onu okuyanı "demek ki bu gerekliymiş" diye
+                // yanıltıyor.
 
                 // Aralık HER ZAMAN dosyanın tam aralığından hesaplanıyor,
                 // mevcut ayardan değil: kırpma import ayarına yazılıyor ve
@@ -487,11 +490,11 @@ public static class RunnerSetup
         // Yön klipleri VARSA 2B karışım kuruluyor. Yoksa parametreleri hiç
         // eklemiyoruz: `CharacterAnimatorBase` denetleyicide olmayan bir
         // parametreye yazmıyor ve konsol temiz kalıyor.
-        AnimationClip walkBack = ByPriority(clips, WalkBackHints);
-        AnimationClip walkLeft = ByPriority(clips, WalkLeftHints);
-        AnimationClip walkRight = ByPriority(clips, WalkRightHints);
-        AnimationClip runLeft = ByPriority(clips, RunLeftHints);
-        AnimationClip runRight = ByPriority(clips, RunRightHints);
+        AnimationClip walkBack = ByPriority(clips, WalkBackHints, UprightOnly);
+        AnimationClip walkLeft = ByPriority(clips, WalkLeftHints, UprightOnly);
+        AnimationClip walkRight = ByPriority(clips, WalkRightHints, UprightOnly);
+        AnimationClip runLeft = ByPriority(clips, RunLeftHints, UprightOnly);
+        AnimationClip runRight = ByPriority(clips, RunRightHints, UprightOnly);
 
         bool directional = walkBack != null || walkLeft != null || walkRight != null;
 
@@ -517,13 +520,13 @@ public static class RunnerSetup
 
         AnimatorStateMachine machine = controller.layers[0].stateMachine;
 
-        AnimationClip idle = ByPriority(clips, IdleHints) ?? BorrowFromMonster(IdleKey);
+        AnimationClip idle = ByPriority(clips, IdleHints, UprightOnly) ?? BorrowFromMonster(IdleKey);
 
         if (idle == null)
             Debug.LogWarning("Kaçan için 'Idle' klibi yok ve canavardan da ödünç alınamadı.");
 
-        AnimationClip walk = ByPriority(clips, WalkHints);
-        AnimationClip run = ByPriority(clips, RunHints);
+        AnimationClip walk = ByPriority(clips, WalkHints, UprightOnly);
+        AnimationClip run = ByPriority(clips, RunHints, UprightOnly);
 
         AnimatorState upright = directional
             ? CreateDirectionalState(controller, machine, "Locomotion",
@@ -546,7 +549,7 @@ public static class RunnerSetup
             CharacterAnimatorBase.CrouchParameter);
 
         // Havada olma: canavarda yok, çünkü canavar zıplayamıyor.
-        AnimationClip airborneClip = ByPriority(clips, AirborneHints);
+        AnimationClip airborneClip = ByPriority(clips, AirborneHints, UprightOnly);
 
         if (airborneClip != null)
         {
@@ -615,21 +618,52 @@ public static class RunnerSetup
     /// ipucunun kazandığı sözlüğün sırasına kalıyor. Rol seçiminde sıra
     /// belirleyici olmalı: modele özel ad ortak addan önce gelmeli.
     /// </summary>
-    private static AnimationClip ByPriority(Dictionary<string, AnimationClip> clips, string[] hints)
+    private static AnimationClip ByPriority(Dictionary<string, AnimationClip> clips, string[] hints,
+        string[] exclude = null)
     {
         foreach (string hint in hints)
         {
-            if (clips.TryGetValue(hint, out AnimationClip exact))
+            if (clips.TryGetValue(hint, out AnimationClip exact) && !Excluded(hint, exclude))
                 return exact;
 
             foreach (KeyValuePair<string, AnimationClip> pair in clips)
             {
-                if (pair.Key.Contains(hint))
+                if (pair.Key.Contains(hint) && !Excluded(pair.Key, exclude))
                     return pair.Value;
             }
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Bu anahtar rolün dışında mı — "içinde geçiyor" aramasının yanlış klibi
+    /// yakalamasını engelliyor.
+    ///
+    /// > **Tam olarak bu yüzden muz adam eğilmiş pozda donuyordu.** Boşta
+    /// > durma klibi `idle` ipucuyla aranıyor ve bizim klasörümüzde `idle`
+    /// > diye bir klip YOK (canavarınki ödünç alınıyor, bölüm 17). Ama
+    /// > `crouching idle` "idle" içeriyor: karakter dururken eğilme klibini
+    /// > oynuyordu.
+    /// >
+    /// > Aynı tuzak yürümede de vardı: `crouched walking` "walking" içeriyor.
+    /// >
+    /// > Ders: **"içinde geçiyor" araması tek başına bir eşleştirme kuralı
+    /// > değil.** Roller birbirinin adını kapsıyorsa neyin DIŞARIDA kalacağını
+    /// > da söylemek gerekiyor.
+    /// </summary>
+    private static bool Excluded(string key, string[] exclude)
+    {
+        if (exclude == null)
+            return false;
+
+        foreach (string word in exclude)
+        {
+            if (key.Contains(word))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>İpuçlarının HEPSİNİ karşılayan klipleri sırayla toplar.</summary>
@@ -846,7 +880,29 @@ public static class RunnerSetup
             enter.hasExitTime = false;
             enter.duration = 0.35f;
             enter.AddCondition(AnimatorConditionMode.If, 0f, CharacterAnimatorBase.IdleBreakTrigger);
-            enter.AddCondition(AnimatorConditionMode.Equals, i, CharacterAnimatorBase.IdleVariantParameter);
+
+            // SONUNCU durum, aralığın dışında kalan her sayıyı da yakalıyor.
+            //
+            // > **Tüketilmeyen bir tetik Unity'de ASILI KALIYOR.** Kod
+            // > varyantı kendi sayısına göre seçiyordu ve o sayı denetleyicide
+            // > kurulandan fazla olabiliyordu (iki ipucu aynı klibe düşerse
+            // > durum sayısı azalıyor). Eşleşen geçiş bulunmayınca tetik
+            // > sönmüyor, oyuncu yürümeye başlayınca ilk fırsatta ateşliyor ve
+            // > karakter yürürken esniyor — "kolları havaya kalkıyor" diye
+            // > bildirilen şey buydu.
+            // >
+            // > Son durumu "bundan büyük veya eşit" yapmak her sayıyı bir
+            // > geçişe bağlıyor, yani tetik her zaman tüketiliyor.
+            if (i == breaks.Count - 1)
+            {
+                enter.AddCondition(AnimatorConditionMode.Greater, i - 1,
+                    CharacterAnimatorBase.IdleVariantParameter);
+            }
+            else
+            {
+                enter.AddCondition(AnimatorConditionMode.Equals, i,
+                    CharacterAnimatorBase.IdleVariantParameter);
+            }
 
             AnimatorStateTransition done = state.AddTransition(upright);
             done.hasExitTime = true;
