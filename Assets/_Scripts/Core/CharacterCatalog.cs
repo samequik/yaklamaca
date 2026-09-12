@@ -76,9 +76,15 @@ public static class CharacterCatalog
         new Costume("MUZ ADAM",
             "Assets/Plugins/Banana Yellow Games/Characters/Banana Man/Banana Man.fbx"),
 
+        // Kendi animasyon klasörü BİLEREK verilmiyor (2026-09-12, ikinci
+        // tur): kendi paketi dört ayrı hataya sebep oldu (T-poz, yanlış rol
+        // eşleşmesi, asılı tetik, döngü olmayan zıplama klibi) ve oyun
+        // yayına yaklaşırken kararlı olan tercih edildi. Muz adamla aynı
+        // paylaşılan Mixamo setini kullanıyor — humanoid klipler kas
+        // uzayında olduğu için sorunsuz oynuyor (bölüm 17). Kendi paketi
+        // sonraki bir cilalama turunda geri getirilebilir.
         new Costume("UNITY-CHAN",
-            "Assets/unity-chan!/Unity-chan! Model/Art/Models/unitychan.fbx",
-            "Assets/unity-chan!/Unity-chan! Model/Art/Animations"),
+            "Assets/unity-chan!/Unity-chan! Model/Art/Models/unitychan.fbx"),
     };
 
     /// <summary>

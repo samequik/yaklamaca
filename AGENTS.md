@@ -461,6 +461,7 @@ karşı yeni bir aracı. Ölçülmedi.
 | 7 | ~~**Korku ekran efektleri**~~ | **YAPILDI** (2026-09-10, bölüm 25). Vinyet, gren, renk ayrışması, renk kaybı; canavar yaklaştıkça artıyor. Paket eklenmedi. Ayarlardaki kaydırıcı da geldi (2026-09-12) |
 | 8 | **Kostüm sistemi ÇALIŞIYOR, ikinci canavar kaldı** | **YAPILDI** (2026-09-12, bölüm 13): katalog, çoklu gövde, lobiden seçim, canlı önizleme, kostüme göre ceset. İki kaçan kostümü var (muz adam, Unity-chan); üçüncüsü bir satır ve üç araç çalıştırmak. **Kalan: özelliği olan ikinci canavar** — kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1). **Madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
 | 9 | ~~**Menü arka planı**~~ | **YAPILDI** (2026-09-12, bölüm 13). Kaçan ve canavar menünün arkasında duruyor; ayrı bir kamera hedef dokuya çiziyor. Yeni modeller gelince aynı sahneye eklenecek |
+| 10 | **Unity-Chan Lisansı (UCL) kontrolü** | **Yayın öncesi bakılmalı.** Karakter oyunda canavar tarafından yakalanıp öldürülüyor; UCL'nin şiddet/imaj kısıtlarına uyup uymadığı ve kredilerde isim/logo zorunluluğu kontrol edilmeli. Sorun çıkarsa çözüm kostümü menüden gizlemek — kod ve gövde dizisi zaten dizi tabanlı, tek kostümü kaldırmak `CharacterCatalog.Runners`'dan bir satır silmek kadar basit |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
@@ -2803,6 +2804,26 @@ oraya oturmuyor; eğilme klibi ise pakette hiç yok.
 **Döngü kararı da ada göre.** Eskiden tam ad listesiydi ve yalnızca bizim
 klip adlarımızı tanıyordu: başka bir paketin yürüyüşü döngüsüz içe aktarılıp
 tek adımda durup kalırdı.
+
+> **GERİ ALINDI (2026-09-12, ikinci tur).** Unity-chan artık kendi klasörünü
+> KULLANMIYOR — `CharacterCatalog.Runners`'daki girişinden `AnimationFolder`
+> silindi, yani o da muz adam gibi tamamen paylaşılan Mixamo setini
+> kullanıyor.
+>
+> Sebep teknik değil, zamanlama: kendi paketi peş peşe dört ayrı hataya yol
+> açtı (T-poz — karışım ağacı yanlış türdeydi; yön değerleri yanlış
+> bölünüyordu; "içinde geçiyor" araması yanlış klibi yakalıyordu; havada
+> durumu döngü olmayan bir klip kullanıyordu) ve oyun yayına yaklaşıyor.
+> Kullanıcı "onun kendi animasyonlarıyla sonra uğraşırız, şimdi kararlı olan
+> neyse o kalsın" dedi. Paylaşılan set zaten çalışıyor ve stabil — kas
+> uzayı sayesinde hiçbir ek işlem gerekmedi.
+>
+> **Mekanizmanın kendisi silinmedi**, yalnızca bu kostüm için kapatıldı:
+> `AnimationFolder` hâlâ genel bir alan ve gelecekte Unity-chan'ın kendi
+> paketi (ya da başka bir kostümün) geri getirilmek istenirse tek satır
+> (`CharacterCatalog.cs`) + `Kaçan Modelini Kur` yeterli. Bu oturumdaki bütün
+> hata düzeltmeleri (T-poz, yön/GUID, rol eşleşmesi, havada durumu) kod
+> tarafında duruyor ve mekanizma tekrar açıldığında hâlâ geçerli.
 
 #### Yönlü yürüme: geri ve yan klipler
 
