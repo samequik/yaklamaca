@@ -2812,8 +2812,37 @@ ileri yürüyen bir karakter demek.
 
 `CharacterAnimatorBase` artık gidiş yönünü karakterin kendi eksenlerine
 çevirip iki parametreye yazıyor (`Forward`, `Strafe`) ve denetleyici **serbest
-yönlü 2B** ağaç kuruyor. Değerler koşu hızına bölünüyor, yani eşikler modelin
-gerçek hızından bağımsız.
+kartezyen 2B** ağaç kuruyor. Değerler koşu hızına bölünüyor, yani eşikler
+modelin gerçek hızından bağımsız.
+
+> ### Serbest YÖNLÜ ağaç T-poza sebep oluyordu
+>
+> İlk sürüm `FreeformDirectional2D` kullanıyordu ve oynanınca "hepsinde bir
+> saniyeliğine T-poza geçiyor" diye bildirildi.
+>
+> Yönlü karışım her YÖNDE tek örnek bekliyor. Bizde ileri yönünde iki tane
+> var (yürüme 0.45'te, koşma 1'de), yanlarda da öyle. Aynı yönde iki örnek
+> olunca ağırlıklar toplamı 1 etmiyor ve karakter kısa aralıklarla hiçbir
+> klibin sürmediği hâle, yani T-poza düşüyor.
+>
+> `FreeformCartesian2D` konumları düz koordinat olarak okuyor; aynı yön
+> üstünde farklı büyüklükte örnekler tam da onun çözdüğü durum.
+>
+> **Önce döngü ayarı sanıldı ve orası zaten doğruydu.** Ders: T-poz "klip
+> bitti" demek değil, **hiçbir klip sürmüyor** demek. İkisi bambaşka sebeplere
+> bakar: biri döngü bayrağı, öbürü karışımın kendisi.
+
+**Boş hareket artık HATA yazıyor.** Hareketi olmayan bir durum ekranda T-poz
+demek ve animatör bunu sessizce yapıyor. Araç kurulumdan sonra bütün durumları
+geziyor; klibi ya da ağacı boş olan varsa kostüm ve durum adıyla söylüyor.
+
+**Hangi klibin hangi role düştüğü konsola yazılıyor.** Bir rolün yanlış klibe
+düşmesi ekranda yalnızca "animasyon tuhaf" olarak görünüyor; tahmin etmeye
+gerek kalmasın diye araç listeyi basıyor.
+
+**Loop Pose da açılıyor.** Başlangıç ve bitiş pozu arasındaki farkı klip
+boyunca dağıtıyor; kapalıyken yürüme çevrimi her turda gözle görülür bir
+sıçrama yapıyor ve döngü açık olduğu hâlde "takılıyor" gibi duruyor.
 
 **Yön klibi olmayan kostümde parametreler HİÇ eklenmiyor.** Olmayan bir
 parametreye yazmak Unity'de her karede konsola uyarı bastırıyor; bileşen

@@ -325,6 +325,16 @@ public static class RunnerSetup
                     changed = true;
                 }
 
+                // Loop Pose da açılıyor: başlangıç ve bitiş pozu arasındaki
+                // farkı klip boyunca dağıtıyor. Kapalıyken yürüme çevrimi her
+                // turda gözle görülür bir sıçrama yapıyor — döngü açık olduğu
+                // hâlde "takılıyor" gibi duruyor ve sebebi görünmüyor.
+                if (takes[i].loopPose != loop)
+                {
+                    takes[i].loopPose = loop;
+                    changed = true;
+                }
+
                 // Aralık HER ZAMAN dosyanın tam aralığından hesaplanıyor,
                 // mevcut ayardan değil: kırpma import ayarına yazılıyor ve
                 // kalıcı, yoksa her çalıştırmada üst üste binerdi. Araç böylece
@@ -580,6 +590,21 @@ public static class RunnerSetup
             Debug.LogWarning("Kaçan için yakalanma klibi bulunamadı; ölüm animasyonu kurulmadı.");
         }
 
+        VerifyStates(controller, costumeName);
+
+        // Hangi klibin hangi role düştüğü KONSOLA yazılıyor. Bir rolün yanlış
+        // klibe düşmesi ekranda "animasyon tuhaf" olarak görünüyor ve hangi
+        // klip olduğunu tahmin etmek zorunda kalmamak gerekiyor.
+        Debug.Log($"Kostüm '{costumeName}' animasyonları:\n" +
+            $"  boşta: {Name(idle)}\n" +
+            $"  yürüme: {Name(walk)}   koşma: {Name(run)}\n" +
+            $"  geri: {Name(walkBack)}   sol: {Name(walkLeft)}   sağ: {Name(walkRight)}\n" +
+            $"  koşarak sol: {Name(runLeft)}   sağ: {Name(runRight)}\n" +
+            $"  havada: {Name(airborneClip)}   ölüm: {Name(deathClip)}\n" +
+            $"  eğilme: {Name(ByPriority(clips, CrouchIdleHints))} / {Name(ByPriority(clips, CrouchWalkHints))}\n" +
+            $"  esneme varyantı: {idleBreaks.Count}\n" +
+            $"  karışım: {(directional ? "yönlü (2B)" : "tek eksenli")}");
+
         EditorUtility.SetDirty(controller);
         return controller;
     }
@@ -646,10 +671,18 @@ public static class RunnerSetup
     /// gitmek onun için aynı şey. Yön klibi olan bir pakette bu, geri giderken
     /// ileri yürüyen bir karakter demek.
     ///
-    /// **Serbest yönlü 2B** seçildi: eksenler gidiş yönünün karakterin kendi
-    /// eksenlerindeki bileşenleri (`Strafe`, `Forward`) ve merkezde boşta
-    /// durma var. Kartezyen 2B daha basit olurdu ama köşegen gidişte iki klibi
-    /// yarı yarıya karıştırıp ikisini de bozuyor.
+    /// > **Serbest YÖNLÜ ağaç kullanılamıyor ve bu T-poza sebep oluyordu.**
+    /// > Yönlü karışım her yönde TEK örnek bekliyor; bizde ileri yönünde iki
+    /// > tane var (yürüme 0.45'te, koşma 1'de) ve yanlarda da öyle. Aynı yönde
+    /// > iki örnek olunca ağırlıklar toplamı 1 etmiyor ve karakter kısa
+    /// > aralıklarla hiçbir klibin sürmediği hâle, yani T-poza düşüyor.
+    /// >
+    /// > `FreeformCartesian2D` konumları düz koordinat olarak okuyor: aynı yön
+    /// > üstünde farklı büyüklükte örnekler tam da onun çözdüğü durum.
+    /// >
+    /// > Oynanınca "hepsinde bir saniyeliğine T-poza geçiyor" diye bildirildi
+    /// > ve önce döngü ayarı sanıldı — klipler zaten döngülüydü, bozuk olan
+    /// > ağacın türüydü.
     ///
     /// Eşikler 0.45 ve 1: yürüme hızı koşunun kabaca yarısı, yani
     /// `CharacterAnimatorBase` değerleri koşuya böldüğünde yürüme oraya
@@ -665,15 +698,15 @@ public static class RunnerSetup
         BlendTree tree = new BlendTree
         {
             name = name,
-            blendType = BlendTreeType.FreeformDirectional2D,
+            blendType = BlendTreeType.FreeformCartesian2D,
             blendParameter = CharacterAnimatorBase.StrafeParameter,
             blendParameterY = CharacterAnimatorBase.ForwardParameter,
         };
 
         AssetDatabase.AddObjectToAsset(tree, controller);
 
-        // Merkez şart: serbest yönlü ağaç, yönü olmayan bir örnek olmadan
-        // sıfıra yakın değerlerde ne oynatacağını bilemiyor.
+        // Merkez şart: sıfıra yakın değerlerde oynatılacak bir şey olmalı,
+        // yoksa karakter durduğu anda T-poza düşüyor.
         if (idle != null)
             tree.AddChild(idle, new Vector2(0f, 0f));
 
@@ -693,6 +726,36 @@ public static class RunnerSetup
         // zaten hıza göre klip seçiyor ve üstüne bir de hızlandırmak yürüyüşü
         // tuhaf hâle getiriyor.
         return state;
+    }
+
+    /// <summary>
+    /// Hareketi olmayan durum var mı diye bakıyor ve varsa **hata** yazıyor.
+    ///
+    /// Boş hareketli bir durum ekranda T-poz demek ve hiçbir yerde kendiliğinden
+    /// hata vermiyor: animatör sessizce hiçbir şey oynatmıyor. Bir kez
+    /// yaşandı ve sebebi bulmak bir tur sürdü; artık araç söylüyor.
+    /// </summary>
+    private static string Name(Motion motion) => motion != null ? motion.name : "YOK";
+
+    private static void VerifyStates(AnimatorController controller, string costumeName)
+    {
+        foreach (ChildAnimatorState child in controller.layers[0].stateMachine.states)
+        {
+            AnimatorState state = child.state;
+
+            if (state.motion == null)
+            {
+                Debug.LogError($"Kostüm '{costumeName}': '{state.name}' durumunun klibi YOK. " +
+                    "O duruma geçen karakter T-poza düşer.");
+                continue;
+            }
+
+            if (state.motion is BlendTree tree && tree.children.Length == 0)
+            {
+                Debug.LogError($"Kostüm '{costumeName}': '{state.name}' karışım ağacı BOŞ. " +
+                    "O duruma geçen karakter T-poza düşer.");
+            }
+        }
     }
 
     private static void AddDirectional(BlendTree tree, AnimationClip clip, Vector2 position)
