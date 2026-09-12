@@ -29,6 +29,18 @@ public class Flashlight : NetworkBehaviour
 {
     [SerializeField] private Light spotLight;
 
+    [Tooltip("Ayak sesiyle PAYLAŞILAN 3B kaynak (Sesleri Yerleştir bağlıyor) — " +
+        "açma/kapama tıkı karşı tarafça da duyulmalı, yeni bir kaynak eklemeye " +
+        "gerek yok.")]
+    [SerializeField] private AudioSource audioSource;
+    [SerializeField] private AudioClip toggleClip;
+
+    [Tooltip("Klibin kendi seviyesi fazla geldi, oynanınca yarıya indirildi " +
+        "(2026-09-13). Kaynağın kalıcı volume'una DOKUNMUYOR — o ayak sesiyle " +
+        "paylaşılıyor, onu değiştirmek adım sesini de kısardı. PlayOneShot'un " +
+        "kendi volumeScale parametresi burada.")]
+    [SerializeField] private float toggleVolume = 0.5f;
+
     /// <summary>Prefabtaki şiddet; titreme buna göre ölçekleniyor. -1 = daha okunmadı.</summary>
     private float baseIntensity = -1f;
     private RoundParticipant participant;
@@ -103,14 +115,43 @@ public class Flashlight : NetworkBehaviour
     [Server]
     private void ServerSetOn(bool on)
     {
+        bool changed = isOn != on;
         isOn = on;
 
         // Sunucunun kendi ekranı hook'tan geçmiyor; host oynuyorsa ışık
         // burada uygulanmazsa yalnızca ona kapalı görünürdü.
         ApplyLight(on);
+
+        // Yalnızca GERÇEKTEN değiştiyse çalıyor. `OnStartServer` da bu
+        // metodu çağırıyor (round başında başlangıç durumunu yazmak için);
+        // koruma olmasaydı host'un kulağında her oyuncu için bir tık
+        // birikirdi, hiçbiri gerçek bir açma/kapama değilken.
+        if (changed)
+            PlayToggle();
     }
 
-    private void OnStateChanged(bool oldValue, bool newValue) => ApplyLight(newValue);
+    private void OnStateChanged(bool oldValue, bool newValue)
+    {
+        ApplyLight(newValue);
+        PlayToggle();
+    }
+
+    /// <summary>
+    /// Fener tık sesi. Bilerek 3B ve karşı taraftan da duyuluyor: "açarsan
+    /// görünürsün" takasının (bölüm 5) ses karşılığı — birinin feneri
+    /// açtığını/kapattığını sesle de anlayabilmelisin.
+    /// </summary>
+    private void PlayToggle()
+    {
+        if (audioSource == null || toggleClip == null)
+            return;
+
+        // Kaynak FootstepAudio ile paylaşılıyor ve o her adımda `pitch`i
+        // rastgele değiştiriyor; tık her zaman doğal perdede çalsın diye
+        // burada sıfırlanıyor.
+        audioSource.pitch = 1f;
+        audioSource.PlayOneShot(toggleClip, toggleVolume);
+    }
 
     /// <summary>
     /// Canavar yaklaştıkça fener titriyor — dehşetin ışık tarafındaki

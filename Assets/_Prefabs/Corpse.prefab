@@ -236,3 +236,4 @@ MonoBehaviour:
   maxSpeed: 6
   pushStrength: 0.3
   pushReach: 0.25
+  fallClip: {fileID: 8300000, guid: 396e285499147184c866c6c80bed2d7c, type: 3}

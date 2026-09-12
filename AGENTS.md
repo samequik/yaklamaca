@@ -452,7 +452,7 @@ karşı yeni bir aracı. Ölçülmedi.
 | # | İş | Not |
 |---|---|---|
 | 0 | ~~**Diriltme sistemi**~~ | **YAPILDI** (2026-09-08, bölüm 23). Açık kalan tek tasarım sorusu: **canavarın karşı hamlesi** — diriltme bugün tek taraflı bir kazanç |
-| 1 | **Yakınlık sesi (kalp atışı)** | Ses dosyası **oyuncudan gelecek**, sentezlenmeyecek. `Assets/_Audio/KalpAtisi.*`. **2B olmalı** — yönü belli olursa gerilim radara döner (bölüm 12) |
+| 1 | ~~**Yakınlık sesi (kalp atışı)**~~ | **YAPILDI** (2026-09-13, bölüm 12). `HeartbeatAudio`, 2B, `ScreenEffects.DreadAt`'ten besleniyor |
 | 2 | **Bıçak sesleri** (teknik borç 1) | Hâlâ sentetik yer tutucu, üstelik bıçak kaldırıldı; elle saldırıya göre yeniden seçilmeli |
 | 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
 | 4 | **Kapıdan vuruş** | İki oyuncu da kapıya 0.3 m mesafedeyken ışın kapıya varmadan kesiliyor ve isabet sayılıyor |
@@ -1462,14 +1462,9 @@ humanoid klipler avatardan bağımsız olduğu için sorunsuz oynuyor ve **böyl
 kalması kabul edildi** (2026-09-03). Kaçan klasörüne bir Idle klibi atılırsa araç
 kendiliğinden ona geçer.
 
-**5. Yakınlık sesi (kalp atışı).** Canavar yaklaştıkça yükselen kalp atışı.
-Karanlığı "göremiyorum"dan "geliyor ama nereden"e çeviriyor. **Ses dosyası
-oyuncudan gelecek — sentezlenmeyecek**, denendi ve beğenilmedi. Dosya
-`Assets/_Audio/KalpAtisi.*` olarak konulacak.
-
-Kritik tasarım notu: bu ses **2B olmalı**, 3B değil. Yönü belli olursa
-"geliyor ama nereden" gerilimi kaybolur ve radar hâline gelir. Bölüm 12'nin
-kuralı gereği 2B kaynakların `reverbZoneMix`'i de sıfırlanıyor.
+**5. ~~Yakınlık sesi (kalp atışı).~~ YAPILDI (2026-09-13, bölüm 12).**
+`HeartbeatAudio` — 2B, `ScreenEffects.DreadAt`'ten besleniyor, ekranla/fenerle
+aynı sayıyı kullanıyor.
 
 **6. ~~Sesli sohbet.~~ YAZILDI (2026-09-06), bölüm 19.**
 
@@ -1908,6 +1903,11 @@ bağlıyor. Aynı isimle üzerine yazarsan referanslar bozulmaz.
 | `Bicak_Savurma`, `Bicak_Isabet` | Bıçak (hâlâ yer tutucu) |
 | `Terminal_Calisma` | Terminal dolarken dönen çalışma sesi |
 | `Terminal_Uyari` | Terminal kilitliyken dönen uyarı |
+| `Fener` | Fener açma/kapama tıkı |
+| `Dugme` | Duvar düğmesi basma sesi (kapının kayma sesinden AYRI) |
+| `KalpAtisi` | Kalp atışı — **2B**, döngü |
+| `Diriltme_Basari` | Diriltme kabini bir kaçanı geri getirince |
+| `Ceset_Dusme` | Fırlatılan ceset yere/duvara çarpıp durunca |
 
 **Terminal sesleri 3B ve döngü.** İkisini de `Terminal.UpdateAudio` sürüyor,
 klipleri `Sesleri Yerleştir` bağlıyor. Karar veren dört alan (`locked`,
@@ -2030,6 +2030,150 @@ gelebilirsin.
 
 **Ağ Kurulumu'nu tekrar çalıştırırsan** oyuncu prefabı sıfırdan kurulduğu için
 eğri gider; bu menüyü de tekrar çalıştır.
+
+### Beş yeni ses: fener, buton, kalp atışı, diriltme, ceset düşmesi (2026-09-13)
+
+Kullanıcı beş dosya buldu, `_Audio` klasörüne kendi tanımlayıcı adlarıyla
+bıraktı (`fener sesi.mp3`, `kapı buton sesi.mp3`, `kalp sesi.mp3`,
+`canlandırma sesi sucses.mp3`, `body fall sesi.mp3`). `Sesleri Yerleştir`
+bunları tanıyıp yeniden adlandıracak, bağlayacak şekilde genişletildi.
+
+**Fener tıkı** (`Flashlight.cs`). Açma/kapama SyncVar'ının değiştiği her iki
+yolda da çalıyor: `ServerSetOn` (host'un kendi ekranı, hook'tan geçmiyor) ve
+`OnStateChanged` (uzak istemciler). **3B, bilerek** — "açarsan görünürsün"
+takasının (bölüm 5) ses karşılığı, karşı taraf birinin fenerini açtığını/
+kapattığını duyabilmeli.
+
+> `ServerSetOn`'a bir `değişti mi` koruması eklendi: `OnStartServer` da bu
+> metodu round başında başlangıç durumunu yazmak için çağırıyor ve koruma
+> olmasaydı host, sahnedeki HER oyuncu için bir tık duyardı — hiçbiri gerçek
+> bir açma/kapama değilken. `isOn`'un ve `startOn`'un ikisi de varsayılan
+> `true` olduğu sürece bu zararsız kalıyordu (`değişti mi` zaten `false`
+> çıkıyordu), ama gelecekte biri `startOn`'u değiştirirse aynı tuzak geri
+> gelebilir — koruma bunu kalıcı olarak kapatıyor.
+
+Kaynak **ayak sesiyle PAYLAŞILIYOR** — yeni bir AudioSource açmak yerine.
+Ayak sesi her adımda `pitch`i rastgele değiştirdiği için (bölüm 12'nin
+kendi kuralı), tık çalmadan önce `pitch` 1'e sıfırlanıyor; yoksa arada bir
+tık, bir önceki adımın perdesinde tuhaf çalabilirdi.
+
+**Klibin kendi seviyesi fazla geldi, oynanınca yarıya indirildi**
+(`toggleVolume` = 0.5, 2026-09-13). Paylaşılan kaynağın kendi `volume`'una
+DOKUNULMADI — o ayak sesinin seviyesi, değiştirmek adım sesini de kısardı.
+`PlayOneShot`'un kendi `volumeScale` parametresi kullanıldı, tam da bunun
+için var.
+
+**Düğme basma sesi** (`UseButton.cs`). **Kapının kayma sesinden AYRI** —
+düğmenin kendi mekanik "tık"ı, kapı hareket etmeye başlamadan hemen önce
+duyulmalı. Basanın kendi geri bildirimi anında (`Interact`), karşı taraf
+ağdan gelen `Triggerable.Activated` olayıyla (`OnTargetActivated`) — aynen
+görsel geri bildirimin (`PlayPressVisual`) izlediği yol.
+
+> **Basanın kendi sesini İKİNCİ KEZ duymaması gerekiyordu.** Görsel geri
+> bildirim zaten hem anında hem ağdan gelen yankıda İKİ KEZ tetikleniyor
+> (`pressTimer`'ı iki kez dolduruyor) ve bu göze neredeyse hiç çarpmıyor —
+> ama iki kez duyulan bir tık gerçek bir eko olurdu. `suppressEchoSoundUntil`
+> basılan andan 0.5 sn boyunca `OnTargetActivated`'daki sesi susturuyor,
+> görsele dokunmuyor.
+
+**Kalp atışı** (`Player/HeartbeatAudio.cs`) — bölüm 10'un kalan iş 1'i
+kapandı. **2B, bilerek**: yönü belli olsaydı "geliyor ama nereden" gerilimi
+radara dönerdi. `ScreenEffects.DreadAt` ile AYNI sayıdan besleniyor — ekran,
+fener titremesi, kamera sarsıntısı ve şimdi kalp atışı hiçbir zaman farklı
+şey söylemiyor (bölüm 25'in kuralı). Ek ağ trafiği sıfır: canavarın konumu
+zaten senkron.
+
+`DreadAt` HAM değeri döndürüyor (`ScreenEffects`'in kendi yumuşatması
+private), o yüzden `HeartbeatAudio` aynı yükseliş/düşüş hızlarını (0.9 / 0.30)
+kendi içinde tekrar uyguluyor — ikisi ayrışmasın diye.
+
+**Dehşet sıfıra inince `Stop()` ÇAĞRILMIYOR, yalnızca ses seviyesi sıfıra
+iniyor.** Stop/Play ile açıp kapatmak, dehşet bir eşik civarında titrediğinde
+klibin baştan çalması demek — çıt sesi ve ritmin sıfırlanması. Sessiz bir
+döngünün maliyeti bunun yanında önemsiz.
+
+**Klip `NetworkPlayerSetup.heartbeatClip` alanında duruyor**, `HeartbeatAudio`
+bileşeninde değil — bileşenin kendisi hiçbir prefabta serileşmiyor (tıpkı
+`ScreenEffects` gibi yerel kameraya ÇALIŞMA ANINDA takılıyor), yani klibi
+build'e sokacak başka bir referans yoktu. `Assets/_Audio/KalpAtisi.*` build'e
+girmeyip sessizce kaybolabilirdi — `Resources.Load` bir alternatifti ama
+projede HİÇBİR başka ses klibi o yoldan gitmiyor, ayrı bir örüntü açmamak
+için `NetworkPlayerSetup`'a sıradan bir `[SerializeField]` eklendi.
+
+**Diriltme başarı sesi** (`RevivalStation.cs`). `ServerRevive` başarılı
+olduğu anda `RpcRevived()` çalıyor, kabinin ZATEN VAR OLAN `audioSource`'unu
+paylaşıyor (`PlayOneShot`, o an dönen çalışma döngüsünü kesmiyor). Kabinin
+kendi konumundan çalıyor çünkü diriltme noktası (`revivePoint`) kabinin hemen
+yanında.
+
+**Ceset düşme sesi** (`Corpse.cs`) — yalnızca FIRLATMADA (`ServerThrow`),
+normal bırakmada değil: bırakma `MoveHeld` ile doğrudan yerleştiriyor, gerçek
+bir düşüş yok.
+
+> **İlk sürüm hız eşiğiyle ölçüyordu ve İKİ SORUN çıkardı.** `OnCollisionEnter`
+> KULLANILAMAYACAĞI düşünülmüştü — ragdoll'un Rigidbody'leri `Corpse`'un kendi
+> objesinde değil, `RagdollFactory`'nin kurduğu alt kemiklerde, çarpışma olayı
+> doğrudan Corpse'a gelmiyor. Bunun yerine oyuncunun kendi iniş sesiyle aynı
+> fikir denendi: hız eşiğiyle ölçmek. Fırlatılan ceset bir hızın üstüne çıkıp
+> sonra bir sönme eşiğinin altına inince "düştü" sayılıyordu.
+>
+> Oynanınca iki şikâyet geldi: **ses geç geliyordu** ve **bazen hiç yerinden
+> gelmiyordu, bazen de hiç çalmıyordu.**
+>
+> - **Geç:** "bütün ragdoll tamamen durdu" anını bekliyordu, ama uzuvlar
+>   çarpmadan sonra da bir süre sallanmaya devam ediyor — gerçek çarpma anıyla
+>   "sönme" anı arasında saniyeler geçebiliyordu.
+> - **Bazen hiç gelmiyordu:** eklem çözücüsünün kalıntı titreşimi hızı sönme
+>   eşiğinin altına hiçbir zaman düşürmeyebiliyordu, yani `awaitingLanding`
+>   sonsuza kadar asılı kalabiliyordu.
+> - **Yanlış yerden geliyordu:** `AudioSource` `Corpse`'un KÖKÜNE eklenmişti
+>   ve kök hiç hareket etmiyor — ragdoll'un görsel klonu ona parented olsa da
+>   fiziği bağımsız çalışıyor, kemikler kendi world-space konumlarında
+>   ilerliyor. Yani ses hep cesedin SPAWN edildiği noktadan geliyordu, o an
+>   nerede durduğundan değil.
+>
+> **Doğrusu gerçek çarpışma olayıydı — "kullanılamaz" varsayımı yanlıştı.**
+> `OnCollisionEnter` gerçekten parçanın kendi objesine geliyor, Corpse'a değil;
+> ama çözüm o olayı KULLANMAMAK değil, `ExitTriggerRelay`/`RevivalStationRelay`
+> ile aynı deseni (bölüm 18, 23) burada da uygulamaktı: `RagdollImpactRelay`
+> her ragdoll parçasına eklenip olayı `Corpse.ServerReportImpact`'e iletiyor.
+> Bu tek değişiklik üç sorunu birden çözdü:
+>
+> - **Zamanlama:** artık gerçek TEMAS ANINDA ateşliyor, sönmeyi beklemiyor.
+> - **Güvenilirlik:** bir kez ateşleyip `awaitingLanding`'i kapatıyor, asılı
+>   kalma riski yok.
+> - **Konum:** `Collision.contacts[0].point` gerçek çarpma noktasını veriyor;
+>   ses artık KÖKTEN değil, ayrı bir çocuk transformdan (`audioAnchor`) o
+>   noktaya taşınıp çalıyor.
+>
+> Yalnızca **haritaya ya da propa** (`Harita`/`Sus` katmanı) çarpma ve belirli
+> bir hızın (`LandingImpactSpeed` = 2 m/s) üstündeki temas sayılıyor —
+> oyuncuya değmek ya da `ShoveFromPlayers`'ın hafif itmesi "düştü" sesini
+> tetiklememeli.
+>
+> Ders bölüm 18'in "collider olayı beklerken hangi objede olduğuna bak"
+> dersinin aynısı, bir kez daha: "bu olay bize gelmez" demek genelde "olay
+> geliyor ama YANLIŞ OBJEYE geliyor" demektir — çözüm olayı atlamak değil,
+> onu doğru yere iletmek.
+
+> **İki prefab da SIFIRDAN KURULMADI, LoadPrefabContents ile var olan
+> varlığın İÇİNE girildi.** Fener/kalp atışı `NetworkPlayer.prefab`'a,
+> ceset düşme sesi `Corpse.prefab`'a bağlanıyor ve ikisi de PROSEDÜREL
+> üretiliyor. `Ceset Sistemini Kur`'u ya da `Ağ Kurulumu`'nu **tekrar
+> çalıştırmak GEREKMİYOR, hatta ZARARLI OLURDU** — `CorpseSetup.
+> BuildCorpsePrefab` prefabı `new GameObject`'le komple yeniden kurup
+> `Diriltme Sistemini Kur`'un yazdığı `bodies[]` dizisini silerdi; `Ağ
+> Kurulumu` da bütün model/ses/katman zincirinin yeniden çalıştırılmasını
+> gerektirirdi (bölüm 7). `Sesleri Yerleştir` bu yüzden `RevivalSetup`'ın
+> `bodies[]` için kullandığı YÖNTEMİ ödünç aldı: `PrefabUtility.
+> LoadPrefabContents` + `SaveAsPrefabAsset`, GUID korunuyor, başka hiçbir şey
+> değişmiyor.
+
+**Hâlâ eksik: jumpscare (`Bicak_Isabet`) ve `Bicak_Savurma`.** Kullanıcı bu
+ikisini henüz bulamadı. İkisi de mevcut yer tutucunun üstüne AYNI İSİMLE
+yazılınca hiçbir kod değişikliği gerekmeden takılıyor (teknik borç 1'in
+ikisini birden kapatır) — `NetworkSetup.cs` zaten `AudioSetupUtility.
+AssignClip` ile bu isimlerle arıyor.
 
 ---
 

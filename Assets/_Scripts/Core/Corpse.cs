@@ -37,6 +37,28 @@ public class Corpse : NetworkBehaviour, IInteractable
     [SerializeField] private float maxSpeed = 6f;
     [SerializeField] private float pushStrength = 0.3f;
     [SerializeField] private float pushReach = 0.25f;
+
+    [Tooltip("Fırlatılan ceset yere/duvara çarpınca bir kez çalıyor. " +
+        "Sesleri Yerleştir bağlıyor — Corpse.prefab'a LoadPrefabContents ile " +
+        "yazıyor, prefabı sıfırdan kurmuyor (bkz. RevivalSetup'ın bodies[] " +
+        "için kullandığı aynı yöntem).")]
+    [SerializeField] private AudioClip fallClip;
+    private AudioSource audioSource;
+
+    /// <summary>
+    /// Ses kaynağının kendi transformu — Corpse'un KÖKÜ değil. Kök hiç
+    /// hareket etmiyor (ragdoll'un görsel klonu ona parented ve fiziği
+    /// bağımsız çalışıyor); sesi çarpma noktasına taşımak için kökü
+    /// oynatsaydık klonu da sürüklerdi. Bu, yalnızca çarpma anında konumu
+    /// güncellenen ayrı bir çocuk.
+    /// </summary>
+    private Transform audioAnchor;
+
+    /// <summary>Fırlatmadan sonra "düştü" sesini bir kez beklediğimizi işaretler.</summary>
+    private bool awaitingLanding;
+
+    /// <summary>Bunun altındaki temaslar "düştü" sayılmıyor — kayarken sürtünme, hafif itiş.</summary>
+    private const float LandingImpactSpeed = 2f;
     /// <summary>
     /// Taşınan cesedin taşıyıcıya göre yeri. Oyuncunun orijini kapsülün
     /// ORTASI (ayaklardan 0.69 m yukarısı), göz hizası ise +0.53 m. Gövdeyi
@@ -132,6 +154,21 @@ public class Corpse : NetworkBehaviour, IInteractable
         all.Add(this);
         sync = GetComponent<RagdollSync>();
         playerMask = LayerMask.GetMask("Oyuncu");
+
+        // RevivalStation'daki desenin aynısı: bileşen kendi kaynağını
+        // kuruyor, ayrı bir prefab alanı ya da kurulum adımı gerekmiyor.
+        // Kaynak KÖKE değil, ayrı bir çocuğa (audioAnchor) konuyor — bkz.
+        // alanın yorumu.
+        GameObject anchor = new GameObject("CesetSesi");
+        anchor.transform.SetParent(transform, false);
+        audioAnchor = anchor.transform;
+
+        audioSource = anchor.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        audioSource.spatialBlend = 1f;
+        audioSource.rolloffMode = AudioRolloffMode.Linear;
+        audioSource.minDistance = 2f;
+        audioSource.maxDistance = 20f;
     }
     private void OnDestroy() => all.Remove(this);
     [Server] public void ServerInit(uint victim)
@@ -181,6 +218,16 @@ public class Corpse : NetworkBehaviour, IInteractable
         ragdoll = RagdollFactory.Build(ResolveBone, ragdollMass, LayerMask.NameToLayer("Etkilesim"));
         if (ragdoll.Count == 0) { Debug.LogError("Ceset iskeleti kurulamadı.", this); return; }
         RagdollFactory.DisableSelfCollision(ragdoll);
+
+        // Çarpışma olayı parçanın KENDİ objesine geliyor, Corpse'a değil —
+        // aktarıcı geri iletiyor (bkz. RagdollImpactRelay, bölüm 21.1'deki
+        // "collider başka objede" tuzağının aynısı).
+        foreach (var part in ragdoll)
+        {
+            RagdollImpactRelay relay = part.Collider.gameObject.AddComponent<RagdollImpactRelay>();
+            relay.Owner = this;
+        }
+
         sync.Bind(ragdoll);
         ApplyAuthority();
     }
@@ -315,6 +362,50 @@ public class Corpse : NetworkBehaviour, IInteractable
 
         ShoveFromPlayers();
     }
+
+    /// <summary>
+    /// Bir ragdoll parçası bir şeye çarptı — `RagdollImpactRelay` iletiyor.
+    ///
+    /// **`OnCollisionEnter` ile, hız eşiğiyle DEĞİL** (ilk sürüm öyleydi ve
+    /// iki sorun çıkardı: ses geç geliyordu, çünkü "bütün ragdoll tamamen
+    /// durdu" anını bekliyordu — uzuvlar çarpmadan sonra da bir süre
+    /// sallanmaya devam ediyor. Ve bazen HİÇ gelmiyordu, çünkü eklem
+    /// çözücüsünün kalıntı titreşimi hızı sönme eşiğinin altına hiç
+    /// düşürmeyebiliyordu.) Gerçek çarpışma olayı ikisini de çözüyor: tam
+    /// TEMAS ANINDA ateşliyor ve `Collision.contacts[0].point` gerçek çarpma
+    /// noktasını veriyor.
+    ///
+    /// Yalnızca **haritaya ya da propa** (Harita/Sus katmanı) çarpma sayılıyor
+    /// — oyuncuya hafifçe değmek ya da ShoveFromPlayers'ın ittirmesi
+    /// saymamalı. Hız eşiği de kalıyor: cesedi hafifçe iterken duvara
+    /// sürtünmesi "düştü" sesini tetiklememeli.
+    /// </summary>
+    [Server]
+    public void ServerReportImpact(Collision collision)
+    {
+        if (!awaitingLanding || collision.relativeVelocity.magnitude < LandingImpactSpeed)
+            return;
+
+        int mask = LayerMask.GetMask("Harita", "Sus");
+        if (((1 << collision.gameObject.layer) & mask) == 0)
+            return;
+
+        awaitingLanding = false;
+        RpcLanded(collision.GetContact(0).point);
+    }
+
+    /// <summary>Herkeste bir kez çalıyor — ses kaynağı ÇARPMA NOKTASINA
+    /// taşınıyor, Corpse'un kökü değil (kök hiç hareket etmiyor, bkz.
+    /// audioAnchor alanının yorumu).</summary>
+    [ClientRpc]
+    private void RpcLanded(Vector3 point)
+    {
+        if (fallClip == null)
+            return;
+
+        audioAnchor.position = point;
+        audioSource.PlayOneShot(fallClip, 0.9f);
+    }
     /// <summary>
     /// Taşınan cesedin tutulacağı nokta — ama **duvara girmeyecek şekilde.**
     ///
@@ -397,6 +488,12 @@ public class Corpse : NetworkBehaviour, IInteractable
         if (player.GetComponent<PlayerController>()?.IsFocused == true) return;
         CaptureHeldPose(player.transform.rotation);
         carrierNetId = player.netId;
+
+        // Havadayken tekrar tutulursa hiçbir çarpışma "düştü" sayılmamalı —
+        // bekleyen bayrağı burada temizlemek bir sonraki fırlatmaya kadar
+        // asılı kalmasını önlüyor.
+        awaitingLanding = false;
+
         ApplyAuthority();
     }
     public void Drop() => CmdDrop();
@@ -452,6 +549,7 @@ public class Corpse : NetworkBehaviour, IInteractable
         ServerDrop();
 
         throwClampUntil = Time.time + ThrowGrace;
+        awaitingLanding = true;
 
         foreach (var part in ragdoll)
         {

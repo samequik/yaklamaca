@@ -20,6 +20,11 @@ public class NetworkPlayerSetup : NetworkBehaviour
     [SerializeField] private Camera playerCamera;
     [SerializeField] private AudioListener audioListener;
 
+    [Tooltip("Kalp atışı klibi. HeartbeatAudio hiçbir prefabta serileşmiyor " +
+        "(ScreenEffects gibi çalışma anında takılıyor), yani klibi build'e " +
+        "sokacak başka bir referans yok — bu alan o referans. Sesleri Yerleştir bağlıyor.")]
+    [SerializeField] private AudioClip heartbeatClip;
+
     [Tooltip("Girdi okuyan veya yalnızca sahibini ilgilendiren bileşenler.")]
     [SerializeField] private Behaviour[] localOnlyComponents;
 
@@ -109,7 +114,11 @@ public class NetworkPlayerSetup : NetworkBehaviour
             // Çalışma anında takılıyor, prefaba serileştirilmiyor: aksi hâlde
             // `Ağ Kurulumu` zincirinin tamamını yeniden çalıştırmak gerekirdi
             // (bölüm 7'deki kurulum sırası).
-            if (isLocal) ScreenEffects.Attach(playerCamera);
+            if (isLocal)
+            {
+                ScreenEffects.Attach(playerCamera);
+                HeartbeatAudio.Attach(playerCamera, heartbeatClip);
+            }
         }
 
         if (audioListener != null)

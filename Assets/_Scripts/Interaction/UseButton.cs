@@ -22,10 +22,25 @@ public class UseButton : MonoBehaviour, IInteractable
     [SerializeField] private float pressDepth = 0.03f;
     [SerializeField] private float pressDuration = 0.12f;
 
+    [Header("Ses")]
+    [Tooltip("Sesleri Yerleştir bağlıyor. Kapının kayma sesinden AYRI — düğmenin " +
+        "kendi mekanik tık sesi, kapı hareket etmeye başlamadan hemen önce duyulur.")]
+    [SerializeField] private AudioSource audioSource;
+    [SerializeField] private AudioClip pressClip;
+
     private float nextUseTime;
     private Vector3 visualRestPosition;
     private float pressTimer;
     private int sourceId;
+
+    /// <summary>
+    /// Basanın kendi sesini İKİNCİ KEZ duymaması için. `Interact` sesi anında
+    /// çalıyor; birazdan aynı basışın ağdan gelen yankısı `OnTargetActivated`
+    /// üzerinden de gelip aynı sesi tekrar çalardı — görsel geri bildirimde
+    /// bu zararsız (pressTimer'ı yeniden dolduruyor, göze neredeyse hiç
+    /// çarpmıyor), ama iki kez duyulan bir tık göze çarpan bir eko olurdu.
+    /// </summary>
+    private float suppressEchoSoundUntil;
 
     private void Awake()
     {
@@ -73,10 +88,21 @@ public class UseButton : MonoBehaviour, IInteractable
     private void OnTargetActivated(int activatedSource)
     {
         if (activatedSource == sourceId)
+        {
             PlayPressVisual();
+
+            if (Time.time >= suppressEchoSoundUntil)
+                PlayPressSound();
+        }
     }
 
     private void PlayPressVisual() => pressTimer = pressDuration;
+
+    private void PlayPressSound()
+    {
+        if (audioSource != null && pressClip != null)
+            audioSource.PlayOneShot(pressClip);
+    }
 
     /// <summary>
     /// Yerel beklemenin süresi: hedefin kişi başı cooldown'u ile bu düğmenin
@@ -145,6 +171,8 @@ public class UseButton : MonoBehaviour, IInteractable
         // animasyonu birazdan hedefin haberiyle görüyor (CLAUDE.md bölüm 4:
         // his istemcide, karar sunucuda).
         PlayPressVisual();
+        PlayPressSound();
+        suppressEchoSoundUntil = Time.time + 0.5f;
 
         if (targets == null)
             return;

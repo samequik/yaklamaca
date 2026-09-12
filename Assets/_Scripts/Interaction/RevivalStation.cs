@@ -9,6 +9,11 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     [SerializeField] private Renderer indicator;
     [SerializeField] private AudioClip workingClip;
     [SerializeField] private AudioClip warningClip;
+
+    [Tooltip("Diriltme tamamlanınca bir kez çalıyor. Zaten var olan " +
+        "audioSource'u paylaşıyor: PlayOneShot, o an dönen çalışma döngüsünü " +
+        "kesmeden üstüne biniyor.")]
+    [SerializeField] private AudioClip successClip;
     [SerializeField] private float duration = 15f;
     [SerializeField] private float useDistance = 4f;
 
@@ -273,8 +278,18 @@ public class RevivalStation : NetworkBehaviour, IInteractable
         if (RoundManager.Instance.ServerRevive(Body, revivePoint != null ? revivePoint : BodyAnchor))
         {
             if (revived != 0) revivedHere.Add(revived);
+            RpcRevived();
             ResetStation();
         }
+    }
+
+    /// <summary>Herkeste bir kez çalıyor — kabinin kendi konumundan, çünkü
+    /// diriltme noktası (revivePoint) kabinin hemen yanında.</summary>
+    [ClientRpc]
+    private void RpcRevived()
+    {
+        if (successClip != null)
+            audioSource.PlayOneShot(successClip, 0.9f);
     }
     /// <summary>
     /// Kabinin içine bırakılmış serbest bir ceset var mı diye bakar ve varsa

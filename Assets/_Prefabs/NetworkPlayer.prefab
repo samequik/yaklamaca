@@ -424,6 +424,8 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   spotLight: {fileID: 4239419904721126651}
+  audioSource: {fileID: 1151556704250740504}
+  toggleClip: {fileID: 8300000, guid: eaeb46d5295cf7e478e7972622296796, type: 3}
   startOn: 1
 --- !u!114 &4531741234562770720
 MonoBehaviour:
@@ -771,6 +773,7 @@ MonoBehaviour:
   syncInterval: 0
   playerCamera: {fileID: 4425000675264325055}
   audioListener: {fileID: 7769139680633980419}
+  heartbeatClip: {fileID: 8300000, guid: dc6e6ce7e19b6bc4b8104a99a8e1fffe, type: 3}
   localOnlyComponents:
   - {fileID: 184747919198372036}
   - {fileID: 4105344977788894856}
