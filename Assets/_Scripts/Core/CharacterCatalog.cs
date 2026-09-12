@@ -45,10 +45,25 @@ public static class CharacterCatalog
         /// </summary>
         public readonly string ModelPath;
 
-        public Costume(string name, string modelPath)
+        /// <summary>
+        /// Bu kostümün KENDİ animasyon klasörü; boşsa ortak klasör kullanılıyor.
+        ///
+        /// Kostümün kendi klipleri ortağın ÜSTÜNE yazılıyor, onun yerine
+        /// geçmiyor: modelin kendi yürüyüşü varsa o oynuyor, yoksa ortak
+        /// klipler dolduruyor. Humanoid klipler kas uzayında saklandığı için
+        /// ortak olanlar her iskelette çalışıyor (bölüm 17).
+        ///
+        /// **Ölüm klibi bilerek ortaktan geliyor**: yakalanma koreografisi
+        /// canavarın klibiyle iç içe geçmek zorunda (bölüm 17), modelin kendi
+        /// "yenildim" klibi oraya oturmuyor.
+        /// </summary>
+        public readonly string AnimationFolder;
+
+        public Costume(string name, string modelPath, string animationFolder = null)
         {
             Name = name;
             ModelPath = modelPath;
+            AnimationFolder = animationFolder;
         }
     }
 
@@ -62,7 +77,8 @@ public static class CharacterCatalog
             "Assets/Plugins/Banana Yellow Games/Characters/Banana Man/Banana Man.fbx"),
 
         new Costume("UNITY-CHAN",
-            "Assets/unity-chan!/Unity-chan! Model/Art/Models/unitychan.fbx"),
+            "Assets/unity-chan!/Unity-chan! Model/Art/Models/unitychan.fbx",
+            "Assets/unity-chan!/Unity-chan! Model/Art/Animations"),
     };
 
     /// <summary>

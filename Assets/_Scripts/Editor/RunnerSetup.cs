@@ -44,6 +44,13 @@ public static class RunnerSetup
     internal const string AnimationFolder = "Assets/_Art/Models/Kacan";
     internal const string MonsterAnimationFolder = "Assets/_Art/Models/Canavar";
     internal const string ControllerPath = AnimationFolder + "/Kacan.controller";
+
+    /// <summary>
+    /// Kostümün denetleyici yolu. Sıfırıncı eski yolu koruyor: `ControllerPath`
+    /// başka araçlarda da geçiyor ve adını değiştirmek onları kırardı.
+    /// </summary>
+    internal static string ControllerPathFor(int costume) =>
+        costume == 0 ? ControllerPath : $"{AnimationFolder}/Kacan_{costume}.controller";
     private const string PlayerPrefabPath = "Assets/_Prefabs/NetworkPlayer.prefab";
 
     /// <summary>
@@ -84,24 +91,49 @@ public static class RunnerSetup
     private const float DeathSpeed = 1.7f;
 
     // Klip anahtarları: dosya adında "@" sonrası kısım, küçük harf.
+    /// <summary>Canavardan ödünç alınan boşta klibinin anahtarı (bölüm 17).</summary>
     private const string IdleKey = "idle";
-    private const string WalkKey = "walking";
-    private const string RunKey = "running";
-    private const string CrouchIdleKey = "crouching idle";
-    private const string CrouchWalkKey = "crouched walking";
 
     /// <summary>Havada olma klibi. `falling idle` varsa tercih ediliyor: gerçek
     /// bir döngü. Yoksa `jumping` kullanılıyor.</summary>
-    private static readonly string[] AirborneKeys = { "falling idle", "falling", "jumping" };
+
+    private static readonly string[] AirborneHints = { "jump00", "falling idle", "falling", "jumping" };
 
     /// <summary>Yakalanma klibi. Ad uzun ve Türkçe, o yüzden birebir değil
     /// "içeriyor mu" diye aranıyor.</summary>
     private static readonly string[] DeathHints = { "takedown", "ölme", "olme", "death", "dying" };
 
-    private static readonly string[] LoopingClips =
+    // Rol ipuçları. Sıra ÖNEMLİ: ilk eşleşen kazanıyor, yani modele özel ad
+    // ortak addan önce geliyor. Tek liste iki paketi birden karşılıyor —
+    // ayrı bir "bu pakette şu klip şuna denk" tablosu tutmak, her yeni
+    // kostümde güncellenmesi gereken üçüncü bir yer olurdu.
+    private static readonly string[] IdleHints = { "wait00", "idle" };
+    private static readonly string[] WalkHints = { "walk00_f", "walking" };
+    private static readonly string[] RunHints = { "run00_f", "running" };
+    private static readonly string[] WalkBackHints = { "walk00_b" };
+    private static readonly string[] WalkLeftHints = { "walk00_l" };
+    private static readonly string[] WalkRightHints = { "walk00_r" };
+    private static readonly string[] RunLeftHints = { "run00_l" };
+    private static readonly string[] RunRightHints = { "run00_r" };
+    private static readonly string[] CrouchIdleHints = { "crouching idle" };
+    private static readonly string[] CrouchWalkHints = { "crouched walking" };
+
+    /// <summary>
+    /// Boşta kalma kırılımları: uzun süre kıpırdamayınca oynayan esneme,
+    /// gerinme gibi klipler. Her biri ayrı bir varyant.
+    /// </summary>
+    private static readonly string[] IdleBreakHints = { "wait01", "wait02", "wait03", "wait04" };
+
+    /// <summary>
+    /// Döngüye alınacak klipler — ADA GÖRE, tam eşleşmeye değil.
+    ///
+    /// Eskiden tam ad listesiydi ve yalnızca bizim klip adlarımızı tanıyordu:
+    /// başka bir paketin yürüyüşü döngüsüz içe aktarılıp tek seferde durup
+    /// kalıyordu. İpucu listesi her paketi birden karşılıyor.
+    /// </summary>
+    private static readonly string[] LoopingHints =
     {
-        IdleKey, WalkKey, RunKey, CrouchIdleKey, CrouchWalkKey,
-        "falling idle", "falling", "jumping"
+        "idle", "walk", "run", "wait", "falling", "jumping"
     };
 
     [MenuItem("Yakalamaca/Kaçan Modelini Kur", true)]
@@ -143,10 +175,46 @@ public static class RunnerSetup
         if (monsterKill == null)
             Debug.LogWarning("Canavarın 'kill' klibi bulunamadı; ölüm klibi kırpılmadı.");
 
-        Dictionary<string, AnimationClip> clips = ImportAnimations(target, deathSeconds);
+        // ORTAK klipler: bizim Mixamo takımımız. Her kostüm bunların üstüne
+        // kendi kliplerini yazıyor; yazmadığı yerler ortaktan doluyor.
+        Dictionary<string, AnimationClip> shared = ImportAnimations(AnimationFolder, target, deathSeconds);
 
-        AnimatorController controller = BuildController(clips);
-        string prefabReport = AttachToPlayerPrefab(model, controller, clips, deathSeconds);
+        List<AnimatorController> controllers = new List<AnimatorController>();
+        int ownClipTotal = 0;
+
+        for (int i = 0; i < CharacterCatalog.Runners.Length; i++)
+        {
+            CharacterCatalog.Costume costume = CharacterCatalog.Runners[i];
+            Dictionary<string, AnimationClip> merged = new Dictionary<string, AnimationClip>(shared);
+
+            if (!string.IsNullOrEmpty(costume.AnimationFolder))
+            {
+                // Kostümün klasöründeki klipler KENDİ iskeletinde yazılmış:
+                // kaynak avatar ad tahminine bırakılmıyor, doğrudan veriliyor.
+                Avatar own = FindAvatar(costume.ModelPath);
+
+                if (own == null)
+                {
+                    Debug.LogWarning($"Kostüm '{costume.Name}': avatar bulunamadı, " +
+                        "kendi animasyonları atlandı ve ortak klipler kullanılacak.");
+                }
+                else
+                {
+                    Dictionary<string, AnimationClip> ownClips =
+                        ImportAnimations(costume.AnimationFolder, target, deathSeconds, own);
+
+                    foreach (KeyValuePair<string, AnimationClip> pair in ownClips)
+                        merged[pair.Key] = pair.Value;
+
+                    ownClipTotal += ownClips.Count;
+                }
+            }
+
+            controllers.Add(BuildController(merged, ControllerPathFor(i), costume.Name));
+        }
+
+        Dictionary<string, AnimationClip> clips = shared;
+        string prefabReport = AttachToPlayerPrefab(controllers, clips, deathSeconds);
 
         AssetDatabase.SaveAssets();
 
@@ -154,7 +222,8 @@ public static class RunnerSetup
             $"· {clips.Count} animasyon içe aktarıldı ve Humanoid'e çevrildi\n" +
             (materials > 0 ? $"· {materials} materyal onarıldı (bağlantı + albedo)\n" : "") +
             (deathSeconds > 0f ? $"· Ölüm klibi {deathSeconds:0.00} sn'ye kırpıldı (canavarın yakalama süresi)\n" : "") +
-            $"· Animator: {ControllerPath}\n" +
+            $"· {controllers.Count} denetleyici kuruldu (kostüm başına bir tane)\n" +
+            (ownClipTotal > 0 ? $"· {ownClipTotal} klip kostümlerin kendi paketlerinden geldi\n" : "") +
             $"· {prefabReport}\n\n" +
             "Klipler:\n" + DescribeClips(clips) +
             "\nTEST: Play → Host → [2] kaçan olarak başlat → üçüncü şahıs görmek " +
@@ -164,21 +233,29 @@ public static class RunnerSetup
 
     // ---------- Animasyonlar ----------
 
-    private static Dictionary<string, AnimationClip> ImportAnimations(Avatar runnerAvatar,
-        float deathSeconds)
+    /// <summary>
+    /// Bir klasördeki klipleri humanoid'e çevirip sözlük hâlinde döndürür.
+    ///
+    /// `forcedAvatar` doluysa klasördeki HER klip onunla içe aktarılıyor:
+    /// kostümün kendi klasöründeki klipler kendi iskeletinde yazılmış oluyor
+    /// ve ad tahminine gerek kalmıyor. Ortak klasörde ise ad kuralı işliyor
+    /// (`@` öncesi hangi model).
+    /// </summary>
+    private static Dictionary<string, AnimationClip> ImportAnimations(string folder,
+        Avatar runnerAvatar, float deathSeconds, Avatar forcedAvatar = null)
     {
         Dictionary<string, AnimationClip> result = new Dictionary<string, AnimationClip>();
 
-        if (!AssetDatabase.IsValidFolder(AnimationFolder))
+        if (!AssetDatabase.IsValidFolder(folder))
         {
-            Debug.LogWarning($"{AnimationFolder} yok — animasyon bulunamadı.");
+            Debug.LogWarning($"{folder} yok — animasyon bulunamadı.");
             return result;
         }
 
         Avatar monsterAvatar = FindAvatar(MonsterModelPath);
         string runnerModelName = Path.GetFileNameWithoutExtension(ModelPath).ToLowerInvariant();
 
-        foreach (string guid in AssetDatabase.FindAssets("t:Model", new[] { AnimationFolder }))
+        foreach (string guid in AssetDatabase.FindAssets("t:Model", new[] { folder }))
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
 
@@ -186,7 +263,7 @@ public static class RunnerSetup
                 continue;
 
             string key = ClipKey(path);
-            bool loop = System.Array.IndexOf(LoopingClips, key) >= 0;
+            bool loop = IsLoopingKey(key);
             bool isDeath = IsDeathKey(key);
 
             // Kare hızı dosyadan okunuyor, 30 varsayılmıyor.
@@ -202,7 +279,8 @@ public static class RunnerSetup
 
             // İskelet dosyanın kendisinde: "@" öncesi ad hangi modele aitse
             // kaynak avatar da o. Yanlış avatar kemikleri tutturamıyor.
-            Avatar source = SourceAvatarFor(path, runnerModelName, runnerAvatar, monsterAvatar);
+            Avatar source = forcedAvatar
+                ?? SourceAvatarFor(path, runnerModelName, runnerAvatar, monsterAvatar);
             if (source == null)
             {
                 Debug.LogWarning($"{Path.GetFileName(path)} için kaynak avatar bulunamadı, atlandı.");
@@ -385,16 +463,42 @@ public static class RunnerSetup
     /// objede yeniden aktifleşince varsayılan duruma dönüyor. Ayrı bir "dirildi"
     /// parametresi eklemek aynı işi ikinci kez yapmak olurdu.
     /// </summary>
-    private static AnimatorController BuildController(Dictionary<string, AnimationClip> clips)
+    private static AnimatorController BuildController(Dictionary<string, AnimationClip> clips,
+        string controllerPath, string costumeName)
     {
-        AssetDatabase.DeleteAsset(ControllerPath);
-        AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
+        AssetDatabase.DeleteAsset(controllerPath);
+        AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
 
         controller.AddParameter(CharacterAnimatorBase.SpeedParameter, AnimatorControllerParameterType.Float);
         controller.AddParameter(CharacterAnimatorBase.SpeedScaleParameter, AnimatorControllerParameterType.Float);
         controller.AddParameter(CharacterAnimatorBase.CrouchParameter, AnimatorControllerParameterType.Float);
         controller.AddParameter(RunnerAnimator.AirborneParameter, AnimatorControllerParameterType.Bool);
         controller.AddParameter(RunnerAnimator.DeathTrigger, AnimatorControllerParameterType.Trigger);
+
+        // Yön klipleri VARSA 2B karışım kuruluyor. Yoksa parametreleri hiç
+        // eklemiyoruz: `CharacterAnimatorBase` denetleyicide olmayan bir
+        // parametreye yazmıyor ve konsol temiz kalıyor.
+        AnimationClip walkBack = ByPriority(clips, WalkBackHints);
+        AnimationClip walkLeft = ByPriority(clips, WalkLeftHints);
+        AnimationClip walkRight = ByPriority(clips, WalkRightHints);
+        AnimationClip runLeft = ByPriority(clips, RunLeftHints);
+        AnimationClip runRight = ByPriority(clips, RunRightHints);
+
+        bool directional = walkBack != null || walkLeft != null || walkRight != null;
+
+        if (directional)
+        {
+            controller.AddParameter(CharacterAnimatorBase.ForwardParameter, AnimatorControllerParameterType.Float);
+            controller.AddParameter(CharacterAnimatorBase.StrafeParameter, AnimatorControllerParameterType.Float);
+        }
+
+        List<AnimationClip> idleBreaks = AllByHints(clips, IdleBreakHints);
+
+        if (idleBreaks.Count > 0)
+        {
+            controller.AddParameter(CharacterAnimatorBase.IdleBreakTrigger, AnimatorControllerParameterType.Trigger);
+            controller.AddParameter(CharacterAnimatorBase.IdleVariantParameter, AnimatorControllerParameterType.Int);
+        }
 
         // Bakış IK'sı olmadan OnAnimatorIK hiç çağrılmıyor; kafa bakış yönüne
         // dönmezdi (CLAUDE.md bölüm 14).
@@ -404,17 +508,23 @@ public static class RunnerSetup
 
         AnimatorStateMachine machine = controller.layers[0].stateMachine;
 
-        AnimationClip idle = Clip(clips, IdleKey) ?? BorrowFromMonster(IdleKey);
+        AnimationClip idle = ByPriority(clips, IdleHints) ?? BorrowFromMonster(IdleKey);
 
         if (idle == null)
             Debug.LogWarning("Kaçan için 'Idle' klibi yok ve canavardan da ödünç alınamadı.");
 
-        AnimatorState upright = CreateBlendState(controller, machine, "Locomotion",
-            new[] { idle, Clip(clips, WalkKey), Clip(clips, RunKey) },
-            new[] { 0f, 1.8f, 6f });
+        AnimationClip walk = ByPriority(clips, WalkHints);
+        AnimationClip run = ByPriority(clips, RunHints);
+
+        AnimatorState upright = directional
+            ? CreateDirectionalState(controller, machine, "Locomotion",
+                idle, walk, run, walkBack, walkLeft, walkRight, runLeft, runRight)
+            : CreateBlendState(controller, machine, "Locomotion",
+                new[] { idle, walk, run },
+                new[] { 0f, 1.8f, 6f });
 
         AnimatorState crouched = CreateBlendState(controller, machine, "CrouchLocomotion",
-            new[] { Clip(clips, CrouchIdleKey), Clip(clips, CrouchWalkKey) },
+            new[] { ByPriority(clips, CrouchIdleHints), ByPriority(clips, CrouchWalkHints) },
             new[] { 0f, 2.5f });
 
         machine.defaultState = upright;
@@ -427,7 +537,7 @@ public static class RunnerSetup
             CharacterAnimatorBase.CrouchParameter);
 
         // Havada olma: canavarda yok, çünkü canavar zıplayamıyor.
-        AnimationClip airborneClip = FirstAvailable(clips, AirborneKeys);
+        AnimationClip airborneClip = ByPriority(clips, AirborneHints);
 
         if (airborneClip != null)
         {
@@ -450,6 +560,8 @@ public static class RunnerSetup
 
         // Yakalanma. Çıkışı yok — kurbanın bedeni animasyon bitene kadar yerde
         // duruyor, sonra RoundParticipant gövdeyi tamamen kapatıyor.
+        BuildIdleBreaks(machine, upright, idleBreaks);
+
         AnimationClip deathClip = FirstAvailableByHint(clips, DeathHints);
 
         if (deathClip != null)
@@ -470,6 +582,161 @@ public static class RunnerSetup
 
         EditorUtility.SetDirty(controller);
         return controller;
+    }
+
+    /// <summary>
+    /// İpucu SIRASINA göre klip arar: önce tam ad, sonra içinde geçen.
+    ///
+    /// `FirstAvailableByHint` sözlüğü gezip ipuçlarına bakıyor, yani hangi
+    /// ipucunun kazandığı sözlüğün sırasına kalıyor. Rol seçiminde sıra
+    /// belirleyici olmalı: modele özel ad ortak addan önce gelmeli.
+    /// </summary>
+    private static AnimationClip ByPriority(Dictionary<string, AnimationClip> clips, string[] hints)
+    {
+        foreach (string hint in hints)
+        {
+            if (clips.TryGetValue(hint, out AnimationClip exact))
+                return exact;
+
+            foreach (KeyValuePair<string, AnimationClip> pair in clips)
+            {
+                if (pair.Key.Contains(hint))
+                    return pair.Value;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>İpuçlarının HEPSİNİ karşılayan klipleri sırayla toplar.</summary>
+    private static List<AnimationClip> AllByHints(Dictionary<string, AnimationClip> clips, string[] hints)
+    {
+        List<AnimationClip> found = new List<AnimationClip>();
+
+        foreach (string hint in hints)
+        {
+            AnimationClip clip = ByPriority(clips, new[] { hint });
+
+            if (clip != null && !found.Contains(clip))
+                found.Add(clip);
+        }
+
+        return found;
+    }
+
+    /// <summary>Bu klip döngüye alınmalı mı — ada göre, tam eşleşmeye değil.</summary>
+    private static bool IsLoopingKey(string key)
+    {
+        if (IsDeathKey(key))
+            return false;
+
+        foreach (string hint in LoopingHints)
+        {
+            if (key.Contains(hint))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Yönlü yürüme/koşma karışımı: ileri, geri, sağa, sola ayrı klipler.
+    ///
+    /// Tek eksenli ağaç yalnızca HIZI biliyor, yani 2 m/s ileri gitmekle geri
+    /// gitmek onun için aynı şey. Yön klibi olan bir pakette bu, geri giderken
+    /// ileri yürüyen bir karakter demek.
+    ///
+    /// **Serbest yönlü 2B** seçildi: eksenler gidiş yönünün karakterin kendi
+    /// eksenlerindeki bileşenleri (`Strafe`, `Forward`) ve merkezde boşta
+    /// durma var. Kartezyen 2B daha basit olurdu ama köşegen gidişte iki klibi
+    /// yarı yarıya karıştırıp ikisini de bozuyor.
+    ///
+    /// Eşikler 0.45 ve 1: yürüme hızı koşunun kabaca yarısı, yani
+    /// `CharacterAnimatorBase` değerleri koşuya böldüğünde yürüme oraya
+    /// düşüyor. Geri ve yan klipleri yalnızca yürüyüş hızında var, o yüzden
+    /// koşarken yana giderken yürüme klibi hızlanarak oynuyor — ayak kayması
+    /// oluyor ama yanlış yöne bakan bir karakterden iyi.
+    /// </summary>
+    private static AnimatorState CreateDirectionalState(AnimatorController controller,
+        AnimatorStateMachine machine, string name, AnimationClip idle, AnimationClip walk,
+        AnimationClip run, AnimationClip walkBack, AnimationClip walkLeft, AnimationClip walkRight,
+        AnimationClip runLeft, AnimationClip runRight)
+    {
+        BlendTree tree = new BlendTree
+        {
+            name = name,
+            blendType = BlendTreeType.FreeformDirectional2D,
+            blendParameter = CharacterAnimatorBase.StrafeParameter,
+            blendParameterY = CharacterAnimatorBase.ForwardParameter,
+        };
+
+        AssetDatabase.AddObjectToAsset(tree, controller);
+
+        // Merkez şart: serbest yönlü ağaç, yönü olmayan bir örnek olmadan
+        // sıfıra yakın değerlerde ne oynatacağını bilemiyor.
+        if (idle != null)
+            tree.AddChild(idle, new Vector2(0f, 0f));
+
+        AddDirectional(tree, walk, new Vector2(0f, 0.45f));
+        AddDirectional(tree, run, new Vector2(0f, 1f));
+        AddDirectional(tree, walkBack, new Vector2(0f, -0.45f));
+        AddDirectional(tree, walkLeft, new Vector2(-0.45f, 0f));
+        AddDirectional(tree, walkRight, new Vector2(0.45f, 0f));
+        AddDirectional(tree, runLeft, new Vector2(-1f, 0f));
+        AddDirectional(tree, runRight, new Vector2(1f, 0f));
+
+        AnimatorState state = machine.AddState(name);
+        state.motion = tree;
+
+        // Oynatma hızı BURADA ölçeklenmiyor. Tek eksenli ağaçta hız
+        // parametresi ayak kaymasını azaltıyordu; burada karışımın kendisi
+        // zaten hıza göre klip seçiyor ve üstüne bir de hızlandırmak yürüyüşü
+        // tuhaf hâle getiriyor.
+        return state;
+    }
+
+    private static void AddDirectional(BlendTree tree, AnimationClip clip, Vector2 position)
+    {
+        if (clip != null)
+            tree.AddChild(clip, position);
+    }
+
+    /// <summary>
+    /// Boşta kalma kırılımları: uzun süre kıpırdamayınca esneme/gerinme.
+    ///
+    /// Her varyant ayrı bir durum ve girişi `IdleVariant` sayısıyla seçiliyor:
+    /// Unity'nin geçişlerinde rastgelelik yok, o yüzden hangisinin oynayacağını
+    /// kod söylüyor (bkz. CharacterAnimatorBase.UpdateIdleBreak).
+    ///
+    /// Her durumun İKİ çıkışı var: klip bitince normal dönüş, ve oyuncu
+    /// hareket ederse anında dönüş. İkincisi olmasaydı esneme ortasında
+    /// yürümeye başlayan karakter bir saniye boyunca yerinde esnemeye devam
+    /// ederdi.
+    /// </summary>
+    private static void BuildIdleBreaks(AnimatorStateMachine machine, AnimatorState upright,
+        List<AnimationClip> breaks)
+    {
+        for (int i = 0; i < breaks.Count; i++)
+        {
+            AnimatorState state = CreateClipState(machine, $"Bosta_{i}", breaks[i]);
+
+            AnimatorStateTransition enter = upright.AddTransition(state);
+            enter.hasExitTime = false;
+            enter.duration = 0.35f;
+            enter.AddCondition(AnimatorConditionMode.If, 0f, CharacterAnimatorBase.IdleBreakTrigger);
+            enter.AddCondition(AnimatorConditionMode.Equals, i, CharacterAnimatorBase.IdleVariantParameter);
+
+            AnimatorStateTransition done = state.AddTransition(upright);
+            done.hasExitTime = true;
+            done.exitTime = 0.92f;
+            done.duration = 0.35f;
+
+            AnimatorStateTransition interrupt = state.AddTransition(upright);
+            interrupt.hasExitTime = false;
+            interrupt.duration = 0.12f;
+            interrupt.AddCondition(AnimatorConditionMode.Greater, 0.4f,
+                CharacterAnimatorBase.SpeedParameter);
+        }
     }
 
     private static AnimatorState CreateBlendState(AnimatorController controller,
@@ -528,18 +795,6 @@ public static class RunnerSetup
     }
 
     /// <summary>Sırayla dener, ilk bulduğunu döndürür — uyarı yazmadan.</summary>
-    private static AnimationClip FirstAvailable(Dictionary<string, AnimationClip> clips,
-        string[] keys)
-    {
-        foreach (string key in keys)
-        {
-            if (clips.TryGetValue(key, out AnimationClip clip))
-                return clip;
-        }
-
-        return null;
-    }
-
     /// <summary>Bu klip yakalanma klibi mi — ad ipuçlarına bakıyor.</summary>
     private static bool IsDeathKey(string key)
     {
@@ -641,7 +896,7 @@ public static class RunnerSetup
 
     // ---------- Prefab ----------
 
-    private static string AttachToPlayerPrefab(GameObject model, AnimatorController controller,
+    private static string AttachToPlayerPrefab(List<AnimatorController> controllers,
         Dictionary<string, AnimationClip> clips, float deathSeconds)
     {
         if (AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath) == null)
@@ -706,7 +961,11 @@ public static class RunnerSetup
                 if (animator == null)
                     animator = instance.AddComponent<Animator>();
 
-                animator.runtimeAnimatorController = controller;
+                // Her kostümün KENDİ denetleyicisi: biri yön klipleriyle 2B
+                // karışım kullanıyor, öbürü tek eksenli. Tek denetleyici
+                // paylaşsalardı yön parametreleri olmayan modelde ağaç boş
+                // kalırdı.
+                animator.runtimeAnimatorController = i < controllers.Count ? controllers[i] : null;
                 animator.applyRootMotion = false; // hareketi PlayerController veriyor
                 animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 

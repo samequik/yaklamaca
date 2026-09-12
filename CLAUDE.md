@@ -2743,6 +2743,12 @@ Bedeli toon görünümün ve dış çizginin gitmesi. Bu oyunda kazanç: karakte
 fenerle, lambalarla, canavarın kırmızı hâlesiyle ve gölgelerle aydınlanıyor,
 yani sahnenin geri kalanıyla aynı dili konuşuyor.
 
+> **Oyunda renkli, menüde siyah görünmesinin sebebi de bu.** `ForwardBase`
+> ışık problarını (SH) de topluyor. Haritada pişmiş problar var, yani oyunda
+> karaktere oradan biraz renk geliyordu; menü sahnesi 200 m aşağıda ve orada
+> hiç prob yok, geriye yalnızca 0.006 ortam ışığı kalıyor. İki ekranın farkı
+> bir arıza değil, aynı eksikliğin iki ayrı görüntüsüydü.
+>
 > Ders: **bir modelin "materyali bozuk" görünmesi shader'ın ışıkla ilişkisini
 > anlatmıyor.** Materyal doğruydu, doku doğruydu, ışıklar doğruydu; eksik olan
 > shader'ın bir geçişiydi. Pembe bir model eksik shader demek, SİYAH bir model
@@ -2773,6 +2779,64 @@ bakıyor; alan güncellenmezse kapalı bir animatöre yazılır ve karakter
 **Saç da kafa parçası sayılıyor artık** (`IsHeadPart`). Bazı modellerde saç
 ayrı bir `SkinnedMeshRenderer` ve kendi iskeletine bağlı, yani kafa kemiğini
 sıfırlamak onu toplamıyor — birinci şahısta havada duran bir saç kalırdı.
+
+#### Kostümün KENDİ animasyonları
+
+Unity-chan'ın paketi 26 klip getiriyor ve oynanınca "bunları kesin
+kullanmalıyız" dendi. Artık her kostümün kendi animasyon klasörü olabiliyor
+(`CharacterCatalog.Costume.AnimationFolder`) ve kendi denetleyicisi
+kuruluyor (`Kacan_1.controller`).
+
+**Kostümün klipleri ortağın ÜSTÜNE yazılıyor, yerine geçmiyor.** Modelin kendi
+yürüyüşü varsa o oynuyor, yoksa ortak klip dolduruyor. Humanoid klipler kas
+uzayında saklandığı için ortak olanlar her iskelette çalışıyor (bölüm 17).
+
+**Ölüm ve eğilme bilerek ortaktan geliyor.** Yakalanma koreografisi canavarın
+klibiyle iç içe geçmek zorunda (bölüm 17) ve modelin kendi "yenildim" klibi
+oraya oturmuyor; eğilme klibi ise pakette hiç yok.
+
+> **Kostümün klasöründeki klipler KENDİ iskeletinde yazılmış.** Ortak klasörde
+> kaynak avatar dosya adından tahmin ediliyordu (`@` öncesi hangi model), ama
+> bu pakette `@` yok ve tahmin canavarın avatarına düşüyordu. Kostüm klasörü
+> için avatar artık tahmin edilmiyor, doğrudan veriliyor.
+
+**Döngü kararı da ada göre.** Eskiden tam ad listesiydi ve yalnızca bizim
+klip adlarımızı tanıyordu: başka bir paketin yürüyüşü döngüsüz içe aktarılıp
+tek adımda durup kalırdı.
+
+#### Yönlü yürüme: geri ve yan klipler
+
+Tek eksenli karışım ağacı yalnızca HIZI biliyor, yani 2 m/s ileri gitmekle
+geri gitmek onun için aynı şey. Yön klibi olan bir pakette bu, geri giderken
+ileri yürüyen bir karakter demek.
+
+`CharacterAnimatorBase` artık gidiş yönünü karakterin kendi eksenlerine
+çevirip iki parametreye yazıyor (`Forward`, `Strafe`) ve denetleyici **serbest
+yönlü 2B** ağaç kuruyor. Değerler koşu hızına bölünüyor, yani eşikler modelin
+gerçek hızından bağımsız.
+
+**Yön klibi olmayan kostümde parametreler HİÇ eklenmiyor.** Olmayan bir
+parametreye yazmak Unity'de her karede konsola uyarı bastırıyor; bileşen
+denetleyicinin parametre listesini bir kez okuyup yazmadan önce bakıyor.
+
+Kartezyen 2B daha basit olurdu ama köşegen gidişte iki klibi yarı yarıya
+karıştırıp ikisini de bozuyor.
+
+#### Boşta kalma kırılımı: esneme
+
+Uzun süre kıpırdamayan karakter esniyor/geriniyor. Paket dört ayrı bekleme
+klibi getiriyor ve dördü de varyant olarak kuruluyor.
+
+**Varyantı kod seçiyor**, çünkü Unity'nin geçişlerinde rastgelelik yok: bir
+tetik ve bir de "hangisi" sayısı gidiyor. Tek klip olsaydı üçüncü tekrarda
+ezberlenirdi.
+
+Her varyantın İKİ çıkışı var: klip bitince normal dönüş, ve oyuncu hareket
+ederse anında dönüş. İkincisi olmasaydı esneme ortasında yürümeye başlayan
+karakter bir saniye boyunca yerinde esnemeye devam ederdi.
+
+Sayaç HAM hızla sıfırlanıyor, yumuşatılmışla değil: yumuşatma duruşun ilk
+saniyesini hâlâ hareketli gösteriyor ve sayaç geç başlardı.
 
 #### Ceset de kostümü giyiyor
 

@@ -81,8 +81,11 @@ internal static class MenuStageSetup
         // animatörü var, prefab örneğini yerinde dönüştürmenin yolu yok.
         for (int i = 0; i < CharacterCatalog.Runners.Length; i++)
         {
+            // Her kostüm KENDİ denetleyicisini kullanıyor: önizlemede de
+            // kendi boşta durma klibini oynasın. Ortak denetleyici verilseydi
+            // menüde herkes aynı duruşta beklerdi.
             AddCharacter(turntable.transform, $"Kacan_{i}", CharacterCatalog.Runners[i].ModelPath,
-                RunnerSetup.ControllerPath, new Vector3(-0.62f, 0f, 0f), 1.40f);
+                RunnerSetup.ControllerPathFor(i), new Vector3(-0.62f, 0f, 0f), 1.40f);
         }
 
         AddCharacter(turntable.transform, "Canavar", RunnerSetup.MonsterModelPath,
