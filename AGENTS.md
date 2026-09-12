@@ -2707,6 +2707,47 @@ ikisi de oynanış:
   ayarla" dediği şey tam olarak bu ve normalleme onu kendiliğinden çözüyor.
   Ayrı bir "bu kostümün göz hizası" alanı gerekmedi.
 
+#### Unity-chan SİMSİYAH çıktı: shader'ın ForwardAdd'i yoktu
+
+Menüde diğer figürler düzgün görünürken Unity-chan siyah bir siluetti.
+
+Sebep materyalde ya da ışıkta değil, **shader'da**: Unity-chan'ın toon
+shader'larının yalnızca `ForwardBase` geçişi var, `ForwardAdd` yok. Built-in
+ileri işlemede nokta ve spot ışıkları `ForwardAdd`'den geliyor, yani o
+shader'lar ortam ışığından ve ana yönlü ışıktan başka hiçbir şey görmüyor.
+
+**Bu menüye özel bir sorun değildi.** Bu oyunda ortam 0.006, yönlü ışık 0.05
+ve **fener bir spot** (bölüm 5). Yani aynı karakter oyunda da fenerin altında
+simsiyah kalacaktı — menü sadece onu erken gösterdi.
+
+> Paketin `Directional light for UnityChan.prefab` diye bir prefab taşıması
+> tesadüf değil: shader yönlü ışık bekliyor. Bizim menü sahnemizde bilerek
+> yönlü ışık yok (200 m öteden bütün haritayı aydınlatırdı) ve haritada olan
+> da neredeyse sıfır şiddette.
+
+Çözüm materyalleri **Standard'a çevirmek** (`RunnerSetup.ConvertToStandard`).
+Alternatif shader'a bir `ForwardAdd` geçişi eklemekti; o bir üçüncü parti
+yaması olurdu ve paket güncellenince kaybolurdu (bölüm 9).
+
+Araç artık **Standard olmayan her kostüm materyalini** çeviriyor, yalnızca
+bozuk ya da URP olanları değil. Dokular dönüşümden ÖNCE okunuyor (`_MainTex`,
+`_NormalMapSampler` → `_BumpMap`): shader değişince `HasProperty` eski
+slotları görmez olur ve elimizdeki tek referans kaybolurdu — bölüm 14'teki
+`_BaseMap` tuzağının aynısı.
+
+**Saydam olanlar Fade moduna alınıyor.** Kirpik, göz ve yanak allığı yüzün
+üstüne karışıyor; opak çevrilirlerse yüze siyah dikdörtgenler olarak binerdi.
+Ayrımı shader adındaki `blend` ve materyalin çizim kuyruğu veriyor.
+
+Bedeli toon görünümün ve dış çizginin gitmesi. Bu oyunda kazanç: karakter
+fenerle, lambalarla, canavarın kırmızı hâlesiyle ve gölgelerle aydınlanıyor,
+yani sahnenin geri kalanıyla aynı dili konuşuyor.
+
+> Ders: **bir modelin "materyali bozuk" görünmesi shader'ın ışıkla ilişkisini
+> anlatmıyor.** Materyal doğruydu, doku doğruydu, ışıklar doğruydu; eksik olan
+> shader'ın bir geçişiydi. Pembe bir model eksik shader demek, SİYAH bir model
+> ulaşamayan ışık demek — ikisi farklı arıza.
+
 #### Gövdeler bir DİZİ, hepsi prefabta hazır
 
 `PlayerBodyVisual.runnerBodies` — kostüm başına bir kayıt: kök, renderer'lar,

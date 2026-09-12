@@ -85,95 +85,153 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  bodyPrefab: {fileID: 2960958213075006786, guid: 720e317bbbb2ba2409d367d1899c7dca, type: 3}
-  bonePaths:
-  - Armature/Hips
-  - Armature/Hips/Left Thigh
-  - Armature/Hips/Right Thigh
-  - Armature/Hips/Left Thigh/Left Leg
-  - Armature/Hips/Right Thigh/Right Leg
-  - Armature/Hips/Left Thigh/Left Leg/Left Foot
-  - Armature/Hips/Right Thigh/Right Leg/Right Foot
-  - Armature/Hips/Spine 1
-  - Armature/Hips/Spine 1/Spine 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Neck
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Neck/Head
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand
-  - Armature/Hips/Left Thigh/Left Leg/Left Foot/Left Toes
-  - Armature/Hips/Right Thigh/Right Leg/Right Foot/Right Toes
-  - 
-  - 
-  - 
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Thumb 1
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Thumb 1/Left Hand Thumb 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Thumb 1/Left Hand Thumb 2/Left Hand Thumb 3
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Index 1
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Index 1/Left Hand Index 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Index 1/Left Hand Index 2/Left Hand Index 3
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Middle 1
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Middle 1/Left Hand Middle 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Middle 1/Left Hand Middle 2/Left Hand Middle 3
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Ring 1
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Ring 1/Left Hand Ring 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Ring 1/Left Hand Ring 2/Left Hand Ring 3
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Pinky 1
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Pinky 1/Left Hand Pinky 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
-    Hand/Left Hand Pinky 1/Left Hand Pinky 2/Left Hand Pinky 3
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Thumb 1
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Thumb 1/Right Hand Thumb 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Thumb 1/Right Hand Thumb 2/Right Hand Thumb 3
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Index 1
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Index 1/Right Hand Index 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Index 1/Right Hand Index 2/Right Hand Index 3
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Middle 1
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Middle 1/Right Hand Middle 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Middle 1/Right Hand Middle 2/Right Hand Middle 3
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Ring 1
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Ring 1/Right Hand Ring 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Ring 1/Right Hand Ring 2/Right Hand Ring 3
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Pinky 1
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Pinky 1/Right Hand Pinky 2
-  - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
-    Hand/Right Hand Pinky 1/Right Hand Pinky 2/Right Hand Pinky 3
-  - Armature/Hips/Spine 1/Spine 2/Spine 3
+  bodies:
+  - prefab: {fileID: 5631493016289968592, guid: c962cce776ddca3428cfbcfce9d27e7d, type: 3}
+    bonePaths:
+    - Armature/Hips
+    - Armature/Hips/Left Thigh
+    - Armature/Hips/Right Thigh
+    - Armature/Hips/Left Thigh/Left Leg
+    - Armature/Hips/Right Thigh/Right Leg
+    - Armature/Hips/Left Thigh/Left Leg/Left Foot
+    - Armature/Hips/Right Thigh/Right Leg/Right Foot
+    - Armature/Hips/Spine 1
+    - Armature/Hips/Spine 1/Spine 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Neck
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Neck/Head
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand
+    - Armature/Hips/Left Thigh/Left Leg/Left Foot/Left Toes
+    - Armature/Hips/Right Thigh/Right Leg/Right Foot/Right Toes
+    - 
+    - 
+    - 
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Thumb 1
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Thumb 1/Left Hand Thumb 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Thumb 1/Left Hand Thumb 2/Left Hand Thumb 3
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Index 1
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Index 1/Left Hand Index 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Index 1/Left Hand Index 2/Left Hand Index 3
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Middle 1
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Middle 1/Left Hand Middle 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Middle 1/Left Hand Middle 2/Left Hand Middle 3
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Ring 1
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Ring 1/Left Hand Ring 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Ring 1/Left Hand Ring 2/Left Hand Ring 3
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Pinky 1
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Pinky 1/Left Hand Pinky 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Left Shoulder/Left Arm/Left Forearm/Left
+      Hand/Left Hand Pinky 1/Left Hand Pinky 2/Left Hand Pinky 3
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Thumb 1
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Thumb 1/Right Hand Thumb 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Thumb 1/Right Hand Thumb 2/Right Hand Thumb 3
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Index 1
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Index 1/Right Hand Index 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Index 1/Right Hand Index 2/Right Hand Index 3
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Middle 1
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Middle 1/Right Hand Middle 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Middle 1/Right Hand Middle 2/Right Hand Middle 3
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Ring 1
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Ring 1/Right Hand Ring 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Ring 1/Right Hand Ring 2/Right Hand Ring 3
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Pinky 1
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Pinky 1/Right Hand Pinky 2
+    - Armature/Hips/Spine 1/Spine 2/Spine 3/Right Shoulder/Right Arm/Right Forearm/Right
+      Hand/Right Hand Pinky 1/Right Hand Pinky 2/Right Hand Pinky 3
+    - Armature/Hips/Spine 1/Spine 2/Spine 3
+  - prefab: {fileID: 888945599514516462, guid: 7fa0fed34e517bd4294b861159d4ceae, type: 3}
+    bonePaths:
+    - Character1_Reference/Character1_Hips
+    - Character1_Reference/Character1_Hips/Character1_LeftUpLeg
+    - Character1_Reference/Character1_Hips/Character1_RightUpLeg
+    - Character1_Reference/Character1_Hips/Character1_LeftUpLeg/Character1_LeftLeg
+    - Character1_Reference/Character1_Hips/Character1_RightUpLeg/Character1_RightLeg
+    - Character1_Reference/Character1_Hips/Character1_LeftUpLeg/Character1_LeftLeg/Character1_LeftFoot
+    - Character1_Reference/Character1_Hips/Character1_RightUpLeg/Character1_RightLeg/Character1_RightFoot
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_Neck
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_Neck/Character1_Head
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand
+    - Character1_Reference/Character1_Hips/Character1_LeftUpLeg/Character1_LeftLeg/Character1_LeftFoot/Character1_LeftToeBase
+    - Character1_Reference/Character1_Hips/Character1_RightUpLeg/Character1_RightLeg/Character1_RightFoot/Character1_RightToeBase
+    - 
+    - 
+    - 
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandThumb1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandThumb1/Character1_LeftHandThumb2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandThumb1/Character1_LeftHandThumb2/Character1_LeftHandThumb3
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandIndex1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandIndex1/Character1_LeftHandIndex2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandIndex1/Character1_LeftHandIndex2/Character1_LeftHandIndex3
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandMiddle1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandMiddle1/Character1_LeftHandMiddle2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandMiddle1/Character1_LeftHandMiddle2/Character1_LeftHandMiddle3
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandRing1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandRing1/Character1_LeftHandRing2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandRing1/Character1_LeftHandRing2/Character1_LeftHandRing3
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandPinky1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandPinky1/Character1_LeftHandPinky2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_LeftShoulder/Character1_LeftArm/Character1_LeftForeArm/Character1_LeftHand/Character1_LeftHandPinky1/Character1_LeftHandPinky2/Character1_LeftHandPinky3
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandThumb1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandThumb1/Character1_RightHandThumb2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandThumb1/Character1_RightHandThumb2/Character1_RightHandThumb3
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandIndex1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandIndex1/Character1_RightHandIndex2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandIndex1/Character1_RightHandIndex2/Character1_RightHandIndex3
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandMiddle1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandMiddle1/Character1_RightHandMiddle2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandMiddle1/Character1_RightHandMiddle2/Character1_RightHandMiddle3
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandRing1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandRing1/Character1_RightHandRing2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandRing1/Character1_RightHandRing2/Character1_RightHandRing3
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandPinky1
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandPinky1/Character1_RightHandPinky2
+    - Character1_Reference/Character1_Hips/Character1_Spine/Character1_Spine1/Character1_Spine2/Character1_RightShoulder/Character1_RightArm/Character1_RightForeArm/Character1_RightHand/Character1_RightHandPinky1/Character1_RightHandPinky2/Character1_RightHandPinky3
+    - 
   ragdollMass: 70
   maxSpeed: 6
   pushStrength: 0.3

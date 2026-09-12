@@ -630,15 +630,8 @@ public static class RunnerSetup
                 if (standard == null || material.shader == null)
                     continue;
 
-                bool broken = material.shader.name == "Hidden/InternalErrorShader"
-                    || material.shader.name.Contains("Universal Render Pipeline");
-
-                if (!broken)
-                    continue;
-
-                material.shader = standard;
-                EditorUtility.SetDirty(material);
-                count++;
+                if (ConvertToStandard(material, standard))
+                    count++;
             }
         }
 
@@ -818,6 +811,102 @@ public static class RunnerSetup
         LayerSetup.Apply(instance, LayerSetup.Oyuncu);
 
         return $"Model bağlandı (ölçek {scale:0.###}).";
+    }
+
+    /// <summary>
+    /// Kostüm materyalini Built-in `Standard`'a çevirir. Zaten Standard ise
+    /// hiçbir şey yapmıyor ve `false` dönüyor.
+    ///
+    /// ### Neden ÖZEL shader'lar da çevriliyor, yalnızca bozuk olanlar değil
+    ///
+    /// Built-in ileri işlemede **nokta ve spot ışıkları `ForwardAdd`
+    /// geçişinden** geliyor. `ForwardBase`'i olup `ForwardAdd`'i olmayan bir
+    /// shader yalnızca ortam ışığını ve ana yönlü ışığı görüyor.
+    ///
+    /// Bu oyunda ortam 0.006, yönlü ışık 0.05 ve **fener bir spot** (bölüm 5).
+    /// Yani öyle bir shader taşıyan karakter fenerin altında bile simsiyah
+    /// kalıyor — Unity-chan'ın toon shader'ları tam olarak böyle ve oynanınca
+    /// "menüde simsiyah gözüküyor" diye bildirildi. Menüde görünen şey aslında
+    /// oyunda da olacak bir sorundu: karakteri aydınlatacak hiçbir ışığımız
+    /// onun shader'ına ulaşmıyor.
+    ///
+    /// Alternatif shader'a `ForwardAdd` geçişi eklemekti; o bir üçüncü parti
+    /// yaması olurdu ve paket güncellenince kaybolurdu (bölüm 9). Materyali
+    /// çevirmek hem kalıcı hem de karakteri oyunun geri kalanıyla aynı
+    /// aydınlatmaya sokuyor.
+    ///
+    /// **Bedeli toon görünümün ve dış çizginin gitmesi.** Bu oyunda kazanç:
+    /// her şey gerçekçi gölgelendirmeyle çiziliyor ve sahne tamamen fenerle
+    /// aydınlanıyor.
+    /// </summary>
+    private static bool ConvertToStandard(Material material, Shader standard)
+    {
+        string shaderName = material.shader.name;
+
+        bool alreadyLit = shaderName == "Standard"
+            || shaderName == "Standard (Specular setup)"
+            || shaderName.StartsWith("Legacy Shaders/");
+
+        if (alreadyLit)
+            return false;
+
+        // Dokular dönüşümden ÖNCE okunuyor: shader değişince `HasProperty`
+        // eski slotları görmez olur ve elimizde kalan tek referans kaybolurdu
+        // (bölüm 14'teki `_BaseMap` tuzağının aynısı).
+        Texture albedo = material.HasProperty("_MainTex") ? material.GetTexture("_MainTex") : null;
+
+        Texture normal = material.HasProperty("_NormalMapSampler")
+            ? material.GetTexture("_NormalMapSampler")
+            : material.HasProperty("_BumpMap") ? material.GetTexture("_BumpMap") : null;
+
+        Color tint = material.HasProperty("_Color") ? material.GetColor("_Color") : Color.white;
+
+        // Saydam olanlar adından ve kuyruğundan anlaşılıyor: kirpik, göz ve
+        // yanak allığı yüzün üstüne karışıyor. Opak çevrilirlerse yüze siyah
+        // dikdörtgenler olarak biner.
+        bool blended = shaderName.ToLowerInvariant().Contains("blend")
+            || material.renderQueue >= (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+        material.shader = standard;
+
+        if (albedo != null)
+            material.SetTexture("_MainTex", albedo);
+
+        if (normal != null)
+        {
+            material.SetTexture("_BumpMap", normal);
+            material.EnableKeyword("_NORMALMAP");
+        }
+
+        material.SetColor("_Color", tint);
+
+        // Toon bir karakter parlak olmamalı; varsayılan Standard fazla cilalı.
+        material.SetFloat("_Glossiness", 0.12f);
+        material.SetFloat("_Metallic", 0f);
+
+        if (blended)
+            ApplyFadeMode(material);
+
+        EditorUtility.SetDirty(material);
+        return true;
+    }
+
+    /// <summary>
+    /// Standard'ı saydam (Fade) moduna alır. Inspector'daki açılır listenin
+    /// yaptığı şeyin kodla karşılığı: mod, harmanlama, derinlik yazımı,
+    /// anahtar kelimeler ve kuyruk birlikte değişmek zorunda — biri eksik
+    /// kalırsa materyal ya opak kalır ya da yanlış sırada çizilir.
+    /// </summary>
+    private static void ApplyFadeMode(Material material)
+    {
+        material.SetFloat("_Mode", 2f);
+        material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        material.SetInt("_ZWrite", 0);
+        material.DisableKeyword("_ALPHATEST_ON");
+        material.EnableKeyword("_ALPHABLEND_ON");
+        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
     }
 
     private static float ResolveScale(GameObject instance, float targetHeight)
