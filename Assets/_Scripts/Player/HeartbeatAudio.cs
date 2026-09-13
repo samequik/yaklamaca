@@ -44,7 +44,11 @@ using UnityEngine;
 public class HeartbeatAudio : MonoBehaviour
 {
     [SerializeField] private float minVolume = 0f;
-    [SerializeField] private float maxVolume = 0.85f;
+
+    // 0.85'ten 0.65'e indirildi (2026-09-13, oynanış geri bildirimi): dehşet
+    // katmanının dört tüketicisinden biri (ekran, kamera, fener ile birlikte)
+    // ve hepsi aynı yönde fazla agresifti.
+    [SerializeField] private float maxVolume = 0.65f;
     [SerializeField] private float minPitch = 0.9f;
     [SerializeField] private float maxPitch = 1.3f;
 

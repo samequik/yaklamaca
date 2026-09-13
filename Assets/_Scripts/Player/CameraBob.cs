@@ -23,8 +23,9 @@ public class CameraBob : MonoBehaviour
     [Header("Dehşet sarsıntısı")]
     [Tooltip("Canavar dibindeyken kameranın sapma genliği, metre. Küçük " +
         "tut: büyük sarsıntı nişan almayı bozup canavarı haksız yere " +
-        "güçlendirir.")]
-    [SerializeField] private float shakeAmplitude = 0.018f;
+        "güçlendirir. 0.018'den 0.012'ye indirildi (2026-09-13, oynanış " +
+        "geri bildirimi — dehşet katmanı genel olarak fazla agresifti).")]
+    [SerializeField] private float shakeAmplitude = 0.012f;
 
     [Tooltip("Sarsıntının hızı. Yüksek değer sinirli, düşük değer ağır.")]
     [SerializeField] private float shakeFrequency = 9f;

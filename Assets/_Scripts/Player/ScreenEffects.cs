@@ -71,11 +71,15 @@ public class ScreenEffects : MonoBehaviour
     [SerializeField] private float calmContrast = 1.0f;
 
     [Header("Dehşet — canavar dibindeyken")]
-    [SerializeField] private float dreadVignette = 0.78f;
-    [SerializeField] private float dreadGrain = 0.095f;
-    [SerializeField] private float dreadAberration = 0.012f;
-    [SerializeField] private float dreadDesaturate = 0.70f;
-    [SerializeField] private float dreadContrast = 1.15f;
+    [Tooltip("0.78'den 0.60'a indirildi (2026-09-13, oynanış geri bildirimi): " +
+        "kovalamaca sırasında ekranı neredeyse tamamen kapatıyordu. Dehşet " +
+        "duvarın arkasındaki canavarı da hissettirmek için BİLEREK görüş " +
+        "hattı aramıyor (bölüm 25) — şikâyet edilen o tasarım değil, şiddetti.")]
+    [SerializeField] private float dreadVignette = 0.60f;
+    [SerializeField] private float dreadGrain = 0.075f;
+    [SerializeField] private float dreadAberration = 0.009f;
+    [SerializeField] private float dreadDesaturate = 0.55f;
+    [SerializeField] private float dreadContrast = 1.08f;
 
     [Tooltip("Kontrastın döndüğü eksen: bunun ÜSTÜ parlıyor, altı çöküyor. " +
         "Sahnenin gerçek orta parlaklığı olmak zorunda. 0.5 (matematiksel " +
@@ -106,8 +110,9 @@ public class ScreenEffects : MonoBehaviour
 
     [Tooltip("Dehşet tavanındaki piksel blok boyutu. 0 veya 1 = pikselleme " +
         "kapalı. Dehşetle birlikte artıyor, yani canavar uzaktayken görüntü " +
-        "tam çözünürlükte kalıyor.")]
-    [SerializeField] private float dreadPixelate = 3f;
+        "tam çözünürlükte kalıyor. 3'ten 2'ye indirildi (2026-09-13): " +
+        "kovalamaca sırasında görüşü fazla bozuyordu.")]
+    [SerializeField] private float dreadPixelate = 2f;
 
     [Tooltip("Grenin TAM güce ulaştığı parlaklık. Altında kademeli olarak " +
         "sönüyor, simsiyahta hiç yok. Sabit genlikli gren karanlık bir " +
@@ -127,8 +132,15 @@ public class ScreenEffects : MonoBehaviour
     /// <summary>Bu mesafede dehşet TAM (metre).</summary>
     public const float DreadNear = 5f;
 
-    /// <summary>Bu mesafenin ötesinde dehşet YOK (metre). Sis görüşü ~25 m.</summary>
-    public const float DreadFar = 22f;
+    /// <summary>
+    /// Bu mesafenin ötesinde dehşet YOK (metre). Sis görüşü ~25 m.
+    /// 22'den 16'ya indirildi (2026-09-13, oynanış geri bildirimi): dört
+    /// tüketicinin (ekran, fener titremesi, kamera sarsıntısı, kalp atışı)
+    /// HEPSİ bu sabitten besleniyor, yani tek satır değişince dördü birden
+    /// daha dar/geç bir yarıçapta devreye giriyor — canavar labirentin
+    /// herhangi bir yerinde "hissedilir" olmak yerine gerçekten yaklaşınca.
+    /// </summary>
+    public const float DreadFar = 16f;
     [Tooltip("Saniyede artış hızı — yaklaşma çabuk hissedilmeli.")]
     [SerializeField] private float dreadRise = 0.9f;
     [Tooltip("Saniyede düşüş hızı. Artıştan YAVAŞ: canavar gittikten sonra " +
