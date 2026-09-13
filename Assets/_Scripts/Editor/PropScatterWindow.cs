@@ -11,6 +11,29 @@ using UnityEngine;
 ///
 /// Aynı seed aynı dağılımı verir; beğenmezsen seed'i değiştirip tekrar bas.
 ///
+/// ### "Dağıt" her zaman KENDİ hedefinin süslerini SIFIRDAN kurar
+///
+/// `Scatter()` önce hedefin var olan `Suslemeler` grubunu TAMAMEN SİLİYOR,
+/// sonra yeniden dağıtıyor (2026-09-13'ten önce bilinmiyordu, kullanıcı
+/// sordu). Elle taşınmış/silinmiş süsler varsa `Dağıt`'a tekrar basmak onları
+/// GERİ GETİRMEZ — hepsi kaybolur, yerine yeni bir rastgele dağılım gelir.
+/// Bu, `targetRoot` boşken (ana `Harita`) da doğru, `targetRoot` doluyken
+/// (bkz. aşağı) de doğru — fark yalnızca HANGİ grubun silindiği.
+///
+/// ### `targetRoot`: aynı aracı ayrı bir bölgeye (ör. yeni bir kanada) sıkı sıkıya kapsamak için
+///
+/// Boş bırakılırsa eskisi gibi `Harita`'yı hedefler. Bir obje (ör.
+/// `MazeExpansionSetup`'ın kurduğu `Harita_Genisleme_Guney`) sürüklenirse
+/// aracın HER ADIMI o objeye kapsanıyor: `Suslemeler` grubu o objenin
+/// ÇOCUĞU olarak kuruluyor/siliniyor (ana haritanınkine hiç dokunmuyor),
+/// dağılım alanı o objenin KENDİ `Zemin`inin merkezinden ve boyundan
+/// hesaplanıyor (`FindMapCenter`/`FindMapSpan` — sabit dünya merkezi
+/// VARSAYILMIYOR, çünkü yeni kanatlar dünya orijininde durmuyor), geçit/kapı
+/// boşluk payı da o objenin KENDİ `Kapilar`/`EgilmeGecitleri` gruplarından
+/// okunuyor. Duvar tespiti (`TryFindWallSpot`) zaten fizik tabanlı ve
+/// hiyerarşiye bakmıyor, yani hangi hedef seçilirse seçilsin doğru duvara
+/// yaslanıyor.
+///
 /// Menü: Yakalamaca > Harita Süsle (prop dağıt)
 /// </summary>
 public class PropScatterWindow : EditorWindow
@@ -21,6 +44,14 @@ public class PropScatterWindow : EditorWindow
     [SerializeField]
     [Tooltip("Dağıtılacak prefab'lar. Birden fazla verirsen rastgele seçilir.")]
     private GameObject[] prefabs = new GameObject[0];
+
+    [SerializeField]
+    [Tooltip("Boş bırakılırsa ana 'Harita' hedeflenir (eski davranış). Yeni bir " +
+        "kanadı (ör. MazeExpansionSetup'ın kurduğu Harita_Genisleme_Guney) buraya " +
+        "sürüklersen SÜSLEME O OBJEYE KAPSANIR: kendi Suslemeler grubunu kurar/siler, " +
+        "ana haritanınkine hiç dokunmaz; dağılım alanını da o objenin kendi Zemin'inden " +
+        "hesaplar.")]
+    private GameObject targetRoot;
 
     [SerializeField] private int count = 70;
     [SerializeField] private int seed = 1;
@@ -86,6 +117,18 @@ public class PropScatterWindow : EditorWindow
             LoadKitProps();
 
         EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Hedef", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(serialized.FindProperty("targetRoot"),
+            new GUIContent("Hedef (boşsa ana Harita)"));
+        EditorGUILayout.HelpBox(
+            targetRoot != null
+                ? $"'{targetRoot.name}' hedefleniyor — yalnızca onun kendi süsleri " +
+                  "silinip yeniden dağıtılacak, ana Harita'ya dokunulmayacak."
+                : "Ana 'Harita' hedefleniyor. Elle düzenlediğin süsler varsa 'Dağıt' " +
+                  "hepsini SİLİP yeniden dağıtır — geri getirmez.",
+            MessageType.Info);
+
+        EditorGUILayout.Space();
         EditorGUILayout.LabelField("Dağılım", EditorStyles.boldLabel);
         EditorGUILayout.PropertyField(serialized.FindProperty("count"));
         EditorGUILayout.PropertyField(serialized.FindProperty("seed"));
@@ -120,7 +163,18 @@ public class PropScatterWindow : EditorWindow
             EditorGUILayout.HelpBox("Önce en az bir prefab ekle.", MessageType.Warning);
 
         if (GUILayout.Button("Süsleri Temizle"))
-            ClearGroup();
+        {
+            GameObject target = ResolveTarget();
+            Transform existing = target != null ? target.transform.Find(GroupName) : null;
+
+            bool confirmed = existing == null || existing.childCount == 0
+                || EditorUtility.DisplayDialog("Süsler silinsin mi",
+                    $"'{target.name}' altındaki {existing.childCount} süs kalıcı olarak silinecek.",
+                    "Sil", "Vazgeç");
+
+            if (confirmed)
+                ClearGroup();
+        }
     }
 
     private bool HasPrefabs()
@@ -137,14 +191,35 @@ public class PropScatterWindow : EditorWindow
         return false;
     }
 
+    /// <summary>`targetRoot` doluysa onu, boşsa ana `Harita`yı döndürür — bkz.
+    /// sınıf yorumu. Bütün diğer metotlar bu tek noktadan gelen objeye göre
+    /// kapsanıyor, yani "hangi hedef" kararı tek yerde.</summary>
+    private GameObject ResolveTarget() => targetRoot != null ? targetRoot : GameObject.Find(MapName);
+
     private void Scatter()
     {
-        GameObject map = GameObject.Find(MapName);
+        GameObject map = ResolveTarget();
         if (map == null)
         {
-            EditorUtility.DisplayDialog("Harita yok",
-                "Önce Yakalamaca > Labirent Harita Kur çalıştır.", "Tamam");
+            EditorUtility.DisplayDialog("Hedef yok",
+                targetRoot == null
+                    ? "Sahnede 'Harita' bulunamadı. Önce Yakalamaca > Labirent Harita Kur çalıştır."
+                    : "Hedef alanındaki obje sahneden silinmiş görünüyor.",
+                "Tamam");
             return;
+        }
+
+        Transform existingGroup = map.transform.Find(GroupName);
+        if (existingGroup != null && existingGroup.childCount > 0)
+        {
+            bool confirmClear = EditorUtility.DisplayDialog("Var olan süsler silinecek",
+                $"'{map.name}' altında {existingGroup.childCount} süs zaten var. " +
+                "Devam edersen HEPSİ silinip yeniden dağıtılacak — elle taşıdıysan/" +
+                "sildiysen o hâl kaybolur, geri getirilmez.\n\nDevam edilsin mi?",
+                "Sil ve yeniden dağıt", "Vazgeç");
+
+            if (!confirmClear)
+                return;
         }
 
         ClearGroup();
@@ -154,6 +229,7 @@ public class PropScatterWindow : EditorWindow
         Undo.RegisterCreatedObjectUndo(group.gameObject, "Harita Süsle");
 
         float halfSpan = FindMapSpan(map) / 2f - 2f;
+        Vector3 center = FindMapCenter(map);
         List<Vector3> placed = new List<Vector3>();
         List<Vector3> passages = CollectPassagePositions(map);
 
@@ -166,9 +242,9 @@ public class PropScatterWindow : EditorWindow
             attempts++;
 
             Vector3 sample = new Vector3(
-                (float)(random.NextDouble() * 2f - 1f) * halfSpan,
+                center.x + (float)(random.NextDouble() * 2f - 1f) * halfSpan,
                 0.6f,
-                (float)(random.NextDouble() * 2f - 1f) * halfSpan);
+                center.z + (float)(random.NextDouble() * 2f - 1f) * halfSpan);
 
             if (!TryFindWallSpot(sample, out Vector3 wallPoint, out Vector3 normal))
                 continue;
@@ -191,7 +267,7 @@ public class PropScatterWindow : EditorWindow
         foreach (KeyValuePair<string, Vector3> pair in measured)
             report += $"\n  {pair.Key}: {pair.Value.x:0.00} × {pair.Value.y:0.00} × {pair.Value.z:0.00} m";
 
-        Debug.Log($"{placed.Count} süs yerleştirildi ({attempts} deneme).\n" +
+        Debug.Log($"'{map.name}' altına {placed.Count} süs yerleştirildi ({attempts} deneme).\n" +
             $"Koridorda en az {minCorridorWidth:0.0} m geçiş bırakıldı; sığmayan yerler atlandı.\n" +
             $"Ölçülen boyutlar:{report}\n" +
             "Beğenmezsen seed'i değiştirip tekrar bas.");
@@ -434,9 +510,24 @@ public class PropScatterWindow : EditorWindow
         return floor != null ? floor.localScale.x : 54.4f;
     }
 
-    private static void ClearGroup()
+    /// <summary>
+    /// Dağılımın merkezi — ana haritada dünya orijini (0,0,0) ama bu
+    /// VARSAYILMIYOR: hedefin kendi `Zemin`inin dünya konumu okunuyor.
+    /// Yeni kanatlar (`MazeExpansionSetup`) orijinde durmuyor, yani sabit
+    /// (0,0,0) merkez kullansaydı örnekleme noktaları kanadın dışına
+    /// taşardı ve "Dağıt" hiçbir şey yerleştiremezdi.
+    /// </summary>
+    private static Vector3 FindMapCenter(GameObject map)
     {
-        GameObject map = GameObject.Find(MapName);
+        Transform floor = map.transform.Find("Zemin");
+        return floor != null ? floor.position : Vector3.zero;
+    }
+
+    /// <summary>`targetRoot` doluysa yalnızca ONUN `Suslemeler` grubunu siler —
+    /// ana haritanınkine hiç dokunmuyor (bkz. sınıf yorumu).</summary>
+    private void ClearGroup()
+    {
+        GameObject map = ResolveTarget();
         if (map == null)
             return;
 

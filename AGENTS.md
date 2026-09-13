@@ -762,10 +762,39 @@ aracın kendi lamba mantığını ikinci kez yazmak olurdu, üstelik `Atmosfer
 Kur`'un kendisi çalıştırılamaz (bölüm 0). Yalnızca düz, ışıksız bir tavan
 var — enkaza düşülmesin diye.
 
-**Çalıştırdıktan sonra sıra:** `Katmanları Kur` → `Harita Süsle` (varil/kasa
-gibi süs modelleri, bileşene göre tarıyor, konuma bakmıyor — bu gerçekten
-otomatik) → `Sesleri Yerleştir` (yeni kapılara ses bağlar) → `Işığı Pişir`
-(yeni kanat şu an ışıksız).
+**Çalıştırdıktan sonra sıra:** `Katmanları Kur` → `Harita Süsle` (bkz. aşağı
+— artık `Hedef` alanına bu kanat sürüklenmeli) → `Sesleri Yerleştir` (yeni
+kapılara ses bağlar) → `Işığı Pişir` (yeni kanat şu an ışıksız).
+
+> **`Harita Süsle` hakkındaki önceki cümle KOD OKUNMADAN yazılmıştı ve
+> yanlıştı (2026-09-13, aynı gün).** Burada "bileşene göre tarıyor, konuma
+> bakmıyor — bu gerçekten otomatik" yazıyordu. Kullanıcı "mevcut haritadaki
+> düzenlediğim süsler silinecek mi, yoksa yeni kanada mı eklenir" diye
+> sorunca `PropScatterWindow.cs` GERÇEKTEN okundu ve gerçek davranış ortaya
+> çıktı: **`Dağıt`, hedefin `Suslemeler` grubunu ÖNCE TAMAMEN SİLİYOR, sonra
+> RASTGELE ÖRNEKLEMEYLE yeniden dolduruyor** — hiçbir "bileşene göre tarama"
+> yok. Örnekleme alanı da sabit haritanın (`Harita/Zemin`) dünya orijininde
+> merkezlenmiş sayılıyordu, yani hiç değiştirilmeden çalıştırılsaydı YENİ
+> KANADA HİÇBİR ŞEY EKLEMEZ, üstelik ana haritanın elle düzenlenmiş
+> süslerini de sessizce silerdi.
+>
+> **Düzeltildi:** `PropScatterWindow`'a `targetRoot` alanı eklendi. Boş
+> bırakılırsa eskisi gibi ana `Harita`'yı hedefler (davranış aynı, hâlâ
+> silip yeniden dağıtıyor). Bir obje sürüklenirse (`Harita_Genisleme_Guney`
+> gibi) **her adım o objeye kapsanıyor**: kendi `Suslemeler` grubunu
+> kurar/siler (ana haritanınkine hiç dokunmaz), dağılım alanını o objenin
+> KENDİ `Zemin`inin dünya konumundan hesaplar (sabit orijin varsayılmıyor).
+> Ayrıca var olan süsleri gerçekten silmeden önce artık bir onay penceresi
+> çıkıyor — `Labirent Harita Kur`/`Atmosfer Kur`'un zaten yaptığı gibi.
+>
+> **Yeni kanadı süslemek için:** `Harita Süsle`'yi aç, `Hedef` alanına
+> Hierarchy'den `Harita_Genisleme_Guney`'i sürükle, sonra `Dağıt`'a bas.
+> Ana haritanın elle düzenlenmiş süslerine hiç dokunulmaz.
+>
+> Ders bu bölümün kendi ilk dersinin aynısı (bölüm 13'ün "kod okunmadan
+> önce" tuzağı, burada ikinci kez): **bir aracın "böyle çalışıyor olmalı"
+> tahmini, kaynağı okumadan doğru sayılmamalı** — özellikle "buna dokunmuyor"
+> gibi GÜVENLİ olduğunu iddia eden bir cümle kuruluyorsa.
 
 **Henüz OYNANARAK doğrulanmadı** — kod derlendi ve geometri elle
 doğrulandı, ama Unity'de hiç açılıp çalıştırılmadı. İlk çalıştırmada
@@ -1308,7 +1337,7 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Labirent Harita Kur | Labirenti üretir, flood fill ile bağlantıyı doğrular |
 | Atmosfer Kur | Tavan, lambalar, sis, ortam ışığı |
 | Haritayı Giydir (SciFi Kit) | Küplerin üstünü kit modelleriyle kaplar |
-| Harita Süsle (prop dağıt) | Duvar diplerine varil/kasa dağıtır |
+| Harita Süsle (prop dağıt) | Duvar diplerine varil/kasa dağıtır — `Hedef` alanı boşsa ana Harita'yı süsler/siler, doldurulursa (ör. yeni kanat) yalnızca o objeyi (bkz. aşağı) |
 | Ağ Kurulumu (1. adım) | Oyuncu prefabı + NetworkManager + doğum noktaları |
 | EOS Kurulumu (relay) | EOS transport'unu ve lobi servisini kurar, lobiye bağlar; hiçbir şey silmiyor |
 | Menü Kur | Menü, lobi, ayarlar, tuş atamaları, karakter seçimi ve menü arkasındaki sahne (bkz. bölüm 13) |
