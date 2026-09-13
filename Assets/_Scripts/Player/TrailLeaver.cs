@@ -52,6 +52,15 @@ public class TrailLeaver : NetworkBehaviour
         if (participant.Role != RoundRole.Runner || !participant.IsAlive)
             return;
 
+        // Eğilerek gitmek TAMAMEN izsiz (2026-09-13, FootstepAudio'daki aynı
+        // kural) — açıkça yazılıyor, crouch hızının zaten minSpeed'in altında
+        // kalmasına örtük olarak güvenmek yerine.
+        if (controller.IsDucked)
+        {
+            distanceSinceMark = 0f;
+            return;
+        }
+
         // Zeminde olma şartı yok: bunny hop yaparken oyuncu neredeyse hep
         // havada oluyor ve iz bırakmaması takibi imkânsız kılıyordu. Aşağıdaki
         // ışın zemini bulduğu sürece çizik doğru yere düşüyor.

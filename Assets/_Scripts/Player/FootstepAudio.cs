@@ -4,13 +4,15 @@ using UnityEngine;
 /// Hareket hızına göre ayak sesi ve iniş sesi çalar.
 ///
 /// Korku/kovalamaca oyununda ayak sesi bir mekanik: kaçan canavarın yerini
-/// sesle tespit eder, canavar da kaçanın. Bu yüzden eğilerek gitmek neredeyse
-/// sessiz, koşmak yüksek sesli — hız ile gürültü arasındaki takas oyuncunun
-/// vereceği bir karar.
+/// sesle tespit eder, canavar da kaçanın. Hız/gizlilik takası **ikili**
+/// (2026-09-13, oynanış geri bildirimi): yürümek ve eğilerek gitmek TAMAMEN
+/// sessiz, yalnızca gerçek koşu (`sprintThreshold` üstü) ses çıkarıyor.
+/// `TrailLeaver`'daki izin eşiğiyle aynı sayı — ikisi hep aynı anda
+/// açılıp kapanmalı, yoksa "iz var ama ses yok" gibi tutarsız bir mekanik
+/// çıkar.
 ///
 /// Adımlar zamanla değil **kat edilen mesafeyle** tetikleniyor; böylece koşarken
 /// kendiliğinden sıklaşıyor ve hız değişince ayrıca tempo ayarı gerekmiyor.
-/// Koşmak hem daha sık hem daha gürültülü: sıklık mesafeden, seviye hızdan.
 ///
 /// Klipler **tek adım** olmalı, döngü değil. Bir ara elde 9-18 saniyelik
 /// yürüme/koşma döngüleri vardı ve bu yöntem onlarla çalışmıyordu (üst üste
@@ -64,28 +66,19 @@ public class FootstepAudio : MonoBehaviour
     [SerializeField] private Vector2 landVolumeRange = new Vector2(0.25f, 0.9f);
 
     [Header("Ritim")]
-    [Tooltip("Bu hızın altında ses çıkmaz (u/s).")]
-    [SerializeField] private float minSpeed = 40f;
-
-    [Tooltip("Bu hızın üstü koşma sayılır (u/s). Yürüme 200, sprint 400.")]
+    [Tooltip("Bu hızın altında (yürüme, eğilme) hiç ses çıkmaz — yalnızca " +
+        "gerçek koşu ses çıkarır (u/s). Yürüme 200, sprint 400. " +
+        "`TrailLeaver.minSpeed` ile AYNI sayı olmalı, ikisi hep birlikte " +
+        "açılıp kapanıyor (2026-09-13, oynanış geri bildirimi).")]
     [SerializeField] private float sprintThreshold = 300f;
 
-    [Tooltip("Yürürken kaç metrede bir adım sesi.")]
-    [SerializeField] private float walkStride = 1.8f;
-
-    [Tooltip("Koşarken kaç metrede bir adım sesi. Yürümeden büyük olmalı: koşarken " +
-        "adım aralığı uzar. Eşit bıraksaydık tempo hızla iki katına çıkıp " +
-        "makineli tüfek gibi duyulurdu.")]
+    [Tooltip("Koşarken kaç metrede bir adım sesi.")]
     [SerializeField] private float sprintStride = 2.6f;
 
     [SerializeField] private Vector2 stepPitchRange = new Vector2(0.92f, 1.08f);
 
     [Header("Ses Seviyesi")]
-    [SerializeField] private float walkVolume = 0.5f;
     [SerializeField] private float sprintVolume = 0.85f;
-
-    [Tooltip("Eğilerek gitmek gizlenmenin yolu — kasten çok düşük.")]
-    [SerializeField] private float crouchVolume = 0.12f;
 
     [Tooltip("Canavarın kendi ağır adımı kendi kulağında SIFIR mesafeden " +
         "çalıyor — 3B ses mesafeyle düşmediği için tam seviye rahatsız edici " +
@@ -175,8 +168,7 @@ public class FootstepAudio : MonoBehaviour
     /// <summary>
     /// Adımlar zamanla değil **kat edilen mesafeyle** tetikleniyor. Koşunca
     /// aynı sürede daha çok yol gidildiği için adımlar kendiliğinden sıklaşıyor —
-    /// ayrıca tempo ayarı gerekmiyor. Ses seviyesi de hızla artıyor, yani
-    /// koşmak hem daha sık hem daha gürültülü.
+    /// ayrıca tempo ayarı gerekmiyor.
     /// </summary>
     private void Update()
     {
@@ -190,23 +182,36 @@ public class FootstepAudio : MonoBehaviour
         if (source == null || !Grounded)
             return;
 
+        // Eğilerek gitmek TAMAMEN sessiz. Normalde eğilirken hız zaten
+        // sprintThreshold'un çok altına düşüyor (crouchSpeedMultiplier), ama
+        // niyeti örtük bir hız eşiğine bırakmak yerine burada açıkça yazmak
+        // daha güvenli — `TrailLeaver` de aynı şeyi kendi tarafında yapmıyor
+        // çünkü ona hiç gerek kalmıyor, ama burada tutarlılık için tutuluyor.
+        if (controller.IsDucked)
+        {
+            distanceSinceStep = 0f;
+            return;
+        }
+
         float speed = CurrentSpeed;
 
-        if (speed < minSpeed)
+        // Yürümek de TAMAMEN sessiz — yalnızca gerçek koşu ses çıkarıyor
+        // (2026-09-13, oynanış geri bildirimi: "yürüyünce ne ses ne iz").
+        // `TrailLeaver.minSpeed` ile birebir aynı eşik ve aynı davranış:
+        // eşiğin altına her düşüşte birikim sıfırlanıyor, yalnızca tam
+        // durmada değil — ikisi hep aynı anda açılıp kapanmalı.
+        if (speed < sprintThreshold)
         {
-            // Durunca birikimi sıfırlamıyoruz; tekrar yürüyünce ilk adım hemen
-            // gelsin diye bir miktar dolu kalması daha doğal duruyor.
+            distanceSinceStep = 0f;
             return;
         }
 
         distanceSinceStep += speed * PlayerController.UnitsToMeters * Time.deltaTime;
-
-        float stride = speed >= sprintThreshold ? sprintStride : walkStride;
-        if (distanceSinceStep < stride)
+        if (distanceSinceStep < sprintStride)
             return;
 
         distanceSinceStep = 0f;
-        PlayStep(speed);
+        PlayStep();
     }
 
     /// <summary>
@@ -250,7 +255,7 @@ public class FootstepAudio : MonoBehaviour
         derivedAirborne = airborne;
     }
 
-    private void PlayStep(float speed)
+    private void PlayStep()
     {
         bool isMonster = participant != null && participant.Role == RoundRole.Monster;
         AudioClip clip = isMonster && heavyStep != null ? heavyStep : lightStep;
@@ -261,7 +266,7 @@ public class FootstepAudio : MonoBehaviour
         // duymanın makineleşmiş hissini kırıyor.
         source.pitch = Random.Range(stepPitchRange.x, stepPitchRange.y);
 
-        float volume = SelectVolume(speed);
+        float volume = sprintVolume;
 
         // Canavarın kendi ekranında dinleyici (kamerası) kaynağın üstünde —
         // yalnızca o durumda kısılıyor, kaçanlar aynı adımı mesafesine göre
@@ -272,13 +277,5 @@ public class FootstepAudio : MonoBehaviour
             volume *= ownHeavyStepVolumeScale;
 
         source.PlayOneShot(clip, volume);
-    }
-
-    private float SelectVolume(float speed)
-    {
-        if (controller.IsDucked)
-            return crouchVolume;
-
-        return speed >= sprintThreshold ? sprintVolume : walkVolume;
     }
 }
