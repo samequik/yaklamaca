@@ -440,13 +440,24 @@ de henüz kod tarafında ele alınmadı.
    `Harita Süsle`ye kanadı hedefleyen bir `Hedef` alanı eklendi (araç
    olduğu gibi çalıştırılsaydı ana haritanın süslerini silip kanada hiçbir
    şey eklemezdi) ve `Güney Kanadına Işık Ekle (rastgele lamba)` yazıldı
-   (kanat hâlâ ışıksızdı). **Kalan:** `Katmanları Kur` → `Sesleri Yerleştir`
-   → `Işığı Pişir` (yeni kanat + lambaları da dahil).
-5. ~~**Diriltme terminali**~~ **YAPILDI (2026-09-13)** (bölüm 23,
-   `Interaction/RevivalStation.cs`, `UI/RevivalScreen.cs`):
-   - Süre 15 sn → **10 sn**. Üç beceri sınavının zamanlaması da (3./7./11.
-     saniye → **2./4.5./7. saniye**) buna göre yeniden ölçeklendi — aksi
-     halde üçüncü sınav (eski: 11. sn) yeni 10 sn'lik tavanın üstünde
+   (kanat hâlâ ışıksızdı — ışık eklerken bir tavan-çakışması hatası bulunup
+   düzeltildi, bkz. yukarı). **Kullanıcı sonra kanada elle 2 terminal + 1
+   çıkış taşıdı, 1 kapı + 1 diriltme istasyonu ekledi** — hepsi ölçülüp
+   doğrulandı (yukarıdaki kutu). **Bulunan iki gerçek sorun:** (1) taşınan
+   çıkış artık kanadın dış duvarının dışında, ulaşılamaz durumda — kullanıcı
+   düzeltmeli; (2) `RevivalStation.duration` sahnede hâlâ 15'te takılıydı,
+   `Diriltme Süresini Senkronize Et` aracı yazıldı ama henüz çalıştırılmadı.
+   **Kalan:** çıkışı düzelt → süreyi senkronize et → `Katmanları Kur` →
+   `Sesleri Yerleştir` → `Işığı Pişir` (yeni kanat + lambaları da dahil).
+5. ~~**Diriltme terminali**~~ **YAPILDI (2026-09-13), ama sahne SENKRON
+   DEĞİLDİ — bkz. yukarı** (bölüm 23, `Interaction/RevivalStation.cs`,
+   `UI/RevivalScreen.cs`):
+   - Süre 15 sn → **10 sn** — bu **koddaki** varsayılan; sahnedeki üç
+     istasyon `Diriltme Süresini Senkronize Et` çalıştırılana kadar hâlâ
+     15 sn kullanıyor (2026-09-13, ikinci bulgu). Üç beceri sınavının
+     zamanlaması da (3./7./11. saniye → **2./4.5./7. saniye**) buna göre
+     yeniden ölçeklendi — aksi halde üçüncü sınav (eski: 11. sn) yeni 10
+     sn'lik tavanın üstünde
      kalıp diriltmeyi SONSUZA KADAR tıkardı.
    - Beceri sınavı ve kilit açma dizilimindeki WASD istemine yön oku da
      eklendi (↑↓←→), Terminal'in kendi sınavıyla (`Terminal.
@@ -857,6 +868,47 @@ kurup/silip yeniden dağıtıyor (rerun'da bile SADECE bu grup, kanadın
 duvarları/kapıları/geçitleri/süsleri asla). Kanat henüz OYNANARAK
 doğrulanmadı, lambalar da öyle — `Işığı Pişir` çalıştırılınca sahnedeki
 bütün ışıklarla (ana harita + bu kanat) birlikte pişecek.
+
+### Kullanıcı kanadı elle detaylandırdı: 2 terminal + 1 çıkış taşındı, 1 kapı + 1 diriltme istasyonu eklendi (2026-09-13)
+
+Işıklar geldikten sonra kullanıcı ana haritadan **2 terminali** ve **1 çıkış
+kapısını** (gate+panel+kilit üçlüsü) güney kanadına taşıdı, kanada **1 yeni
+normal kapı** (Ctrl+D ile `Kapi_5_7`'den) ve **1 yeni diriltme istasyonu**
+(Ctrl+D ile `Diriltme_A`'dan) ekledi. Sahne dosyası satır satır (`fileID`/
+`m_Father` zinciriyle, isimle değil) doğrulandı:
+
+- **Terminaller ve çıkış doğru taşınmış.** İki terminal de (`Terminal_2`,
+  `Terminal_4`) kanadın içinde, bir duvara yakın (~0.2-0.5 m) — gömülü değil,
+  havada değil. Çıkışın üç parçası (`Cikis_Gecidi_1`+`Cikis_Kapisi_1`+
+  `Cikis_Kilidi_1`) TEK BİR grup gibi taşınmış: aralarındaki göreli mesafe
+  (X +3.2 m, +4.88/-1.84 m) taşımadan ÖNCEKİYLE birebir aynı — kullanıcı
+  üçünü birlikte seçip taşımış, hiçbiri geride kalmamış.
+- **Yeni kapı ve istasyon doğru kopyalanmış.** İkisinin de `NetworkIdentity`
+  `sceneId`'si BENZERSİZ (Unity'nin kendi `OnValidate` düzeltmesi çalışmış),
+  düğmelerin `targets`'ı KENDİ panellerine bakıyor (orijinalinkine değil),
+  istasyonun `bodyAnchor`/`revivePoint`/`indicator`'ı da KENDİ alt
+  objelerine bakıyor (orijinalinkine değil) — Unity'nin duplicate'i iç
+  referansları doğru yeniden bağlamış.
+- **AMA çıkış artık ULAŞILAMAZ durumda.** Ölçüldü: yeni konumundaki en yakın
+  kanat duvarı (`Duvar_0_11`, hâlâ SAPASAĞLAM) çıkış grubunun 0.89 m
+  ÖTESİNDE duruyor — yani grup, kanadın dış duvarının HEMEN DIŞINDA, boşlukta
+  duruyor. Kanadın iç koridorundan bu noktaya giden hiçbir açıklık yok.
+  **Kullanıcı ya bu duvarı silip bir geçit açmalı ya da çıkışı gerçek bir
+  açıklığın olduğu başka bir yere taşımalı** — ben haritaya dokunmuyorum
+  (bölüm 0), bu satır yalnızca bulguyu kaydediyor.
+- **AYRICA `RevivalStation.duration` hâlâ 15'te takılıymış — 10'a
+  indirilmesi hiç işlememişti.** Sahnedeki ÜÇ istasyonun da (`Diriltme_A`,
+  `Diriltme_B`, yeni kopya) `duration` alanı hâlâ **15** taşıyordu; kodun
+  varsayılanı `10f`. Sebep tam bölüm 16'nın "koddaki varsayılanı değiştirmek
+  yetmiyor" tuzağı: `Diriltme_A`/`B` o kod değişikliğinden ÇOK ÖNCE
+  kurulmuştu, alanları o an serileştirildi ve kod değişince kendiliğinden
+  güncellenmedi — kopyalama da eski değeri miras aldı. **Yani "15→10
+  YAPILDI" diye yazan bir önceki not YANLIŞTI: kod değişmişti ama sahne
+  hiç güncellenmemişti.** Düzeltmek için `Editor/RevivalDurationSync.cs`
+  yazıldı (`Yakalamaca > Diriltme Süresini Senkronize Et`) — kodun GÜNCEL
+  varsayılanını geçici bir örnekten okuyup (sabiti ikinci kez yazmadan)
+  sahnedeki her istasyona zorluyor. **Kullanıcının bunu ÇALIŞTIRMASI
+  gerekiyor**, henüz çalıştırılmadı.
 
 ---
 
@@ -1413,6 +1465,7 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Hataları Temizle (Sahne Onarımı) | Eksik NetworkIdentity ekler, ağ öncesi artıkları söker |
 | **Haritayı Genişlet (güney kanat)** | Mevcut haritaya dokunmadan güneye yeni bir kanat ekler (bkz. bölüm 0.1) |
 | **Güney Kanadına Işık Ekle (rastgele lamba)** | Kanadın kendi altına rastgele lamba serpiştirir, kanadın geri kalanına dokunmaz (bkz. bölüm 0.1) |
+| **Diriltme Süresini Senkronize Et** | `RevivalStation.duration`'ı (ve `useDistance`/`acceptRadius`'ı) sahnedeki bütün istasyonlarda kodun güncel varsayılanına zorlar (bkz. bölüm 0.1) |
 
 > ### Editörde çalışan her API build'de yok
 >
