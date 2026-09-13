@@ -581,6 +581,7 @@ MonoBehaviour:
   walkVolume: 0.5
   sprintVolume: 0.85
   crouchVolume: 0.12
+  ownHeavyStepVolumeScale: 0.35
   landPitchRange: {x: 0.92, y: 1.08}
   airborneVerticalSpeed: 2.5
 --- !u!82 &794516134023322604
@@ -857,9 +858,10 @@ MonoBehaviour:
   lockPitchLimit: 25
   audioSource: {fileID: 794516134023322604}
   swingClip: {fileID: 8300000, guid: 34d0b621a643e5d4c90f2428198f3853, type: 3}
-  hitClip: {fileID: 8300000, guid: f7dc7348db4a63046b7209a26a96423b, type: 3}
+  hitClip: {fileID: 8300000, guid: ebbab45283a7e9143a477bc74f5fb9d1, type: 3}
   swingVolume: 0.7
   hitVolume: 0.9
+  ownHitVolumeScale: 0.4
   obstacleMask:
     serializedVersion: 2
     m_Bits: 256
