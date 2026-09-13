@@ -18,40 +18,48 @@ public static class MazeMapBuilder
 {
     private const string MapName = "Harita";
     private const string MaterialRoot = "Assets/_Art";
-    private const string MaterialFolder = MaterialRoot + "/Materials";
+
+    // internal: MazeExpansionSetup (2026-09-13) aynı klasörü paylaşıyor —
+    // yeni kanadın materyalleri de burada, "Harita_Duvar" gibi aynı isimle
+    // ararsa aynı materyali (dolayısıyla aynı görünümü) bulup paylaşıyor.
+    internal const string MaterialFolder = MaterialRoot + "/Materials";
 
     // Aynı sayı hep aynı haritayı verir. Farklı bir labirent istersen değiştir.
     private const int Seed = 1337;
 
     // Hücre boyutu = koridor genişliği. CLAUDE.md: hızlı hareket için 3-3.6 m.
-    private const float CellSize = 3.2f;
-    private const float WallHeight = 3f;
+    // internal: MazeExpansionSetup yeni kanadı AYNI hücre/duvar ölçüsüyle
+    // kuruyor, yoksa iki bölüm birleştiğinde koridor genişliği aniden değişirdi.
+    internal const float CellSize = 3.2f;
+    internal const float WallHeight = 3f;
 
     // Hücre sayısı; ızgara (CellsPerSide * 2 + 1) olur. 8 → 17x17 → 54.4 m kare.
     private const int CellsPerSide = 8;
 
     // Aynı yönde devam etme eğilimi (%). Yükseldikçe koridorlar uzar.
-    private const int StraightBias = 70;
+    // internal: MazeExpansionSetup yeni kanadı AYNI his için aynı eğilimle
+    // üretiyor.
+    internal const int StraightBias = 70;
 
     // Çıkmaz sokakların yüzde kaçı açılıp döngüye çevrilecek. Kovalamacada
     // çıkmaz sokak = anında yakalanmak; döngü olmadan kaçacak yer kalmıyor.
-    private const int BraidPercent = 90;
+    internal const int BraidPercent = 90;
 
     private const int DoorCount = 5;
     private const int CrouchCount = 5;
 
     // Kapı garaj kapısı gibi: koridorun tamamını kaplar, tavandan aşağı iner.
     // Kasa yok — labirentin kendi duvarları zaten kapının iki yanını oluşturuyor.
-    private const float DoorThickness = 0.2f;
+    internal const float DoorThickness = 0.2f;
 
     // Geçit ölçüleri — CLAUDE.md'deki hull hesaplarından.
-    private const float CrouchWidth = 1.4f;
-    private const float CrouchHeight = 1.1f;
+    internal const float CrouchWidth = 1.4f;
+    internal const float CrouchHeight = 1.1f;
 
     // Düğmeler labirent duvarına monte, kapının iki yanına.
-    private const float ButtonAxisOffset = 1.15f;               // kapıdan koridor boyunca uzaklık
-    private const float ButtonWallOffset = CellSize / 2f - 0.07f; // yan duvara yaslı
-    private const float ButtonHeight = 1.1f;
+    internal const float ButtonAxisOffset = 1.15f;               // kapıdan koridor boyunca uzaklık
+    internal const float ButtonWallOffset = CellSize / 2f - 0.07f; // yan duvara yaslı
+    internal const float ButtonHeight = 1.1f;
 
     [MenuItem("Yakalamaca/Labirent Harita Kur")]
     private static void BuildMap()
@@ -119,7 +127,10 @@ public static class MazeMapBuilder
     /// çift koordinatlar hücreler arası duvar. Aynı yönde devam etmeye eğilimli,
     /// çünkü düz DFS kısa ve kıvrık koridorlar üretiyor — bize uzun koridor lazım.
     /// </summary>
-    private static bool[,] GenerateMaze(int size, System.Random random)
+    // internal: MazeExpansionSetup (2026-09-13) yeni kanadı AYNI algoritmayla
+    // üretiyor — ayrı bir üretici yazmak aynı yüzlerce satırı ikinci kez
+    // yazmak olurdu, üstelik iki bölüm farklı "his" verirdi.
+    internal static bool[,] GenerateMaze(int size, System.Random random)
     {
         bool[,] wall = new bool[size, size];
         for (int x = 0; x < size; x++)
@@ -182,7 +193,7 @@ public static class MazeMapBuilder
     /// Çıkmaz sokakları açıp döngü haline getirir. Kovalamacada çıkmaza girmek
     /// yakalanmak demek; döngü olmadan harita oynanmaz.
     /// </summary>
-    private static void BraidDeadEnds(bool[,] wall, System.Random random)
+    internal static void BraidDeadEnds(bool[,] wall, System.Random random)
     {
         int size = wall.GetLength(0);
         Vector2Int[] directions =
@@ -233,7 +244,7 @@ public static class MazeMapBuilder
     }
 
     /// <summary>Kapı için: koridorun ortasındaki açık hücreler (kavşak değil).</summary>
-    private static List<Vector2Int> FindDoorSpots(bool[,] wall)
+    internal static List<Vector2Int> FindDoorSpots(bool[,] wall)
     {
         int size = wall.GetLength(0);
         List<Vector2Int> spots = new List<Vector2Int>();
@@ -262,7 +273,7 @@ public static class MazeMapBuilder
     /// Eğilme geçidi için: iki koridoru ayıran duvar hücreleri. Buraya delik
     /// açınca kestirme yol oluyor.
     /// </summary>
-    private static List<Vector2Int> FindCrouchSpots(bool[,] wall, List<Vector2Int> doorCells)
+    internal static List<Vector2Int> FindCrouchSpots(bool[,] wall, List<Vector2Int> doorCells)
     {
         int size = wall.GetLength(0);
         List<Vector2Int> spots = new List<Vector2Int>();
@@ -299,7 +310,7 @@ public static class MazeMapBuilder
     }
 
     /// <summary>Adayları karıştırıp birbirinden uzak olacak şekilde seçer.</summary>
-    private static List<Vector2Int> PickSpread(List<Vector2Int> candidates, int count, int minDistance, System.Random random)
+    internal static List<Vector2Int> PickSpread(List<Vector2Int> candidates, int count, int minDistance, System.Random random)
     {
         for (int i = candidates.Count - 1; i > 0; i--)
         {
@@ -331,7 +342,7 @@ public static class MazeMapBuilder
     }
 
     /// <summary>Başlangıçtan ulaşılamayan açık hücre sayısı. 0 olmalı.</summary>
-    private static int CountUnreachable(bool[,] wall, Vector2Int start)
+    internal static int CountUnreachable(bool[,] wall, Vector2Int start)
     {
         int size = wall.GetLength(0);
         bool[,] seen = new bool[size, size];
@@ -515,7 +526,7 @@ public static class MazeMapBuilder
     }
 
     /// <summary>Eksen yönlerine göre Vector3 boyut kurar (kapı/geçit iki yönde de çalışsın diye).</summary>
-    private static Vector3 AxisSize(Vector3 axis, float alongAxis, float height, Vector3 cross, float alongCross)
+    internal static Vector3 AxisSize(Vector3 axis, float alongAxis, float height, Vector3 cross, float alongCross)
     {
         return new Vector3(
             Mathf.Abs(axis.x) * alongAxis + Mathf.Abs(cross.x) * alongCross,
@@ -553,7 +564,7 @@ public static class MazeMapBuilder
             Undo.DestroyObjectImmediate(existing);
     }
 
-    private static void MarkStatic(GameObject target)
+    internal static void MarkStatic(GameObject target)
     {
         // Static batching + occlusion culling + lightmap. CLAUDE.md bölüm 3.
         GameObjectUtility.SetStaticEditorFlags(target,
@@ -565,14 +576,14 @@ public static class MazeMapBuilder
         LayerSetup.Apply(target, LayerSetup.Harita);
     }
 
-    private static Transform CreateGroup(string name, Transform parent)
+    internal static Transform CreateGroup(string name, Transform parent)
     {
         GameObject group = new GameObject(name);
         group.transform.SetParent(parent, false);
         return group.transform;
     }
 
-    private static GameObject CreateBox(string name, Transform parent, Vector3 localPosition, Vector3 scale, Material material)
+    internal static GameObject CreateBox(string name, Transform parent, Vector3 localPosition, Vector3 scale, Material material)
     {
         GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube);
         box.name = name;
@@ -583,7 +594,7 @@ public static class MazeMapBuilder
         return box;
     }
 
-    private static Material GetOrCreateMaterial(string name, Color color)
+    internal static Material GetOrCreateMaterial(string name, Color color)
     {
         string path = $"{MaterialFolder}/{name}.mat";
         Material existing = AssetDatabase.LoadAssetAtPath<Material>(path);

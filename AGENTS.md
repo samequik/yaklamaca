@@ -429,13 +429,14 @@ de henüz kod tarafında ele alınmadı.
      **Henüz yazılmadı** — kod-ile-katılmanın gizli odalarda da çalışmaya
      devam etmesi gerektiği için `EOSLobby`'nin arama/izin mantığına dikkatli
      bakmak gerekiyor, gözü kapalı bir onay kutusu kadar basit olmayabilir.
-4. **Harita küçük geldi — ~2 katına çıkarılmalı.** Kullanıcının teklifi:
-   mevcut ELLE DÜZENLENMİŞ haritaya dokunmadan (bölüm 0'ın kuralı — mevcut
-   `Labirent Harita Kur` tamamını silip yeniden üretiyor, burada
-   KULLANILAMAZ), kenarlardan yeni alan eklemek. Kaba yapıyı eklemek bana
-   düşüyor, ince düzenlemesini kullanıcı kendisi yapacak. **Henüz
-   başlanmadı** — bölüm 0'ın en katı kuralına dokunuyor, yaklaşımı önce
-   konuşup sonra yazılacak.
+4. **Harita küçük geldi.** **Araç YAZILDI (2026-09-13, bölüm 0.1):**
+   `Yakalamaca > Haritayı Genişlet (güney kanat)` — mevcut haritaya
+   dokunmadan güneye ~%58'lik yeni bir kanat ekliyor (kaba iskelet: duvar,
+   zemin, tavan, 2 kapı, 2 eğilme geçidi). Kod derlendi, geometri elle
+   doğrulandı, ama **Unity'de henüz hiç çalıştırılmadı** — kullanıcı
+   çalıştırıp sonucu görecek, ince düzenlemeyi (hangi kapı nerede duracak
+   vb.) kendisi yapacak. Sonra sırayla: Katmanları Kur → Haritayı Giydir →
+   Harita Süsle → Sesleri Yerleştir → Işığı Pişir.
 5. ~~**Diriltme terminali**~~ **YAPILDI (2026-09-13)** (bölüm 23,
    `Interaction/RevivalStation.cs`, `UI/RevivalScreen.cs`):
    - Süre 15 sn → **10 sn**. Üç beceri sınavının zamanlaması da (3./7./11.
@@ -673,6 +674,56 @@ düzenleme öncesi hâli. 2026-09-08'den beri **GitHub'da gizli bir depoda** da
 duruyor (bölüm 24) — yani disk giderse proje gitmiyor. Kayıt noktaları `git log`, son kayda dönüş
 `git checkout -- .`, belirli bir noktaya dönüş `git reset --hard <commit>`.
 Düzenleme sırasında ara ara `git add -A && git commit -m "..."` yapılmalı.
+
+### 0.1 Harita büyütme: `Haritayı Genişlet (güney kanat)` (2026-09-13)
+
+Oynanış geri bildirimi: harita küçük geldi, canavar baştan sona rahatça
+devriye gezip haritanın tamamını tarayabiliyordu. `Labirent Harita Kur`
+KULLANILAMAZ (yukarıdaki kural), o yüzden ayrı bir araç yazıldı:
+`Editor/MazeExpansionSetup.cs`.
+
+**Var olan hiçbir şeyi silmiyor/taşımıyor/yeniden üretmiyor — yalnızca YENİ
+nesne ekliyor.** Dokunduğu tek var olan şey, bağlantı için sildiği İKİ duvar
+bloğu (`Duvar_3_0`, `Duvar_11_0`) — Undo'ya kaydediliyor, beğenmezsen Ctrl+Z.
+
+**Nereden bağlandığı sahne dosyasından ÖLÇÜLDÜ, tahmin edilmedi:**
+- Güney duvarı (z=0 satırı, 17 hücre) tamamen dolu ve **iki çıkış da bu
+  duvarda değil** — ikisi de doğu/batı duvarlarında (`Cikis_Gecidi_1` grid
+  (0,1)'de, `Cikis_Gecidi_2` (16,15)'te — dünya konumlarından geri hesaplandı).
+- Hemen arkasındaki satır (z=1) yalnızca x=8'de dolu, geri kalan 14 hücre tek
+  bir uzun koridor. x=3 ve x=11 buradan seçildi — ikisi de bu koridorda,
+  x=8'den ve iki çıkışın köşelerinden uzak.
+
+**Yeni kanat kendi 13×13 ızgarasında `MazeMapBuilder` ile AYNI algoritmayla**
+(recursive backtracker + çıkmaz sokak açma, aynı `CellSize`/`WallHeight`)
+bağımsız üretiliyor — ikinci bir üretici yazmak yerine `MazeMapBuilder`'ın
+ilgili metotları `internal` yapılıp doğrudan çağrıldı. 13×13, mevcut 17×17
+alanın **~%58'i** — "yüzde 50 büyüt" isteğine en yakın tek sayı (algoritma
+kare ızgara varsayıyor).
+
+**Geometri elle hesaplanıp doğrulandı:** yeni kanadın kuzey yüzü mevcut
+haritanın güney yüzüne (dünya z=-27.2) TAM oturuyor, boşluk da çakışma da
+yok. İki bağlantı noktasının dünya X'i (x=3 → -16 m, x=11 → +9.6 m) yeni
+kanadın kendi `LocalBreachX = {1, 9}` noktalarıyla BİLE BİLE eşleşecek
+şekilde seçildi (aralarındaki fark ikisinde de 8 hücre — tek doğrusal
+eksen kaymasının bunu sağlayabilmesinin tek yolu bu).
+
+**Süsleme ve aydınlatma YOK, bilerek.** `Haritayı Giydir` ve `Harita Süsle`
+zaten bileşene/şekle göre tarıyor, konuma bakmıyor (bölüm 0'ın güvenli
+araçlar listesi) — bu araçtan SONRA çalıştırmak yeni kanadı da otomatik
+giydirip süslüyor, aynı mantığı burada ikinci kez yazmaya gerek yok.
+`Atmosfer Kur`'u burada taklit etmek de o aracın kendi lamba mantığını
+ikinci kez yazmak olurdu, üstelik `Atmosfer Kur`'un kendisi çalıştırılamaz.
+Yalnızca düz, ışıksız bir tavan var — enkaza düşülmesin diye.
+
+**Çalıştırdıktan sonra sıra:** `Katmanları Kur` → `Haritayı Giydir` →
+`Harita Süsle` → `Sesleri Yerleştir` (yeni kapılara ses bağlar) →
+`Işığı Pişir` (yeni kanat şu an ışıksız).
+
+**Henüz OYNANARAK doğrulanmadı** — kod derlendi ve geometri elle
+doğrulandı, ama Unity'de hiç açılıp çalıştırılmadı. İlk çalıştırmada
+konsoldaki "Bağlantı doğrulandı" / "UYARI: X hücreye ulaşılamıyor" satırına
+bak.
 
 ---
 
@@ -1227,6 +1278,7 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Test Botu Ekle (ölü) | Tur başında elenen ikinci bot: taşıma/diriltme testi için hazır ceset (bkz. bölüm 23) |
 | Diriltme Sistemini Kur | Ceset gövde prefabı + haritanın iki ucuna diriltme kabini (bkz. bölüm 23) |
 | Hataları Temizle (Sahne Onarımı) | Eksik NetworkIdentity ekler, ağ öncesi artıkları söker |
+| **Haritayı Genişlet (güney kanat)** | Mevcut haritaya dokunmadan güneye yeni bir kanat ekler (bkz. bölüm 0.1) |
 
 > ### Editörde çalışan her API build'de yok
 >
