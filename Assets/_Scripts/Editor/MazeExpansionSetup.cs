@@ -76,6 +76,43 @@ using UnityEngine.SceneManagement;
 /// — `Atmosfer Kur`'u burada taklit etmek o aracın kendi lamba yerleştirme
 /// mantığını ikinci kez yazmak olurdu, üstelik `Atmosfer Kur`'un KENDİSİ
 /// çalıştırılamaz (bölüm 0 — `Lambalar` grubunun tamamını siliyor).
+///
+/// ### Üçüncü tur: "Duvar_3_0 sahnede yok" — isim çakışması, `GameObject.Find` yanlış objeyi buluyordu
+///
+/// Kullanıcı ilk (çıplak) denemeden sonra `Harita_Genisleme_Guney`'i silmeye
+/// çalıştı ve aracı tekrar çalıştırınca "'Duvar_3_0' sahnede yok" hatası aldı.
+/// Kod okunmadan önce "harita elle değiştirilmiş" sanıldı — **yanlıştı.**
+///
+/// Gerçek sebep: **yeni kanadın KENDİ duvarları da `Duvar_{x}_{z}` diye
+/// adlandırılıyor** (bkz. `BuildWalls`) ve kanat 13×13 olduğu için x=3 ve
+/// x=11 kanadın İÇİNDE de geçerli koordinatlar — `Seed=4242` sabit olduğu
+/// için kanadın kendi z=0 satırında bu iki nokta HER ÇALIŞTIRMADA solid
+/// çıkıyor, yani kanat kurulduğu anda sahnede **iki tane** "Duvar_3_0" oluyor:
+/// biri ana haritanın (`Harita/Duvarlar/Duvar_3_0`), biri kanadın kendisinin
+/// (`Harita/Harita_Genisleme_Guney/Duvarlar/Duvar_3_0`). `GameObject.Find`
+/// isim ÇAKIŞMASINDA hangisini döndüreceğini garanti etmiyor — sahne
+/// dosyasından doğrulandı (`m_Father` zinciri), bulunan obje ana haritanın
+/// DEĞİL kanadın kendi duvarıydı.
+///
+/// Kullanıcı kanadı silince (ana haritanın gerçek `Duvar_3_0`'ı zaten ilk
+/// çalıştırmada silinmiş ve hiç geri gelmemişti) sahnede o isimde HİÇBİR
+/// obje kalmadı — hata da tam bunu söylüyordu, ama teşhis yanlış yöne
+/// gidiyordu.
+///
+/// **Çözüm iki parçalı:**
+/// 1. Arama artık GLOBAL değil, **`Harita/Duvarlar` grubuna sıkı sıkıya
+///    kapsanmış** (`existingMap.transform.Find("Duvarlar").Find(name)`) —
+///    hiçbir kanadın kendi aynı isimli bloğuyla asla karışmıyor, kaç kanat
+///    art arda denenirse denensin.
+/// 2. O kapsamda bulunamazsa artık HATA VERMİYOR — "zaten açık" sayılıp
+///    siliniyor. Bu, tam da kullanıcının düştüğü duruma karşılık geliyor:
+///    ilk çalıştırma ana haritanın gerçek bloğunu zaten silmişti; kanadı
+///    silip yeniden denemek bu bloğu GERİ GETİRMEZ (Undo grubu ayrı), yani
+///    ikinci çalıştırmada o nokta zaten doğru şekilde açık — hata değil.
+///
+/// Ders bu projenin kendisinin defalarca yazdığı ders: **`GameObject.Find`
+/// isim çakışmasında hangisini döndüreceğini garanti etmiyor** — arama her
+/// zaman bilinen bir alt ağaca (`Transform.Find` zinciriyle) kapsanmalı.
 /// </summary>
 public static class MazeExpansionSetup
 {
@@ -132,25 +169,43 @@ public static class MazeExpansionSetup
             return;
         }
 
+        // Ana haritanın KENDİ Duvarlar grubuna kapsanmış arama — bkz. sınıf
+        // yorumundaki "üçüncü tur" kutusu. GLOBAL GameObject.Find KULLANMA:
+        // her kanat kendi Duvar_{x}_{z}'sini de üretiyor ve x=3/x=11 kanadın
+        // 13x13 ızgarasında da geçerli koordinatlar, yani isim çakışması
+        // garanti — hangi kanadın bloğunun bulunacağı tanımsız olurdu.
+        Transform existingWalls = existingMap.transform.Find("Duvarlar");
+        if (existingWalls == null)
+        {
+            EditorUtility.DisplayDialog("Harita bozuk",
+                "'Harita/Duvarlar' grubu bulunamadı — harita beklenenden farklı kurulmuş.",
+                "Tamam");
+            return;
+        }
+
         GameObject[] breachWalls = new GameObject[ExistingBreachX.Length];
+        int alreadyOpenCount = 0;
+
         for (int i = 0; i < ExistingBreachX.Length; i++)
         {
             string name = $"Duvar_{ExistingBreachX[i]}_0";
-            breachWalls[i] = GameObject.Find(name);
+            Transform found = existingWalls.Find(name);
+            breachWalls[i] = found != null ? found.gameObject : null;
 
+            // Bulunamaması artık HATA DEĞİL: muhtemelen bu aracın önceki bir
+            // çalıştırmasından zaten açık kalmış (o çalıştırma sildi, o
+            // Undo grubu ayrı olduğu için kanadı silmek bu bloğu geri
+            // getirmiyor) — bkz. sınıf yorumu. Silinecek bir şey yok,
+            // olduğu gibi devam ediliyor.
             if (breachWalls[i] == null)
-            {
-                EditorUtility.DisplayDialog("Bağlantı noktası bulunamadı",
-                    $"'{name}' sahnede yok — harita bu satırda elle değiştirilmiş olabilir.\n\n" +
-                    "Aracı çalıştırmadan önce ExistingBreachX/LocalBreachX dizilerini güncel " +
-                    "harita düzenine göre elden geçir (sınıf yorumu nasıl ölçüleceğini anlatıyor: " +
-                    "hedef x'te Duvar_X_0 dolu, Duvar_X_1 boş/açık olmalı).",
-                    "Tamam");
-                return;
-            }
+                alreadyOpenCount++;
         }
 
         float areaPercent = 100f * WingSize * WingSize / (17f * 17f);
+        string breachNote = alreadyOpenCount > 0
+            ? $"\n\nNot: {alreadyOpenCount} bağlantı noktası zaten açık (muhtemelen bu aracın " +
+              "önceki bir çalıştırmasından) — o(nlar) olduğu gibi kullanılacak, silinecek bir şey yok."
+            : "";
         bool proceed = EditorUtility.DisplayDialog("Haritayı genişlet",
             $"Güneye {WingSize}x{WingSize}'lik yeni bir kanat eklenecek " +
             $"(mevcut alanın ~%{areaPercent:0}'i kadar).\n\n" +
@@ -159,7 +214,7 @@ public static class MazeExpansionSetup
             "silinmiyor, taşınmıyor ya da yeniden üretilmiyor.\n\n" +
             $"{WingDoorCount} kapı, {WingCrouchCount} eğilme geçidi eklenecek, hepsi SciFi Kit'le " +
             "kendiliğinden giydirilecek. Aydınlatma yok (ışıksız) — sonraki adım, bkz. sınıf " +
-            "yorumundaki tablo.",
+            "yorumundaki tablo." + breachNote,
             "Kur", "Vazgeç");
 
         if (!proceed)
@@ -206,9 +261,13 @@ public static class MazeExpansionSetup
         Transform doorsGroup = BuildDoors(root.transform, wall, doorCells, doorMaterial, buttonMaterial);
 
         // Var olana dokunan TEK adım: bağlantı noktalarındaki iki güney
-        // duvarını sil. Undo'ya kaydediliyor — beğenmezsen Ctrl+Z.
+        // duvarını sil. Undo'ya kaydediliyor — beğenmezsen Ctrl+Z. Null
+        // olanlar zaten açık (yukarıdaki not) — silinecek bir şey yok.
         foreach (GameObject wallObject in breachWalls)
-            Undo.DestroyObjectImmediate(wallObject);
+        {
+            if (wallObject != null)
+                Undo.DestroyObjectImmediate(wallObject);
+        }
 
         // Giydirme BURADA, kendi kod yoluyla — `Haritayı Giydir` penceresine
         // dokunmuyoruz (bkz. sınıf yorumu, "neden ayrı bir giydirme").
@@ -228,7 +287,7 @@ public static class MazeExpansionSetup
             $"Güney kanadı kuruldu ve giydirildi ({WingSize}x{WingSize}, seed {Seed}). " +
             $"{doorCells.Count} kapı, {crouchCells.Count} eğilme geçidi.\n" +
             $"Mevcut haritadan x={ExistingBreachX[0]} ve x={ExistingBreachX[1]}'de iki nokta " +
-            "açıldı, başka hiçbir şey silinmedi.\n" +
+            "açıldı, başka hiçbir şey silinmedi." + breachNote + "\n" +
             "Sırada: Katmanları Kur → Harita Süsle → Sesleri Yerleştir → " +
             "Işığı Pişir (yeni kanat şu an ışıksız)." + warning);
     }

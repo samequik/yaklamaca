@@ -734,6 +734,29 @@ eksen kaymasının bunu sağlayabilmesinin tek yolu bu).
 > Artık **süsleme (kapı/duvar/zemin/tavan) araç ÇALIŞIRKEN otomatik
 > oluyor**, ayrı bir "Haritayı Giydir" adımı GEREKMİYOR.
 
+> **Üçüncü tur: "Duvar_3_0 sahnede yok" — isim çakışması (2026-09-13, aynı
+> gün).** Kullanıcı ilk (çıplak) denemeyi silip aracı tekrar çalıştırdı ve
+> aynı hatayı aldı. Sebep yine **kod okumadan varsayım**: kanadın KENDİ
+> duvarları da `Duvar_{x}_{z}` diye adlandırılıyor ve kanat 13×13 olduğu
+> için x=3/x=11 kanadın İÇİNDE de geçerli koordinatlar — sabit `Seed=4242`
+> yüzünden kanadın kendi z=0 satırında bu iki nokta HER ÇALIŞTIRMADA solid
+> çıkıyor. Yani kanat kurulunca sahnede iki tane "Duvar_3_0" oluşuyordu (biri
+> ana haritanın, biri kanadın), `GameObject.Find` GLOBAL arama yaptığı için
+> hangisini bulacağı tanımsızdı — sahne dosyasından `m_Father` zinciriyle
+> doğrulandı, bulunan hep kanadın kendi bloğuydu.
+>
+> **Çözüm:** arama artık `Harita/Duvarlar` grubuna kapsanmış
+> (`Transform.Find` zinciri, `GameObject.Find` değil) — hiçbir kanadın kendi
+> aynı isimli bloğuyla asla karışmıyor. Ayrıca kapsam içinde bile
+> bulunamazsa artık HATA değil: "zaten açık" sayılıp siliniyor, çünkü ilk
+> çalıştırma ana haritanın gerçek bloğunu zaten silmişti ve kanadı silmek bu
+> bloğu geri getirmiyordu (ayrı Undo grubu) — ikinci çalıştırma bu yüzden o
+> noktada gerçekten "silinecek bir şey yok" durumundaydı, hata değil.
+>
+> Ders: **`GameObject.Find` isim çakışmasında hangisini döndüreceğini
+> garanti etmiyor** — arama her zaman bilinen bir alt ağaca kapsanmalı,
+> özellikle aynı isimlendirme şemasını paylaşan birden fazla üretici varsa.
+
 **Aydınlatma hâlâ YOK, bilerek.** `Atmosfer Kur`'u burada taklit etmek o
 aracın kendi lamba mantığını ikinci kez yazmak olurdu, üstelik `Atmosfer
 Kur`'un kendisi çalıştırılamaz (bölüm 0). Yalnızca düz, ışıksız bir tavan
