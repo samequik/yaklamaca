@@ -453,7 +453,7 @@ karşı yeni bir aracı. Ölçülmedi.
 |---|---|---|
 | 0 | ~~**Diriltme sistemi**~~ | **YAPILDI** (2026-09-08, bölüm 23). Açık kalan tek tasarım sorusu: **canavarın karşı hamlesi** — diriltme bugün tek taraflı bir kazanç |
 | 1 | ~~**Yakınlık sesi (kalp atışı)**~~ | **YAPILDI** (2026-09-13, bölüm 12). `HeartbeatAudio`, 2B, `ScreenEffects.DreadAt`'ten besleniyor |
-| 2 | **Bıçak sesleri** (teknik borç 1) | Hâlâ sentetik yer tutucu, üstelik bıçak kaldırıldı; elle saldırıya göre yeniden seçilmeli |
+| 2 | ~~**Bıçak sesleri**~~ (teknik borç 1) | **Yarı YAPILDI** (2026-09-13). Jumpscare (`Bicak_Isabet`, canavar yakalayınca) gerçek dosyayla değişti. `Bicak_Savurma` (kaçırma anı) hâlâ sentetik yer tutucu |
 | 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
 | 4 | **Kapıdan vuruş** | İki oyuncu da kapıya 0.3 m mesafedeyken ışın kapıya varmadan kesiliyor ve isabet sayılıyor |
 | 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
@@ -525,7 +525,8 @@ Input System'e geçilecekse hâlâ tek dosya değişir: `PlayerInputSource`
 > python -c "t=open('DOSYA',newline='').read(); print(t.count(chr(13)+chr(10)), t.count(chr(10)))"
 > ```
 >
-> `grep -c $''` ile ölçmeye çalışma — Git Bash'te bu kalıp bazı kabuklarda
+> `grep -c $'
+'` ile ölçmeye çalışma — Git Bash'te bu kalıp bazı kabuklarda
 > boşa düşüyor ve **her satırı sayıyor**, yani her dosya "tamamen CRLF" gibi
 > görünüyor. Tam olarak bu yanlış ölçüm yapıldı ve teşhisi bir tur geciktirdi.
 
@@ -1915,7 +1916,8 @@ bağlıyor. Aynı isimle üzerine yazarsan referanslar bozulmaz.
 | `Inis` | Yere değme |
 | `Kapi` | Kapı açılma/kapanma — **labirent ve çıkış kapıları** |
 | `Olum` | Yakalanma |
-| `Bicak_Savurma`, `Bicak_Isabet` | Bıçak (hâlâ yer tutucu) |
+| `Bicak_Isabet` | Canavar yakalayınca (jumpscare) — **gerçek dosya, 2026-09-13** |
+| `Bicak_Savurma` | Canavarın savurma/ıskalama anı — hâlâ yer tutucu |
 | `Terminal_Calisma` | Terminal dolarken dönen çalışma sesi |
 | `Terminal_Uyari` | Terminal kilitliyken dönen uyarı |
 | `Fener` | Fener açma/kapama tıkı |
@@ -2189,6 +2191,38 @@ ikisini henüz bulamadı. İkisi de mevcut yer tutucunun üstüne AYNI İSİMLE
 yazılınca hiçbir kod değişikliği gerekmeden takılıyor (teknik borç 1'in
 ikisini birden kapatır) — `NetworkSetup.cs` zaten `AudioSetupUtility.
 AssignClip` ile bu isimlerle arıyor.
+
+### Jumpscare: canavar yakalayınca çalan ses (2026-09-13)
+
+Kullanıcı `Bicak_Isabet`'i buldu (`Bicak_Savurma` hâlâ aranıyor). Ses
+`MonsterAttack.hitClip`, `RpcHit`'ten çalıyor — bölüm 14'ün kendi notu bunu
+zaten garanti ediyordu: "Iskalarsan hiç gelmiyor, dolayısıyla canavar havayı
+yumruklamıyor." Yani **ıskalayınca çıkmama şartı yeni bir kontrol istemedi**,
+zaten oradaki mimarinin doğal sonucuydu — `RpcHit` yalnızca sunucu isabeti
+`ReportCaught`'la onayladığında çağrılıyor (`MonsterAttack.cs:452-454`).
+
+> **Yukarıdaki paragrafın "aynı isimle üstüne yaz" tavsiyesi bu kez tam
+> tutmadı.** Eski yer tutucu `Bicak_Isabet.wav` (`PlaceholderAudioGenerator`
+> ile üretilmiş), kullanıcının bulduğu gerçek dosya ise `.mp3`. Uzantı
+> değişince "aynı isim" GUID'i korumuyor — yeni dosya `Bicak_Isabet.mp3` olarak
+> AYRI bir varlık oluyor ve eski `.wav` yerinde kalıyor.
+>
+> Bunun sessiz bir sonucu var: `AudioSetupUtility.AssignClip` uzantıları sabit
+> sırada arıyor (`.wav` önce, sonra `.mp3`/`.ogg`/`.aiff`). İkisi bir arada
+> kalsaydı `AssignClip` **hep eski sentetik `.wav`'ı bulurdu** — yeni dosya
+> diskte dururken, hiçbir yerde hata yazmadan. `AudioImportSetup.Run()`'daki
+> yeniden adlandırma döngüsü artık taşımadan önce hedef adın **dört uzantısını
+> da** tarayıp eskisini siliyor (`SupportedExtensions`), yalnızca aynı uzantıyı
+> değil — yoksa bu proje "körü körüne çalışan kod, sessizce eskiyi
+> kullanıyor" tuzağına bir kez daha düşerdi (bölüm 13'ün karakter kostümü,
+> bölüm 20'nin `RoundHud`'ı ile aynı aile).
+
+`AudioImportSetup.WirePlayerPrefab()` artık `MonsterAttack.hitClip`/
+`swingClip`'i de `NetworkPlayer.prefab`'a yazıyor — Fener/kalp atışı ile
+**aynı `LoadPrefabContents` yöntemi**, `Ağ Kurulumu`yu tekrar çalıştırmadan
+(bölüm 7). `swingClip` şimdilik yine `Bicak_Savurma`'nın eski yer tutucusuna
+düşüyor; gerçek dosya gelince tek gereken `Sesleri Yerleştir`'i tekrar
+çalıştırmak — kod tarafında hiçbir şey değişmeyecek.
 
 ---
 

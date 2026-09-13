@@ -50,7 +50,19 @@ public static class AudioImportSetup
         ("kalp sesi",               "KalpAtisi"),
         ("canlandırma sesi sucses", "Diriltme_Basari"),
         ("body fall sesi",          "Ceset_Dusme"),
+
+        // 2026-09-13: canavar yakalayınca çalan jumpscare. Kanonik ad hâlâ
+        // Bicak_Isabet — bıçak kalksa da bu, MonsterAttack.hitClip'in aradığı
+        // isim (bölüm 8, teknik borç 1); değiştirmek kod tarafında hiçbir
+        // şey kazandırmazdı.
+        ("freesound_community-squeaky-jumpscare", "Bicak_Isabet"),
     };
+
+    /// <summary>
+    /// `AssignClip`nin aradığı sırayla aynı (bkz. AudioSetupUtility) — hedef
+    /// adın altında hangi uzantıyla olursa olsun tek dosya kalmalı.
+    /// </summary>
+    private static readonly string[] SupportedExtensions = { ".wav", ".mp3", ".ogg", ".aiff" };
 
     /// <summary>Bu eşiğin üstündeki klipler döngü sayılıp diskten akıtılıyor.</summary>
     private const float StreamingThresholdSeconds = 5f;
@@ -74,6 +86,18 @@ public static class AudioImportSetup
 
             string extension = System.IO.Path.GetExtension(source);
             string target = $"{AudioFolder}/{targetName}{extension}";
+
+            // Eski bir sürüm FARKLI uzantıyla duruyor olabilir — yer
+            // tutucular .wav üretiliyordu (PlaceholderAudioGenerator), gerçek
+            // dosyalar çoğunlukla .mp3 geliyor. AssignClip uzantıları sabit
+            // sırada arıyor (.wav önce): eski dosya silinmezse yeni ses hiç
+            // kullanılmaz ve hiçbir yerde hata da yazmaz.
+            foreach (string oldExtension in SupportedExtensions)
+            {
+                string oldPath = $"{AudioFolder}/{targetName}{oldExtension}";
+                if (oldPath != target && AssetDatabase.LoadAssetAtPath<AudioClip>(oldPath) != null)
+                    AssetDatabase.DeleteAsset(oldPath);
+            }
 
             if (AssetDatabase.LoadAssetAtPath<AudioClip>(target) != null)
                 AssetDatabase.DeleteAsset(target);
@@ -110,7 +134,7 @@ public static class AudioImportSetup
             $"{terminals} terminal/çıkış kilidine çalışma sesi bağlandı.\n" +
             $"{buttons} düğmeye basma sesi bağlandı.\n" +
             $"{stations} diriltme kabinine başarı sesi bağlandı.\n" +
-            (playerPrefab ? "Fener tık sesi ve kalp atışı klibi oyuncu prefabına bağlandı.\n" : "") +
+            (playerPrefab ? "Fener tık sesi, kalp atışı ve canavarın isabet/savurma sesi oyuncu prefabına bağlandı.\n" : "") +
             (corpse ? "Ceset düşme sesi Corpse.prefab'a bağlandı.\n" : "") +
             "\nOyuncu sesleri için Yakalamaca > Ağ Kurulumu (1. adım) çalıştır — " +
             "ayak sesi artık döngü olduğu için prefaba ayrı bir AudioSource gerekiyor.");
@@ -349,12 +373,12 @@ public static class AudioImportSetup
     }
 
     /// <summary>
-    /// Fener tık sesini ve kalp atışı klibini oyuncu prefabına bağlar.
-    /// **`Ağ Kurulumu`yu tekrar ÇALIŞTIRMIYOR** — o prefabı sıfırdan kurar ve
-    /// bütün model/ses/katman zincirinin yeniden çalıştırılmasını
-    /// gerektirirdi. `LoadPrefabContents` ile var olan varlığın İÇİNE girip
-    /// yalnızca ilgili alanları yazıyor — `RevivalSetup`'ın `bodies[]` için
-    /// kullandığı aynı yöntem (bölüm 23).
+    /// Fener tık sesini, kalp atışı klibini ve canavarın isabet/savurma
+    /// seslerini oyuncu prefabına bağlar. **`Ağ Kurulumu`yu tekrar
+    /// ÇALIŞTIRMIYOR** — o prefabı sıfırdan kurar ve bütün model/ses/katman
+    /// zincirinin yeniden çalıştırılmasını gerektirirdi. `LoadPrefabContents`
+    /// ile var olan varlığın İÇİNE girip yalnızca ilgili alanları yazıyor —
+    /// `RevivalSetup`'ın `bodies[]` için kullandığı aynı yöntem (bölüm 23).
     /// </summary>
     private static bool WirePlayerPrefab()
     {
@@ -393,6 +417,20 @@ public static class AudioImportSetup
                 SerializedObject serializedNetwork = new SerializedObject(networkSetup);
                 AudioSetupUtility.AssignClip(serializedNetwork.FindProperty("heartbeatClip"), "KalpAtisi");
                 serializedNetwork.ApplyModifiedProperties();
+                changed = true;
+            }
+
+            // Aynı prefab canavar rolünde de kullanılıyor (bölüm 4), yani
+            // MonsterAttack burada duruyor. hitClip yalnızca gerçek isabette
+            // çalıyor (RpcHit) — ıskalamada hiç tetiklenmiyor, jumpscare için
+            // aranan davranış tam bu (bölüm 14).
+            MonsterAttack attack = contents.GetComponent<MonsterAttack>();
+            if (attack != null)
+            {
+                SerializedObject serializedAttack = new SerializedObject(attack);
+                AudioSetupUtility.AssignClip(serializedAttack.FindProperty("hitClip"), "Bicak_Isabet");
+                AudioSetupUtility.AssignClip(serializedAttack.FindProperty("swingClip"), "Bicak_Savurma");
+                serializedAttack.ApplyModifiedProperties();
                 changed = true;
             }
 
