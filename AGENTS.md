@@ -390,9 +390,25 @@ de henüz kod tarafında ele alınmadı.
    - Kullanıcı host olduğunda diğerleri katılamadı.
    - Başkası host'ken: katılıp ayrıldıktan sonra kullanıcı **tekrar
      katılamadı**.
-   - Birden fazla oda aynı anda açıkken bir sorun daha bildirildi (tam ifade
-     netleşmedi — kendi odasının listede/görünürde çıkmaması ihtimali var,
-     doğrulanacak).
+   - **Netleşti (aynı gün, ikinci mesaj):** biri oda kurunca onun odası
+     listede görünüyor; kullanıcı da AYNI ANDA bir oda kurunca **kendi odası
+     listede görünmüyor / girilemiyor.** Yani **birden fazla oda aynı anda
+     açıkken** ikinciyi (belki sonrakileri) EOS'un lobi arama/listeleme yolu
+     hiç göstermiyor olabilir — tam test edilemedi, kullanıcı da emin değil.
+     **Bu ciddi bir risk:** yayına çıkınca aynı anda birden fazla oda normal
+     olacak; ikinci odanın görünmemesi doğruysa oyun pratikte tek odalık
+     kalır. `RelayLobby`'nin arama/listeleme tarafı (bölüm 13) koddan
+     incelenmeli.
+   - **Yeni: lobiden atma (kick/ban) yok.** Oda sahibinin istenmeyen bir
+     oyuncuyu çıkarmasının hiçbir yolu yok (test botu kaldırma [5] farklı bir
+     şey — gerçek oyuncuya işlemiyor). Genel bir "oyuncuyu at" komutu
+     gerekiyor; kalıcı engelleme (ban, aynı oturumda tekrar giremesin) ile
+     geçici atmanın (kick, tekrar deneyebilir) ayrı şeyler olduğu netleşmeli.
+   - **Yeni: oda gizliliği yok.** Şu an her oda hem kod hem oda listesi
+     üzerinden herkese açık. **Herkese açık / gizli** (public/private) ayrımı
+     istendi: gizli oda listede görünmesin, yalnızca kodu bilen katılabilsin.
+     Kick/ban ile birlikte düşünülmeli — ikisi de "yayına çıkınca odamı kim
+     bulur, kim girer" sorusuna cevap.
 4. **Harita küçük geldi — ~2 katına çıkarılmalı.** Kullanıcının teklifi:
    mevcut ELLE DÜZENLENMİŞ haritaya dokunmadan (bölüm 0'ın kuralı — mevcut
    `Labirent Harita Kur` tamamını silip yeniden üretiyor, burada
