@@ -383,56 +383,95 @@ de henüz kod tarafında ele alınmadı.
 
 1. **[EN KRİTİK] Canavar çok güçlü — hiç kaçış olmadı.** Denge ayrıntıları
    kullanıcıdan ayrıca gelecek (hangi sayı, ne kadar). Gelmeden dokunma.
-2. **Ses bug'ı — kararsız.** Bazı sesler bazen çalıyor bazen çalışmıyor,
-   sebebi belirsiz. "Dikkatli bak" dendi — hangi ses(ler) olduğu netleşmedi,
-   araştırma gerekiyor.
+2. **Ses bug'ı — kararsız, HENÜZ ÇÖZÜLMEDİ.** Bazı sesler bazen çalıyor bazen
+   çalışmıyor. **Araştırıldı (2026-09-13):** `NetworkPlayerSetup.
+   DisableOtherAudioListeners`/`Configure` doğru görünüyor — her istemci
+   kendi AudioListener'ını doğru açıp kapatıyor, sahnede birden fazla aktif
+   dinleyici kalma riski yok. `AudioPanel`'in genel ses kaydırıcısı da
+   (`AudioListener.volume`) `PlayerPrefs`'ten doğru okuyup yazıyor, başka bir
+   yerden ezilmiyor. **Kod okumakla bulunamadı; iki ayrı ihtimal var ve
+   HANGİSİ olduğu netleşmeden ilerlenemez:**
+   - **Ses EFEKTLERİ** mi (adım, kapı, terminal, jumpscare…) yoksa
+   - **SESLİ SOHBET** mi (bölüm 19 — proximity/jitter/paket kaybı zaten
+     unreliable bir kanal ve ilk kez 5 kişiyle, gerçek ağ koşullarında test
+     edildi)?
+   
+   Kullanıcıya sorulacak: hangisiydi, hangi sesti, ne zaman oluyordu
+   (biri katılınca/ayrılınca mı, uzun oturumda mı, belirli bir aksiyonda mı)?
 3. **Lobi/bağlantı sorunları** (EOS relay, bölüm 13):
    - Kullanıcı host olduğunda diğerleri katılamadı.
    - Başkası host'ken: katılıp ayrıldıktan sonra kullanıcı **tekrar
      katılamadı**.
-   - **Netleşti (aynı gün, ikinci mesaj):** biri oda kurunca onun odası
-     listede görünüyor; kullanıcı da AYNI ANDA bir oda kurunca **kendi odası
-     listede görünmüyor / girilemiyor.** Yani **birden fazla oda aynı anda
-     açıkken** ikinciyi (belki sonrakileri) EOS'un lobi arama/listeleme yolu
-     hiç göstermiyor olabilir — tam test edilemedi, kullanıcı da emin değil.
-     **Bu ciddi bir risk:** yayına çıkınca aynı anda birden fazla oda normal
-     olacak; ikinci odanın görünmemesi doğruysa oyun pratikte tek odalık
-     kalır. `RelayLobby`'nin arama/listeleme tarafı (bölüm 13) koddan
-     incelenmeli.
+   - **Netleşti (aynı gün, ikinci mesaj), ARAŞTIRILDI, KOD HATASI
+     BULUNAMADI.** Biri oda kurunca onun odası listede görünüyor; kullanıcı
+     da AYNI ANDA bir oda kurunca kendi odası görünmüyor/girilemiyor.
+     `RelayLobby.cs` ve paketin `EOSLobby.cs`'i (arama/oluşturma) satır satır
+     okundu: `FindLobbies` her çağrıda TAZE bir `LobbySearch` açıyor,
+     `maxListedRooms=20`, filtre yalnızca ortak `default`/bucket özniteliği —
+     "yalnızca ilk oda bulunur" türünden bir sınır yok. **İki olası açıklama
+     kaldı, ikisi de kod dışı:** (a) EOS'un lobi arama indeksinde birkaç
+     saniyelik gecikme (yeni kurulan oda hemen aranabilir olmayabilir), (b)
+     bölüm 13'ün zaten belgelediği "aynı cihaz = aynı kimlik" sınırı (iki
+     test aynı makineden/ağdan karışınca). **Yeniden test önerisi:** iki
+     FARKLI kişi aynı anda oda kursun, ~10 sn bekleyip herkes listeyi
+     yenilesin, o zaman gerçek bir kod hatası mı yoksa gecikme mi ayrılır.
    - **Yeni: lobiden atma (kick/ban) yok.** Oda sahibinin istenmeyen bir
      oyuncuyu çıkarmasının hiçbir yolu yok (test botu kaldırma [5] farklı bir
      şey — gerçek oyuncuya işlemiyor). Genel bir "oyuncuyu at" komutu
      gerekiyor; kalıcı engelleme (ban, aynı oturumda tekrar giremesin) ile
      geçici atmanın (kick, tekrar deneyebilir) ayrı şeyler olduğu netleşmeli.
+     **Henüz yazılmadı** — Mirror'da standart yol (`connectionToClient.
+     Disconnect()`), riskli değil ama roster UI'ına dokunuyor, ayrı bir
+     iş turu olarak planlandı.
    - **Yeni: oda gizliliği yok.** Şu an her oda hem kod hem oda listesi
      üzerinden herkese açık. **Herkese açık / gizli** (public/private) ayrımı
      istendi: gizli oda listede görünmesin, yalnızca kodu bilen katılabilsin.
-     Kick/ban ile birlikte düşünülmeli — ikisi de "yayına çıkınca odamı kim
-     bulur, kim girer" sorusuna cevap.
+     **Henüz yazılmadı** — kod-ile-katılmanın gizli odalarda da çalışmaya
+     devam etmesi gerektiği için `EOSLobby`'nin arama/izin mantığına dikkatli
+     bakmak gerekiyor, gözü kapalı bir onay kutusu kadar basit olmayabilir.
 4. **Harita küçük geldi — ~2 katına çıkarılmalı.** Kullanıcının teklifi:
    mevcut ELLE DÜZENLENMİŞ haritaya dokunmadan (bölüm 0'ın kuralı — mevcut
    `Labirent Harita Kur` tamamını silip yeniden üretiyor, burada
    KULLANILAMAZ), kenarlardan yeni alan eklemek. Kaba yapıyı eklemek bana
-   düşüyor, ince düzenlemesini kullanıcı kendisi yapacak.
-5. **Diriltme terminali** (bölüm 23):
-   - Süre 15 sn → **10 sn**.
-   - Beceri sınavındaki WASD istemine yön OKU da eklensin (↑↓←→). Terminal
-     sınavı zaten ok+tuş harfini yan yana gösteriyor (bölüm 20) — revival
-     ekranında bu eksik olabilir, koda bakılıp doğrulanacak.
-6. **Eğilirken kayma tamamen kapatılsın.** "2 taraf içinde" dendi — muhtemelen
-   hem eğilmeye girerken hem çıkarken, ama netleşmedi.
-7. **Hız/gizlilik takası ikili olsun:** yürürken VEYA eğilerek giderken ayak
-   sesi VE iz (trail) HİÇ çıkmasın — yalnızca KOŞARKEN ikisi de çıksın.
-   Bugün yürüme de (kısılmış) ses üretiyor (bölüm 12, `walkVolume`); bu
-   isteniyor: kademeli değil, sessiz/koş ikilisi.
-8. **Dehşet efektleri (bölüm 25) fazla agresif.** Kalp atışı, kamera
-   sarsıntısı, ekran kararması/pikselleme — canavar DUVARIN ARKASINDAYKEN
-   bile çok güçlü hissediliyor. Bu tasarım gereği zaten öyle olacak şekilde
-   kuruldu ("görüş hattı aranmıyor, bilerek" — bölüm 25) — şikâyet edilen
-   görüş hattı değil, **şiddet**. Kovalamaca sırasında pikselleme/kararma o
-   kadar fazla ki ekran neredeyse görünmüyor. Ayarlanabilir olsa da
-   (`ScreenEffects.Master`, seçenekler ekranı) varsayılan tavan değerleri
-   düşürülmeli.
+   düşüyor, ince düzenlemesini kullanıcı kendisi yapacak. **Henüz
+   başlanmadı** — bölüm 0'ın en katı kuralına dokunuyor, yaklaşımı önce
+   konuşup sonra yazılacak.
+5. ~~**Diriltme terminali**~~ **YAPILDI (2026-09-13)** (bölüm 23,
+   `Interaction/RevivalStation.cs`, `UI/RevivalScreen.cs`):
+   - Süre 15 sn → **10 sn**. Üç beceri sınavının zamanlaması da (3./7./11.
+     saniye → **2./4.5./7. saniye**) buna göre yeniden ölçeklendi — aksi
+     halde üçüncü sınav (eski: 11. sn) yeni 10 sn'lik tavanın üstünde
+     kalıp diriltmeyi SONSUZA KADAR tıkardı.
+   - Beceri sınavı ve kilit açma dizilimindeki WASD istemine yön oku da
+     eklendi (↑↓←→), Terminal'in kendi sınavıyla (`Terminal.
+     DirectionLabel`) birebir aynı biçimde. Kök sebep bulundu: `RevivalScreen.
+     Key()` yalnızca tuş HARFİNİ yazıyordu, oku hiç eklemiyordu.
+6. ~~**Eğilirken kayma tamamen kapatılsın.**~~ **YAPILDI (2026-09-13)**
+   (`Player/PlayerController.cs`). "2 taraf" kod okunduktan sonra netleşti:
+   var olan bir "kayma" (slide) mekaniğinin İKİ bileşeniydi — başlangıç itkisi
+   (`slideBoost`) VE kayarken düşük sürtünme (`slideFriction`). İkisi de,
+   `isSliding` durumunun tamamıyla birlikte kaldırıldı (`MovementProfile.cs`,
+   `MovementProfileSetup.cs`, `NetworkSetup.cs`'teki ilgili alanlar da
+   temizlendi). Artık Ctrl'e basmak yalnızca normal eğilme animasyonunu
+   başlatıyor, hiçbir hız/sürtünme sapması yok.
+7. ~~**Hız/gizlilik takası ikili olsun**~~ **YAPILDI (2026-09-13)**
+   (`Player/FootstepAudio.cs`, `Player/TrailLeaver.cs`): yürürken VEYA
+   eğilerek giderken artık ne ses ne iz çıkıyor — yalnızca KOŞARKEN
+   (`sprintThreshold` üstü) ikisi de çıkıyor. İki dosya **aynı eşiği**
+   kullanıyor ve ikisi de `IsDucked` iken açıkça sessiz/izsiz — `TrailLeaver`
+   zaten aynı sayıyı (300) kullanıyordu (kod okunmadan önce fark
+   edilmemişti), asıl değişen `FootstepAudio`'ydu (eskiden 40 u/s'den
+   itibaren, yürürken de kısık sesle çalıyordu).
+8. ~~**Dehşet efektleri (bölüm 25) fazla agresif.**~~ **YAPILDI (2026-09-13)**
+   (`Player/ScreenEffects.cs`, `Player/CameraBob.cs`, `Player/
+   HeartbeatAudio.cs`): dördü de AYNI `DreadFar` sabitinden beslendiği için
+   tek satır (22 → **16 m**) hepsinin etki yarıçapını birden daralttı;
+   üstüne dehşet tavanındaki değerler de düşürüldü (vinyet 0.78→0.60, gren
+   0.095→0.075, renk ayrışması 0.012→0.009, renk kaybı 0.70→0.55, kontrast
+   1.15→1.08, pikselleme bloğu 3→2, kamera sarsıntı genliği 0.018→0.012,
+   kalp atışı tavan sesi 0.85→0.65). Tasarım (görüş hattı aranmaması, bölüm
+   25) korundu — şikâyet edilen o değildi, şiddetti. Sayılar yine tahmin,
+   oynayarak ayarlanacak.
 
 #### BEKLEYEN ARAÇ ÇALIŞTIRMASI VAR: `Menü Kur`
 
@@ -4899,8 +4938,18 @@ taşırken bırakma tuşu; kabine bakıyorsan yerleştirme tuşu.
 
 ### Terminal
 
-15 saniye, arada **üç beceri sınavı** (3., 7. ve 11. saniyelerde). Sınav
+**10 saniye** (2026-09-13'e kadar 15'ti — oynanış geri bildirimiyle
+kısaltıldı), arada **üç beceri sınavı** (2., 4.5. ve 7. saniyelerde —
+eskiden 3./7./11., süreyle orantılı olarak yeniden ölçeklendi). Sınav
 ekrandayken ilerleme duruyor — bölüm 11.3'teki terminalle aynı mantık.
+
+> **Süreyi tek başına değiştirmek diriltmeyi tıkardı.** Sınav zamanlaması
+> süreden bağımsız sabit sayılardı (3+4×i); süre 10'a inince üçüncü sınav
+> (eski: 11. saniye) hiçbir zaman TETİKLENEMEZ hâle gelirdi — `elapsed`
+> `duration`'da (10) tavanlanıyor ve 11'e asla ulaşamıyor. Sınav sayısı 3'te
+> kalmadan diriltme bitemiyor, yani kabin sonsuza kadar tıkanırdı. İki sayı
+> birbirine bağlı olduğu için birini değiştirirken öbürünü de kontrol etmek
+> gerekiyor.
 
 **Terminalden bilinçli farkı:** hata **ilerlemeyi sıfırlıyor.** Bölüm 11.2'de
 terminal ilerlemesi kalıcı ("yarıda bırakılan terminal sıfırlanmaz"); burada
