@@ -14,7 +14,14 @@ public class RevivalStation : NetworkBehaviour, IInteractable
         "audioSource'u paylaşıyor: PlayOneShot, o an dönen çalışma döngüsünü " +
         "kesmeden üstüne biniyor.")]
     [SerializeField] private AudioClip successClip;
-    [SerializeField] private float duration = 15f;
+
+    [Tooltip("İşlem süresi (saniye). 15'ten 10'a indirildi (2026-09-13, " +
+        "oynanış geri bildirimi). ÖNEMLİ: aşağıdaki üç sınavın zamanlaması " +
+        "(ServerTick'teki '3f + checksPassed * 4f') bu sayıya göre ayrıca " +
+        "elden geçirildi — üçüncü sınav eskiden 11. saniyedeydi, süre 10'a " +
+        "inince `elapsed` hiç 11'e ulaşamayacağı için diriltme SONSUZA KADAR " +
+        "tıkanırdı. Bu alanı tekrar değiştirirsen sınav zamanlarını da kontrol et.")]
+    [SerializeField] private float duration = 10f;
     [SerializeField] private float useDistance = 4f;
 
     [Tooltip("Kabinin içine bırakılan cesedi bu yarıçapta kendiliğinden kabul " +
@@ -266,7 +273,11 @@ public class RevivalStation : NetworkBehaviour, IInteractable
         if (locked || Time.time < readyAt) return;
         if (prompt != 0)
         { if (NetworkTime.time > deadline + 0.3) Fail(); return; }
-        if (checksPassed < 3 && elapsed >= 3f + checksPassed * 4f)
+        // 2 / 4.5 / 7 sn: 10 sn'lik süreye göre yeniden ölçeklendi (eskiden
+        // 3/7/11, 15 sn'lik süre için). Son sınav 7'de bitiyor, 1.8 sn'lik
+        // cevap penceresi en kötü ihtimalle 8.8'e çıkarıyor — geriye elapsed'in
+        // 10'a tırmanması için hâlâ pay kalıyor.
+        if (checksPassed < 3 && elapsed >= 2f + checksPassed * 2.5f)
         { prompt = (byte)Random.Range(1, 5); deadline = NetworkTime.time + 1.8; promptToken++; return; }
         elapsed = Mathf.Min(duration, elapsed + Time.deltaTime);
         if (elapsed < duration || checksPassed < 3) return;

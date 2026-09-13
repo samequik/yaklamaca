@@ -156,8 +156,26 @@ public class RevivalScreen : MonoBehaviour
         return text;
     }
 
+    /// <summary>
+    /// Ok + tuş adı, Terminal'in kendi sınavıyla AYNI biçim
+    /// (`Terminal.DirectionLabel`, bölüm 11.3/20). Önceden yalnızca tuş
+    /// harfi yazıyordu ("[ W ]") — oynanış geri bildirimi (2026-09-13) oku da
+    /// istedi, yukarı/aşağı/sağ/sol ayrımı tek harften daha hızlı okunuyor.
+    /// </summary>
     private static string Key(int direction)
-        => KeyBindings.Describe(KeyBindings.Get(RevivalStation.DirectionAction(direction)));
+    {
+        string arrow;
+        switch (direction)
+        {
+            case 1: arrow = "↑ "; break;
+            case 2: arrow = "↓ "; break;
+            case 3: arrow = "← "; break;
+            case 4: arrow = "→ "; break;
+            default: arrow = ""; break;
+        }
+
+        return arrow + KeyBindings.Describe(KeyBindings.Get(RevivalStation.DirectionAction(direction)));
+    }
 
     private void Update()
     {
