@@ -909,6 +909,11 @@ normal kapı** (Ctrl+D ile `Kapi_5_7`'den) ve **1 yeni diriltme istasyonu**
   varsayılanını geçici bir örnekten okuyup (sabiti ikinci kez yazmadan)
   sahnedeki her istasyona zorluyor. **Kullanıcının bunu ÇALIŞTIRMASI
   gerekiyor**, henüz çalıştırılmadı.
+- **Duvarı düzelttikten sonra: "çıkıştan geçiyoruz ama kazanmıyoruz."**
+  Kablolama (relay, tetikleyici, `ExitGate`) tek tek doğrulandı, hepsi
+  sağlamdı — sebep `RoundManager.ExitOpen`'ın (gereken terminal sayısı
+  bitmeden hep `false`) sessizce reddetmesiydi, taşımayla ilgisi yoktu.
+  Ayrıntı ve eklenen tanı logu bölüm 11.5'te.
 
 ---
 
@@ -2201,6 +2206,27 @@ haksız hâle getirirdi.
   bu fark belirliyor.
 - **Bir kişinin kaçması turu bitirmez.** Sahada kaçan kaldığı sürece oyun
   sürer; tur ancak sahada oynayan kalmayınca biter.
+
+> **"Tetiğe çarpıyoruz ama tetiklenmiyor" — kablolama SAĞLAMDI, kural
+> SESSİZDİ (2026-09-13).** Kullanıcı taşıdığı çıkıştan yürüyerek geçmenin
+> hiçbir şey yapmadığını bildirdi. `Tetik`'in `BoxCollider`ı (`isTrigger`
+> açık), `ExitTriggerRelay`'i ve `ExitGate`'in kendisi tek tek sahne
+> dosyasından doğrulandı — hepsi doğru kurulu, taşımanın hiçbir şeyi
+> bozmadığı kanıtlandı.
+>
+> Gerçek sebep `ExitGate.ReportEscapeTrigger`'ın kendisiydi:
+> `!manager.ExitOpen` iken **sessizce** `return` ediyordu — hiçbir log,
+> hiçbir görsel ipucu yok. `ExitOpen => requiredTerminals > 0 &&
+> completedTerminals >= requiredTerminals` (`RoundManager.cs`), yani
+> **gereken sayıda terminal bitmeden geçmek fiziksel olarak mümkün ama
+> hiçbir şey saymıyor** — tam da tasarlandığı gibi. Kullanıcı muhtemelen
+> terminalleri bitirmeden çıkışı denedi (taşımanın doğru olup olmadığını
+> hızlıca kontrol ederken).
+>
+> Artık `ReportEscapeTrigger` her ret durumunda (`Phase != Playing`,
+> `!ExitOpen`, kaçan olmayan biri) konsola BİR SATIR log yazıyor — hangi
+> terminal sayısında olunduğu dahil. Bir dahaki sefere "çalışmıyor" yerine
+> konsol doğrudan sebebi söyleyecek.
 
 ### 11.6 Ayarlanabilir sayılar
 

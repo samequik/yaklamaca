@@ -121,12 +121,34 @@ public class ExitGate : NetworkBehaviour
             return;
 
         RoundManager manager = RoundManager.Instance;
-        if (manager == null || manager.Phase != RoundPhase.Playing || !manager.ExitOpen)
+        if (manager == null)
             return;
+
+        // Tetik doğru çalışıyor olsa bile bu iki şart sessizce reddediyordu —
+        // "tetiğe çarpıyoruz ama hiçbir şey olmuyor" burada geliyordu ve
+        // kablolamada hiçbir hata yokken bile hata gibi görünüyordu
+        // (2026-09-13, oynanış geri bildirimi). En sık sebep: gereken
+        // terminal sayısı henüz tamamlanmadan çıkış denenmesi — ExitOpen
+        // tam olarak bunu ölçüyor.
+        if (manager.Phase != RoundPhase.Playing)
+        {
+            Debug.Log($"{name}: tetik çalıştı ama tur oynanmıyor (Phase={manager.Phase}).", this);
+            return;
+        }
+
+        if (!manager.ExitOpen)
+        {
+            Debug.Log($"{name}: tetik çalıştı ama çıkış henüz açık DEĞİL " +
+                $"({manager.CompletedTerminals}/{manager.RequiredTerminals} terminal tamamlandı).", this);
+            return;
+        }
 
         RoundParticipant participant = other.GetComponentInParent<RoundParticipant>();
         if (participant == null || participant.Role != RoundRole.Runner)
+        {
+            Debug.Log($"{name}: tetik çalıştı ama geçen kaçan değil ({other.name}).", this);
             return;
+        }
 
         manager.ReportEscaped(participant);
     }
