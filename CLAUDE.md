@@ -370,6 +370,54 @@ Hepsinin ayrıntısı bölüm 23'te; özet:
 
 ### Sıradaki adımlar
 
+#### 2026-09-13: Beş kişilik GERÇEK oynanış testi — geri bildirim (HENÜZ UYGULANMADI)
+
+5 arkadaş, 1 saat, tek oturum. **Oyun sıkmamış** — iyi haber, temel döngü
+tutuyor. Ama **kaçanlar bir saat boyunca bir kez bile kaçamadı**: canavar
+aşırı güçlü, denge acil.
+
+Bu liste kullanıcının playtest sonrası verdiği ham geri bildirim.
+**Tamamlanmadı, kullanıcı devam edecek.** Madde 1'in sayısal ayrıntıları
+henüz gelmedi — o gelmeden denge sayılarına dokunulmayacak. Diğer maddeler
+de henüz kod tarafında ele alınmadı.
+
+1. **[EN KRİTİK] Canavar çok güçlü — hiç kaçış olmadı.** Denge ayrıntıları
+   kullanıcıdan ayrıca gelecek (hangi sayı, ne kadar). Gelmeden dokunma.
+2. **Ses bug'ı — kararsız.** Bazı sesler bazen çalıyor bazen çalışmıyor,
+   sebebi belirsiz. "Dikkatli bak" dendi — hangi ses(ler) olduğu netleşmedi,
+   araştırma gerekiyor.
+3. **Lobi/bağlantı sorunları** (EOS relay, bölüm 13):
+   - Kullanıcı host olduğunda diğerleri katılamadı.
+   - Başkası host'ken: katılıp ayrıldıktan sonra kullanıcı **tekrar
+     katılamadı**.
+   - Birden fazla oda aynı anda açıkken bir sorun daha bildirildi (tam ifade
+     netleşmedi — kendi odasının listede/görünürde çıkmaması ihtimali var,
+     doğrulanacak).
+4. **Harita küçük geldi — ~2 katına çıkarılmalı.** Kullanıcının teklifi:
+   mevcut ELLE DÜZENLENMİŞ haritaya dokunmadan (bölüm 0'ın kuralı — mevcut
+   `Labirent Harita Kur` tamamını silip yeniden üretiyor, burada
+   KULLANILAMAZ), kenarlardan yeni alan eklemek. Kaba yapıyı eklemek bana
+   düşüyor, ince düzenlemesini kullanıcı kendisi yapacak.
+5. **Diriltme terminali** (bölüm 23):
+   - Süre 15 sn → **10 sn**.
+   - Beceri sınavındaki WASD istemine yön OKU da eklensin (↑↓←→). Terminal
+     sınavı zaten ok+tuş harfini yan yana gösteriyor (bölüm 20) — revival
+     ekranında bu eksik olabilir, koda bakılıp doğrulanacak.
+6. **Eğilirken kayma tamamen kapatılsın.** "2 taraf içinde" dendi — muhtemelen
+   hem eğilmeye girerken hem çıkarken, ama netleşmedi.
+7. **Hız/gizlilik takası ikili olsun:** yürürken VEYA eğilerek giderken ayak
+   sesi VE iz (trail) HİÇ çıkmasın — yalnızca KOŞARKEN ikisi de çıksın.
+   Bugün yürüme de (kısılmış) ses üretiyor (bölüm 12, `walkVolume`); bu
+   isteniyor: kademeli değil, sessiz/koş ikilisi.
+8. **Dehşet efektleri (bölüm 25) fazla agresif.** Kalp atışı, kamera
+   sarsıntısı, ekran kararması/pikselleme — canavar DUVARIN ARKASINDAYKEN
+   bile çok güçlü hissediliyor. Bu tasarım gereği zaten öyle olacak şekilde
+   kuruldu ("görüş hattı aranmıyor, bilerek" — bölüm 25) — şikâyet edilen
+   görüş hattı değil, **şiddet**. Kovalamaca sırasında pikselleme/kararma o
+   kadar fazla ki ekran neredeyse görünmüyor. Ayarlanabilir olsa da
+   (`ScreenEffects.Master`, seçenekler ekranı) varsayılan tavan değerleri
+   düşürülmeli.
+
 #### BEKLEYEN ARAÇ ÇALIŞTIRMASI VAR: `Menü Kur`
 
 **Menü sahnesinin arka odası ve yeni ışık değerleri SAHNEYE GİRMEDİ.**
