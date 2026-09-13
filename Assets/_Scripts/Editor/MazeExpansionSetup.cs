@@ -21,11 +21,24 @@ using UnityEngine.SceneManagement;
 ///
 /// ### Kaba temel, ince işçilik SENDE
 ///
-/// Kullanıcının kendi isteği: burası yalnızca yeni koridorların iskeletini
-/// (duvar/zemin/tavan/birkaç kapı ve eğilme geçidi) kuruyor. Süsleme YOK,
-/// aydınlatma YOK — ikisi de kasıtlı, aşağıda "Sonra ne çalıştırılmalı"
-/// başlığında anlatılıyor. Asıl ince ayar (hangi kapı nerede duracak, hangi
-/// köşe boş kalacak) elle yapılacak, tıpkı bugünkü haritanın geri kalanı gibi.
+/// Kullanıcının kendi isteği: burası yeni koridorların iskeletini
+/// (duvar/zemin/tavan/birkaç kapı ve eğilme geçidi) kurup **SciFi Kit'le
+/// kendi kendini giydiriyor** (bkz. `DressWing`) — `Haritayı Giydir`
+/// penceresi buraya hiç ulaşmıyor, o yüzden bu araç kendi giydirmesini
+/// taşıyor. Aydınlatma hâlâ YOK (kasıtlı, aşağıda "Sonra ne çalıştırılmalı").
+/// Asıl ince ayar (hangi kapı nerede duracak, hangi köşe boş kalacak) elle
+/// yapılacak, tıpkı bugünkü haritanın geri kalanı gibi.
+///
+/// **İkinci tur (2026-09-13):** ilk sürüm giydirmeyi `Haritayı Giydir`
+/// penceresine bırakıyordu ve kullanıcı "basınca giydirmiyor" diye bildirdi.
+/// Sebep: o pencere TEK `Harita/Duvarlar` grubunu (`Transform.Find` ile,
+/// doğrudan çocuk) okuyor ve `gridSize`'ı en büyük hücre indeksinden
+/// çıkarıyor — bu kanadın AYRI grubunu hiç görmüyordu (ana harita hiç
+/// etkilenmemişti, yalnızca yeni kanat çıplak kalmıştı). O pencereyi
+/// çoklu-bölge bilecek şekilde genişletmek yerine (uzun süredir çalışan ana
+/// harita giydirmesini riske atardı), üç jenerik yardımcısı (`Place`,
+/// `MeasurePrefab`, `WorldBounds`) `internal` yapılıp burada doğrudan
+/// kullanıldı.
 ///
 /// ### Bağlantı: hangi iki noktadan, nereden biliniyor
 ///
@@ -48,22 +61,21 @@ using UnityEngine.SceneManagement;
 ///
 /// ### Sonra ne çalıştırılmalı
 ///
-/// Bu araç bilerek şunlara DOKUNMUYOR, çünkü hepsi zaten var olan güvenli
-/// araçlarla (bölüm 0'ın listesi) çözülüyor ve aynı mantığı burada ikinci kez
-/// yazmak iki ayrı süsleme/ışık kuralı demek olurdu:
+/// Duvar/zemin/tavan/kapı giydirmesi bu aracın kendi işi (yukarıda). Geri
+/// kalanlar hâlâ var olan güvenli araçlarla (bölüm 0'ın listesi) çözülüyor,
+/// aynı mantığı ikinci kez yazmaya gerek yok:
 ///
 /// | Sırada | Araç | Neden burada değil |
 /// |---|---|---|
-/// | 1 | `Katmanları Kur` | Yeni duvarlar/kapılar `Harita`/`Etkilesim` katmanını `MarkStatic`/`BuildDoors` üzerinden zaten alıyor, ama tekrar çalıştırmak zararsız bir doğrulama |
-/// | 2 | `Haritayı Giydir` | Bileşene/şekle göre tarıyor, konuma bakmıyor — yeni duvarları da otomatik giydirir |
-/// | 3 | `Harita Süsle` | Kullanıcının istediği "süs modelleri" tam olarak burada geliyor |
-/// | 4 | `Sesleri Yerleştir` | Yeni kapılara ses bağlar |
-/// | 5 | `Işığı Pişir` | Yeni kanat şu an IŞIKSIZ — gerçek lamba/ambient yerleşimi ELLE ya da bu pişirmeyle geliyor |
+/// | 1 | `Katmanları Kur` | Yeni duvarlar/kapılar katmanı zaten `MarkStatic`/`BuildDoors` üzerinden alıyor, ama tekrar çalıştırmak zararsız bir doğrulama |
+/// | 2 | `Harita Süsle` | Kullanıcının istediği "süs modelleri" (varil/kasa) tam olarak burada geliyor — bileşene/şekle göre tarıyor, konuma bakmıyor |
+/// | 3 | `Sesleri Yerleştir` | Yeni kapılara ses bağlar |
+/// | 4 | `Işığı Pişir` | Yeni kanat şu an IŞIKSIZ — gerçek lamba/ambient yerleşimi ELLE ya da bu pişirmeyle geliyor |
 ///
-/// Bu araç ışık koymuyor (yalnızca düz bir tavan kutusu var, enkaza
-/// düşmesin diye) — `Atmosfer Kur`'u burada taklit etmek o aracın kendi
-/// lamba yerleştirme mantığını ikinci kez yazmak, üstelik `Atmosfer Kur`'un
-/// KENDİSİ çalıştırılamaz (bölüm 0 — `Lambalar` grubunun tamamını siliyor).
+/// Bu araç ışık koymuyor (yalnızca düz bir tavan var, enkaza düşmesin diye)
+/// — `Atmosfer Kur`'u burada taklit etmek o aracın kendi lamba yerleştirme
+/// mantığını ikinci kez yazmak olurdu, üstelik `Atmosfer Kur`'un KENDİSİ
+/// çalıştırılamaz (bölüm 0 — `Lambalar` grubunun tamamını siliyor).
 /// </summary>
 public static class MazeExpansionSetup
 {
@@ -145,8 +157,9 @@ public static class MazeExpansionSetup
             $"Var olan Harita'ya TEK dokunuş: x={ExistingBreachX[0]} ve x={ExistingBreachX[1]}'deki " +
             "iki güney duvar bloğu silinip yeni kanada bağlanacak. Başka HİÇBİR ŞEY " +
             "silinmiyor, taşınmıyor ya da yeniden üretilmiyor.\n\n" +
-            $"{WingDoorCount} kapı, {WingCrouchCount} eğilme geçidi eklenecek. Düz bir tavan " +
-            "var (ışıksız) — süsleme ve aydınlatma sonraki adım, bkz. sınıf yorumundaki tablo.",
+            $"{WingDoorCount} kapı, {WingCrouchCount} eğilme geçidi eklenecek, hepsi SciFi Kit'le " +
+            "kendiliğinden giydirilecek. Aydınlatma yok (ışıksız) — sonraki adım, bkz. sınıf " +
+            "yorumundaki tablo.",
             "Kur", "Vazgeç");
 
         if (!proceed)
@@ -186,16 +199,20 @@ public static class MazeExpansionSetup
         Material buttonMaterial = MazeMapBuilder.GetOrCreateMaterial("Harita_Dugme", new Color(0.90f, 0.35f, 0.25f));
         Material crouchMaterial = MazeMapBuilder.GetOrCreateMaterial("Harita_Gecit", new Color(0.62f, 0.55f, 0.32f));
 
-        BuildFloor(root.transform, floorMaterial);
-        BuildCeiling(root.transform, wallMaterial);
-        BuildWalls(root.transform, wall, crouchCells, wallMaterial);
-        BuildCrouchPassages(root.transform, wall, crouchCells, crouchMaterial);
-        BuildDoors(root.transform, wall, doorCells, doorMaterial, buttonMaterial);
+        GameObject floor = BuildFloor(root.transform, floorMaterial);
+        GameObject ceiling = BuildCeiling(root.transform, wallMaterial);
+        Transform wallsGroup = BuildWalls(root.transform, wall, crouchCells, wallMaterial);
+        Transform crouchGroup = BuildCrouchPassages(root.transform, wall, crouchCells, crouchMaterial);
+        Transform doorsGroup = BuildDoors(root.transform, wall, doorCells, doorMaterial, buttonMaterial);
 
         // Var olana dokunan TEK adım: bağlantı noktalarındaki iki güney
         // duvarını sil. Undo'ya kaydediliyor — beğenmezsen Ctrl+Z.
         foreach (GameObject wallObject in breachWalls)
             Undo.DestroyObjectImmediate(wallObject);
+
+        // Giydirme BURADA, kendi kod yoluyla — `Haritayı Giydir` penceresine
+        // dokunmuyoruz (bkz. sınıf yorumu, "neden ayrı bir giydirme").
+        DressWing(root.transform, wall, crouchCells, wallsGroup, doorsGroup, crouchGroup, floor, ceiling);
 
         AssetDatabase.SaveAssets();
         Selection.activeGameObject = root;
@@ -208,11 +225,11 @@ public static class MazeExpansionSetup
             : "\nBağlantı doğrulandı: yeni kanadın tamamına ulaşılabiliyor.";
 
         Debug.Log(
-            $"Güney kanadı kuruldu ({WingSize}x{WingSize}, seed {Seed}). " +
+            $"Güney kanadı kuruldu ve giydirildi ({WingSize}x{WingSize}, seed {Seed}). " +
             $"{doorCells.Count} kapı, {crouchCells.Count} eğilme geçidi.\n" +
             $"Mevcut haritadan x={ExistingBreachX[0]} ve x={ExistingBreachX[1]}'de iki nokta " +
             "açıldı, başka hiçbir şey silinmedi.\n" +
-            "Sırada: Katmanları Kur → Haritayı Giydir → Harita Süsle → Sesleri Yerleştir → " +
+            "Sırada: Katmanları Kur → Harita Süsle → Sesleri Yerleştir → " +
             "Işığı Pişir (yeni kanat şu an ışıksız)." + warning);
     }
 
@@ -237,7 +254,7 @@ public static class MazeExpansionSetup
 
     private static Vector3 WingCellToWorld(int x, int z) => new Vector3(WorldX(x), 0f, WorldZ(z));
 
-    private static void BuildFloor(Transform parent, Material material)
+    private static GameObject BuildFloor(Transform parent, Material material)
     {
         float span = WingSize * MazeMapBuilder.CellSize;
 
@@ -251,6 +268,7 @@ public static class MazeExpansionSetup
             new Vector3(span, 0.5f, span), material);
 
         MazeMapBuilder.MarkStatic(floor);
+        return floor;
     }
 
     /// <summary>
@@ -258,7 +276,7 @@ public static class MazeExpansionSetup
     /// taklit etmiyoruz (sınıf yorumu). Amaç yalnızca yeni kanadı gökyüzüne
     /// açık bırakmamak; gerçek aydınlatma Işığı Pişir'den geliyor.
     /// </summary>
-    private static void BuildCeiling(Transform parent, Material material)
+    private static GameObject BuildCeiling(Transform parent, Material material)
     {
         float span = WingSize * MazeMapBuilder.CellSize;
         float centerX = WorldX((WingSize - 1) / 2);
@@ -269,9 +287,10 @@ public static class MazeExpansionSetup
             new Vector3(span, 0.5f, span), material);
 
         MazeMapBuilder.MarkStatic(ceiling);
+        return ceiling;
     }
 
-    private static void BuildWalls(Transform parent, bool[,] wall, List<Vector2Int> crouchCells, Material material)
+    private static Transform BuildWalls(Transform parent, bool[,] wall, List<Vector2Int> crouchCells, Material material)
     {
         Transform group = MazeMapBuilder.CreateGroup("Duvarlar", parent);
 
@@ -290,9 +309,11 @@ public static class MazeExpansionSetup
                 MazeMapBuilder.MarkStatic(block);
             }
         }
+
+        return group;
     }
 
-    private static void BuildCrouchPassages(Transform parent, bool[,] wall, List<Vector2Int> cells, Material material)
+    private static Transform BuildCrouchPassages(Transform parent, bool[,] wall, List<Vector2Int> cells, Material material)
     {
         Transform group = MazeMapBuilder.CreateGroup("EgilmeGecitleri", parent);
 
@@ -326,9 +347,11 @@ public static class MazeExpansionSetup
 
             MazeMapBuilder.MarkStatic(ceiling);
         }
+
+        return group;
     }
 
-    private static void BuildDoors(Transform parent, bool[,] wall, List<Vector2Int> cells,
+    private static Transform BuildDoors(Transform parent, bool[,] wall, List<Vector2Int> cells,
         Material doorMaterial, Material buttonMaterial)
     {
         Transform group = MazeMapBuilder.CreateGroup("Kapilar", parent);
@@ -382,5 +405,246 @@ public static class MazeExpansionSetup
                 LayerSetup.Apply(buttonBox, LayerSetup.Etkilesim);
             }
         }
+
+        return group;
+    }
+
+    // ---------- Giydirme: `MapDressWindow` ile AYNI kit, kendi kod yolu ----------
+
+    /// <summary>
+    /// Yeni kanadı SciFi Kit'le giydirir. `Haritayı Giydir` penceresini
+    /// ÇAĞIRMIYORUZ, bilerek: o pencere tek bir `Harita/Duvarlar` grubunu
+    /// (ana haritanınkini) okuyor ve `gridSize`'ı en büyük hücre indeksinden
+    /// çıkarıyor — bu kanadın kendi ayrı grubunu hiç görmez, görse bile iki
+    /// bölgenin farklı dünya-konumu formüllerini (WorldX/WorldZ burada, ana
+    /// haritanınki CellToWorld'de) TEK bir `gridSize`/`origin` ile karıştırıp
+    /// yanlış yerlere döşerdi.
+    ///
+    /// (2026-09-13, ikinci tur: kullanıcı "Haritayı Giydir'e basınca yeni
+    /// kanat giydirilmiyor" diye bildirdi — sebep tam bu buydu. Ana haritanın
+    /// KENDİSİ hiç etkilenmemişti, yalnızca yeni kanat çıplak kalmıştı.)
+    ///
+    /// Çözüm: pencerenin jenerik, "tek harita" varsaymayan üç yardımcısını
+    /// (`Place`, `MeasurePrefab`, `WorldBounds`, artık internal) burada
+    /// doğrudan kullanmak — aynı prefab'lar, aynı görünüm, ama kendi
+    /// `wall[,]`/`WingCellToWorld` verimizle, ikinci bir "sahneden isim
+    /// okuyup grid'i yeniden keşfet" adımına hiç gerek kalmadan.
+    /// </summary>
+    private static void DressWing(Transform root, bool[,] wall, List<Vector2Int> crouchCells,
+        Transform wallsGroup, Transform doorsGroup, Transform crouchGroup, GameObject floor, GameObject ceiling)
+    {
+        GameObject wallPrefab = LoadKitPrefab("Walls/Wall Plain");
+        GameObject floorPrefab = LoadKitPrefab("Floor/Floor Tile 01");
+        GameObject ceilingPrefab = LoadKitPrefab("Ceiling/Ceiling Closed");
+        GameObject doorPrefab = LoadKitPrefab("Walls/Wall BayDoor");
+        Material crouchDressMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+            $"{MapDressWindow.KitMaterials}/Ducts Pillars Mat.mat");
+
+        if (wallPrefab == null || floorPrefab == null || ceilingPrefab == null || doorPrefab == null)
+        {
+            Debug.LogWarning("Haritayı Genişlet: SciFi Kit parçalarından biri bulunamadı, " +
+                "yeni kanat çıplak (küp) kaldı. Kit'in kurulu olduğundan emin ol.");
+            return;
+        }
+
+        GameObject dressing = new GameObject("Giydirme");
+        dressing.transform.SetParent(root, false);
+
+        DressWingWalls(dressing.transform, wall, crouchCells, wallPrefab);
+        DressWingTiles(dressing.transform, wall, crouchCells, floorPrefab, "Zemin", 0f, alignTop: true);
+        DressWingTiles(dressing.transform, wall, crouchCells, ceilingPrefab, "Tavan",
+            MazeMapBuilder.WallHeight, alignTop: false);
+        DressWingDoors(doorsGroup, doorPrefab);
+
+        // Geçitler panelle kaplanmıyor (MapDressWindow.MarkCrouchPassages ile
+        // aynı gerekçe): panel deliği kapatırdı. Bloklar yerinde kalıp
+        // yalnızca materyal değiştiriyor — koridor duvarından ayrışsınlar diye.
+        if (crouchDressMaterial != null)
+            ApplyCrouchMaterial(crouchGroup, crouchDressMaterial);
+
+        // Çıplak küpler artık görünmesin — çarpışma duruyor, yalnızca görüntü
+        // kapanıyor (MapDressWindow'un ana haritada yaptığının aynısı).
+        HideCubeRenderers(wallsGroup);
+        SetRendererEnabled(floor, false);
+        SetRendererEnabled(ceiling, false);
+    }
+
+    private static void ApplyCrouchMaterial(Transform crouchGroup, Material material)
+    {
+        if (crouchGroup == null)
+            return;
+
+        foreach (Transform passage in crouchGroup)
+        {
+            foreach (Transform part in passage)
+            {
+                Renderer renderer = part.GetComponent<Renderer>();
+                if (renderer != null)
+                    renderer.sharedMaterial = material;
+            }
+        }
+    }
+
+    private static GameObject LoadKitPrefab(string relativePath)
+        => AssetDatabase.LoadAssetAtPath<GameObject>($"{MapDressWindow.KitRoot}/{relativePath}.prefab");
+
+    /// <summary>`MapDressWindow.DressWalls` ile birebir aynı mantık — yalnızca
+    /// hücre merkezini `WingCellToWorld`'den okuyor.
+    ///
+    /// `crouchCells` iki yerde işe yarıyor: (1) o hücrenin KENDİSİ hiç
+    /// duvar panosu almıyor — orada zaten dolu bir küp yok, geçit yapısı
+    /// var (`BuildWalls`'ın kendi hariç tutmasıyla aynı). (2) bir komşu
+    /// hücre geçitse, o yöne bakan yüz "dolu" değil "açık" sayılıyor —
+    /// `MapDressWindow`'un asıl davranışıyla aynı: o pencere sahnede
+    /// `Duvar_X_Z` adında bir nesne ARAR, geçit hücrelerinde böyle bir nesne
+    /// hiç yok, yani sözlüğünde hiç görünmüyorlar. `wall[,]` dizisinde geçit
+    /// hücreleri hâlâ "dolu" (true) — yalnızca ADLARI/nesneleri yok — o
+    /// yüzden burada ayrıca kontrol ediliyor.</summary>
+    private static void DressWingWalls(Transform parent, bool[,] wall, List<Vector2Int> crouchCells,
+        GameObject wallPrefab)
+    {
+        Bounds bounds = MapDressWindow.MeasurePrefab(wallPrefab);
+
+        bool thinAlongZ = bounds.size.z <= bounds.size.x;
+        float width = thinAlongZ ? bounds.size.x : bounds.size.z;
+        float thickness = thinAlongZ ? bounds.size.z : bounds.size.x;
+        if (width <= 0.001f)
+            return;
+
+        float scale = MazeMapBuilder.CellSize / width;
+        float scaledThickness = thickness * scale;
+
+        Transform group = MazeMapBuilder.CreateGroup("Duvarlar", parent);
+        Vector2Int[] directions =
+        {
+            new Vector2Int(1, 0), new Vector2Int(-1, 0),
+            new Vector2Int(0, 1), new Vector2Int(0, -1)
+        };
+
+        for (int x = 0; x < WingSize; x++)
+        {
+            for (int z = 0; z < WingSize; z++)
+            {
+                if (!wall[x, z] || crouchCells.Contains(new Vector2Int(x, z)))
+                    continue;
+
+                Vector3 center = WingCellToWorld(x, z);
+
+                foreach (Vector2Int step in directions)
+                {
+                    int nx = x + step.x;
+                    int nz = z + step.y;
+
+                    if (nx < 0 || nz < 0 || nx >= WingSize || nz >= WingSize)
+                        continue; // kanadın dışı
+
+                    bool neighbourSolid = wall[nx, nz] && !crouchCells.Contains(new Vector2Int(nx, nz));
+                    if (neighbourSolid)
+                        continue; // komşu da duvar, bu yüz hiç görünmüyor
+
+                    Vector3 normal = new Vector3(step.x, 0f, step.y);
+                    Vector3 facePoint = new Vector3(center.x, 0f, center.z) + normal * (MazeMapBuilder.CellSize / 2f);
+                    Vector3 target = facePoint - normal * (scaledThickness / 2f);
+
+                    Quaternion rotation = Quaternion.LookRotation(normal, Vector3.up);
+                    if (!thinAlongZ)
+                        rotation *= Quaternion.Euler(0f, -90f, 0f);
+
+                    MapDressWindow.Place(wallPrefab, group, $"Panel_{x}_{z}_{step.x}_{step.y}",
+                        target, rotation, scale, baseY: 0f, alignTop: false);
+                }
+            }
+        }
+    }
+
+    /// <summary>`MapDressWindow.DressTiles` ile aynı mantık — duvar OLMAYAN
+    /// (geçit hücreleri dahil — bkz. `DressWingWalls`'ın yorumu) her hücreye
+    /// bir karo.</summary>
+    private static void DressWingTiles(Transform parent, bool[,] wall, List<Vector2Int> crouchCells,
+        GameObject prefab, string label, float baseY, bool alignTop)
+    {
+        Bounds bounds = MapDressWindow.MeasurePrefab(prefab);
+        float width = Mathf.Max(bounds.size.x, bounds.size.z);
+        if (width <= 0.001f)
+            return;
+
+        float scale = MazeMapBuilder.CellSize / width;
+        Transform group = MazeMapBuilder.CreateGroup(label, parent);
+
+        for (int x = 0; x < WingSize; x++)
+        {
+            for (int z = 0; z < WingSize; z++)
+            {
+                bool solid = wall[x, z] && !crouchCells.Contains(new Vector2Int(x, z));
+                if (solid)
+                    continue;
+
+                MapDressWindow.Place(prefab, group, $"{label}_{x}_{z}",
+                    WingCellToWorld(x, z), Quaternion.identity, scale, baseY, alignTop);
+            }
+        }
+    }
+
+    /// <summary>`MapDressWindow.DressDoors` ile aynı mantık, tek fark: kapı
+    /// grubu zaten elimizde (sahneden yeniden aranmıyor).</summary>
+    private static void DressWingDoors(Transform doorsGroup, GameObject doorPrefab)
+    {
+        if (doorsGroup == null)
+            return;
+
+        Bounds bounds = MapDressWindow.MeasurePrefab(doorPrefab);
+        bool thinAlongZ = bounds.size.z <= bounds.size.x;
+        float modelWidth = thinAlongZ ? bounds.size.x : bounds.size.z;
+        if (modelWidth <= 0.001f)
+            return;
+
+        foreach (Transform door in doorsGroup)
+        {
+            Transform panel = door.Find("Panel");
+            if (panel == null)
+                continue;
+
+            // Panel ölçeklenmiş bir küp; child'ın ezilmemesi için hacim
+            // BoxCollider'a taşınıp panel ölçeği 1'e çekiliyor — MapDressWindow.
+            // UnscalePanel ile birebir aynı numara (o metot private, burada
+            // tek kullanımlık olduğu için kopyalamak internal yapmaktan ucuz).
+            BoxCollider box = panel.GetComponent<BoxCollider>();
+            Vector3 size = panel.localScale;
+            if (box != null)
+                box.size = size;
+            panel.localScale = Vector3.one;
+
+            bool facesX = size.x <= size.z;
+            Vector3 normal = facesX ? Vector3.right : Vector3.forward;
+            float opening = facesX ? size.z : size.x;
+
+            Quaternion rotation = Quaternion.LookRotation(normal, Vector3.up);
+            if (!thinAlongZ)
+                rotation *= Quaternion.Euler(0f, -90f, 0f);
+
+            MapDressWindow.Place(doorPrefab, panel, "Giydirme_Kapi", panel.position, rotation,
+                opening / modelWidth, panel.position.y - size.y / 2f, alignTop: false, markStatic: false);
+
+            SetRendererEnabled(panel.gameObject, false);
+        }
+    }
+
+    private static void HideCubeRenderers(Transform group)
+    {
+        if (group == null)
+            return;
+
+        foreach (Transform child in group)
+            SetRendererEnabled(child.gameObject, false);
+    }
+
+    private static void SetRendererEnabled(GameObject target, bool visible)
+    {
+        if (target == null)
+            return;
+
+        Renderer renderer = target.GetComponent<Renderer>();
+        if (renderer != null)
+            renderer.enabled = visible;
     }
 }

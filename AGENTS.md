@@ -429,14 +429,16 @@ de henüz kod tarafında ele alınmadı.
      **Henüz yazılmadı** — kod-ile-katılmanın gizli odalarda da çalışmaya
      devam etmesi gerektiği için `EOSLobby`'nin arama/izin mantığına dikkatli
      bakmak gerekiyor, gözü kapalı bir onay kutusu kadar basit olmayabilir.
-4. **Harita küçük geldi.** **Araç YAZILDI (2026-09-13, bölüm 0.1):**
-   `Yakalamaca > Haritayı Genişlet (güney kanat)` — mevcut haritaya
-   dokunmadan güneye ~%58'lik yeni bir kanat ekliyor (kaba iskelet: duvar,
-   zemin, tavan, 2 kapı, 2 eğilme geçidi). Kod derlendi, geometri elle
-   doğrulandı, ama **Unity'de henüz hiç çalıştırılmadı** — kullanıcı
-   çalıştırıp sonucu görecek, ince düzenlemeyi (hangi kapı nerede duracak
-   vb.) kendisi yapacak. Sonra sırayla: Katmanları Kur → Haritayı Giydir →
-   Harita Süsle → Sesleri Yerleştir → Işığı Pişir.
+4. **Harita küçük geldi.** **Araç YAZILDI (2026-09-13, bölüm 0.1, iki
+   turda):** `Yakalamaca > Haritayı Genişlet (güney kanat)` — mevcut haritaya
+   dokunmadan güneye ~%58'lik yeni bir kanat ekliyor (duvar, zemin, tavan, 2
+   kapı, 2 eğilme geçidi) ve **kendi kendini SciFi Kit'le giydiriyor** (ikinci
+   tur — ilk sürümde bu adım `Haritayı Giydir`'e bırakılmıştı ve o pencere
+   yeni kanadı hiç görmüyordu, kullanıcı "giydirmiyor" diye bildirdi). Kod
+   derlendi, geometri elle doğrulandı, ama **Unity'de henüz hiç
+   çalıştırılmadı** — kullanıcı çalıştırıp sonucu görecek, ince düzenlemeyi
+   (hangi kapı nerede duracak vb.) kendisi yapacak. Sonra sırayla: Katmanları
+   Kur → Harita Süsle → Sesleri Yerleştir → Işığı Pişir.
 5. ~~**Diriltme terminali**~~ **YAPILDI (2026-09-13)** (bölüm 23,
    `Interaction/RevivalStation.cs`, `UI/RevivalScreen.cs`):
    - Süre 15 sn → **10 sn**. Üç beceri sınavının zamanlaması da (3./7./11.
@@ -708,17 +710,39 @@ kanadın kendi `LocalBreachX = {1, 9}` noktalarıyla BİLE BİLE eşleşecek
 şekilde seçildi (aralarındaki fark ikisinde de 8 hücre — tek doğrusal
 eksen kaymasının bunu sağlayabilmesinin tek yolu bu).
 
-**Süsleme ve aydınlatma YOK, bilerek.** `Haritayı Giydir` ve `Harita Süsle`
-zaten bileşene/şekle göre tarıyor, konuma bakmıyor (bölüm 0'ın güvenli
-araçlar listesi) — bu araçtan SONRA çalıştırmak yeni kanadı da otomatik
-giydirip süslüyor, aynı mantığı burada ikinci kez yazmaya gerek yok.
-`Atmosfer Kur`'u burada taklit etmek de o aracın kendi lamba mantığını
-ikinci kez yazmak olurdu, üstelik `Atmosfer Kur`'un kendisi çalıştırılamaz.
-Yalnızca düz, ışıksız bir tavan var — enkaza düşülmesin diye.
+> **İkinci tur: "Haritayı Giydir'e basınca giydirmiyor" (2026-09-13, aynı
+> gün).** İlk sürüm burada "`Haritayı Giydir`'i SONRA çalıştır, o zaten
+> bileşene/şekle göre tarıyor" diyordu — **yanlıştı.** O pencerenin
+> `Dress()`'i `map.transform.Find("Duvarlar")` ile TEK, DOĞRUDAN çocuk bir
+> grup arıyor ve `gridSize`'ı en büyük hücre indeksinden çıkarıyor; yeni
+> kanadın AYRI (`Harita_Genisleme_Guney/Duvarlar`) grubunu hiç görmüyordu.
+> Ana harita hiç etkilenmemişti — yalnızca yeni kanat çıplak (küp) kalıyordu,
+> ama "giydirmiyor" şikâyeti haklıydı.
+>
+> **Ders bu projenin kendi kuralının aynısı (bölüm 13'ün "kod okunmadan
+> önce" tuzağı): "zaten bileşene göre tarıyor" cümlesi kodu okumadan
+> yazılmıştı.** `MapDressWindow.cs` OKUNMADAN önce bu iddia doğru
+> sanılıyordu; okuyunca gerçek mekanizmanın hiyerarşi-yolu tabanlı olduğu
+> görüldü.
+>
+> **Çözüm, `Haritayı Giydir`'i çoklu-bölge bilecek şekilde genişletmek
+> DEĞİL** — uzun süredir çalışan ana harita giydirmesini riske atardı.
+> Onun yerine üç jenerik, "tek harita" varsaymayan yardımcısı (`Place`,
+> `MeasurePrefab`, `WorldBounds`) `internal` yapıldı ve `MazeExpansionSetup`
+> **kendi kendini** aynı SciFi Kit'le giydiriyor (`DressWing`) — aynı
+> prefab'lar, aynı görünüm, kendi `wall[,]`/`WingCellToWorld` verisiyle.
+> Artık **süsleme (kapı/duvar/zemin/tavan) araç ÇALIŞIRKEN otomatik
+> oluyor**, ayrı bir "Haritayı Giydir" adımı GEREKMİYOR.
 
-**Çalıştırdıktan sonra sıra:** `Katmanları Kur` → `Haritayı Giydir` →
-`Harita Süsle` → `Sesleri Yerleştir` (yeni kapılara ses bağlar) →
-`Işığı Pişir` (yeni kanat şu an ışıksız).
+**Aydınlatma hâlâ YOK, bilerek.** `Atmosfer Kur`'u burada taklit etmek o
+aracın kendi lamba mantığını ikinci kez yazmak olurdu, üstelik `Atmosfer
+Kur`'un kendisi çalıştırılamaz (bölüm 0). Yalnızca düz, ışıksız bir tavan
+var — enkaza düşülmesin diye.
+
+**Çalıştırdıktan sonra sıra:** `Katmanları Kur` → `Harita Süsle` (varil/kasa
+gibi süs modelleri, bileşene göre tarıyor, konuma bakmıyor — bu gerçekten
+otomatik) → `Sesleri Yerleştir` (yeni kapılara ses bağlar) → `Işığı Pişir`
+(yeni kanat şu an ışıksız).
 
 **Henüz OYNANARAK doğrulanmadı** — kod derlendi ve geometri elle
 doğrulandı, ama Unity'de hiç açılıp çalıştırılmadı. İlk çalıştırmada

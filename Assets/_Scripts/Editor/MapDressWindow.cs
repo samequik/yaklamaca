@@ -29,9 +29,11 @@ public class MapDressWindow : EditorWindow
 {
     private const string MapName = "Harita";
     private const string GroupName = "Giydirme";
-    private const string KitRoot = "Assets/SciFi Warehouse Kit/Prefabs/Structures";
 
-    private const string KitMaterials = "Assets/SciFi Warehouse Kit/Art/Materials";
+    // internal: MazeExpansionSetup (2026-09-13) aynı kitten kendi kanadını
+    // giydiriyor, aynı klasör yollarını ikinci kez yazmasın diye.
+    internal const string KitRoot = "Assets/SciFi Warehouse Kit/Prefabs/Structures";
+    internal const string KitMaterials = "Assets/SciFi Warehouse Kit/Art/Materials";
 
     /// <summary>MazeMapBuilder'ın geçitlere verdiği özgün materyal — geri alırken lazım.</summary>
     private const string CrouchOriginalMaterial = "Assets/_Art/Materials/Harita_Gecit.mat";
@@ -481,7 +483,13 @@ public class MapDressWindow : EditorWindow
     /// olduğunu bilmemize gerek kalmıyor: örnek sahneye konuyor, gerçek sınırları
     /// okunuyor, fark kadar kaydırılıyor.
     /// </summary>
-    private static void Place(GameObject prefab, Transform parent, string name,
+    // internal: MazeExpansionSetup (2026-09-13) yeni kanadı KENDİSİ giydiriyor
+    // — bu üçü (Place/MeasurePrefab/WorldBounds) tamamen jenerik, "tek bir
+    // harita" varsaymıyor, o yüzden paylaşmak güvenli. `Dress()`'in kendisini
+    // çoklu-bölge bilecek şekilde genişletmek yerine bu yol seçildi: mevcut,
+    // uzun süredir çalışan ana harita giydirmesi TEK SATIR bile değişmeden
+    // duruyor.
+    internal static void Place(GameObject prefab, Transform parent, string name,
         Vector3 target, Quaternion rotation, float scale, float baseY, bool alignTop,
         bool markStatic = true)
     {
@@ -676,7 +684,7 @@ public class MapDressWindow : EditorWindow
     /// ölçülüyor; prefab asset'inin renderer sınırlarını doğrudan okumak
     /// güvenilir değil.
     /// </summary>
-    private static Bounds MeasurePrefab(GameObject prefab)
+    internal static Bounds MeasurePrefab(GameObject prefab)
     {
         GameObject temp = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
         temp.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
@@ -688,7 +696,7 @@ public class MapDressWindow : EditorWindow
         return bounds;
     }
 
-    private static Bounds WorldBounds(GameObject instance)
+    internal static Bounds WorldBounds(GameObject instance)
     {
         Renderer[] renderers = instance.GetComponentsInChildren<Renderer>();
 
