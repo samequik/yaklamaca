@@ -66,6 +66,15 @@ public class VoiceCapture : MonoBehaviour
     /// <summary>Şu an gönderiyor muyuz — arayüzdeki "konuşuyorsun" göstergesi.</summary>
     public static bool Transmitting { get; private set; }
 
+    /// <summary>
+    /// Cihaz listede var ama `Microphone.Start` yine de başarısız oldu
+    /// (ör. başka bir uygulama cihazı özel modda tutuyor). `VoiceHud` bunu
+    /// "mikrofon yok" göstergesiyle AYNI şekilde ele alıyor — oyuncu için
+    /// ikisinin de sonucu aynı: ses hiç gitmiyor (2026-09-13, oynanış geri
+    /// bildirimi).
+    /// </summary>
+    public static bool DeviceFailed { get; private set; }
+
     private void Awake() => chat = GetComponent<VoiceChat>();
 
     private void OnEnable() => Begin();
@@ -81,6 +90,8 @@ public class VoiceCapture : MonoBehaviour
 
     private void Begin()
     {
+        DeviceFailed = false;
+
         if (!VoiceSettings.Enabled)
             return;
 
@@ -102,6 +113,7 @@ public class VoiceCapture : MonoBehaviour
         if (micClip == null)
         {
             Debug.LogWarning($"Mikrofon açılamadı: {device}");
+            DeviceFailed = true;
             return;
         }
 

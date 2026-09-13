@@ -51,21 +51,67 @@ public class VoiceHud : MonoBehaviour
     [SerializeField] private Color idleColor = new Color(0.45f, 0.45f, 0.5f, 0.75f);
     [SerializeField] private Color activeColor = new Color(0.85f, 0.25f, 0.2f, 1f);
 
+    [Tooltip("Mikrofon hiç bulunamadığında gösterge bu renge dönüyor — " +
+        "idle/active'den ayrı, kafa karışmasın.")]
+    [SerializeField] private Color noMicColor = new Color(1f, 0.65f, 0.15f, 1f);
+
     private float shown;
 
     private void Update()
     {
-        bool available = VoiceSettings.Enabled && Microphone.devices.Length > 0;
-
-        GameHud.SetVisible(group, available);
-
-        if (!available)
+        if (!VoiceSettings.Enabled)
+        {
+            GameHud.SetVisible(group, false);
             return;
+        }
+
+        GameHud.SetVisible(group, true);
+
+        // Mikrofon bulunamayınca gösterge ÖNCEDEN komple gizleniyordu —
+        // oyuncu "sesli sohbet çalışmıyor mu yoksa mikrofonum mu yok" diye
+        // hiç ayırt edemiyordu (2026-09-13, 5 kişilik test: "mikrofonu
+        // bulamıyor muyuz emin olamadık"). En olası sebep Windows'un
+        // mikrofon iznini imzasız/indie exe'lere kapatması — ayarlar
+        // ekranındaki "Mikrofon: YOK" satırı bunu zaten söylüyordu, ama
+        // kimse oraya bakmadan oynadığı sürece görünmüyordu. Artık gösterge
+        // açık kalıp durumu doğrudan söylüyor.
+        if (Microphone.devices.Length == 0 || VoiceCapture.DeviceFailed)
+        {
+            ShowNoMicrophone();
+            return;
+        }
 
         UpdateLevel();
         UpdateColors();
         UpdateThreshold();
         UpdateHint();
+    }
+
+    private void ShowNoMicrophone()
+    {
+        if (levelFill != null)
+            levelFill.anchorMax = new Vector2(0f, 1f);
+
+        if (thresholdMark != null)
+            thresholdMark.gameObject.SetActive(false);
+
+        if (levelFillGraphic != null)
+            levelFillGraphic.color = noMicColor;
+
+        if (micParts != null)
+        {
+            for (int i = 0; i < micParts.Length; i++)
+            {
+                if (micParts[i] != null)
+                    micParts[i].color = noMicColor;
+            }
+        }
+
+        if (hintLabel != null)
+        {
+            hintLabel.SetText("YOK");
+            hintLabel.color = noMicColor;
+        }
     }
 
     private void UpdateLevel()
