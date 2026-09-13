@@ -2223,6 +2223,43 @@ zaten oradaki mimarinin doğal sonucuydu — `RpcHit` yalnızca sunucu isabeti
 düşüyor; gerçek dosya gelince tek gereken `Sesleri Yerleştir`'i tekrar
 çalıştırmak — kod tarafında hiçbir şey değişmeyecek.
 
+### Canavarın kendi kulağı: adım ve isabet sesi kendi kaydında kısılıyor (2026-09-13)
+
+Kullanıcı geri bildirimi: canavarın kendi ağır adımı ve isabet/jumpscare sesi
+canavarı OYNAYAN kişinin kulağını acıtıyor, kaçanlar ise aynı sesi normal
+(mevcut) seviyede duymaya devam etmeli.
+
+**Sebep 3B sesin doğası, kod hatası değil.** Ses hiçbir zaman ağdan geçmiyor —
+her istemci kendi `AudioListener`'ına (kendi kamerasına) göre kendi mesafe
+düşüşünü hesaplıyor (bölüm 4, bölüm 12'nin genel kuralı). Canavarı oynayan
+kişide bu kaynakla dinleyici **aynı karakterde**, yani mesafe ~0 ve düşüş hiç
+işlemiyor — tam seviye (`hitVolume` 0.9, koşarken `sprintVolume` 0.85) kulakta
+patlıyor. Bir kaçan aynı sesi kendi kamerasından, gerçek mesafesiyle duyuyor —
+zaten normal ve zaten istenen bu.
+
+**Çözüm sunucuya ya da ağa dokunmuyor: yalnızca YEREL çalma ölçeği.**
+`FootstepAudio.PlayStep` ve `MonsterAttack.RpcHit`, `isLocalPlayer` (ya da
+`RoundParticipant.isLocalPlayer`) doğruyken çaldıkları `PlayOneShot`
+çağrısının `volumeScale`'ini bir çarpanla kısıyor — yalnızca CANAVARI OYNAYAN
+makinede. Kaçanların hiçbiri bundan etkilenmiyor: onların ekranında aynı
+`PlayOneShot` çağrısı hiç değişmeden, eskisi gibi çalışıyor. Ağa tek bayt
+gitmiyor, çünkü karar zaten yerel — her istemci "bu ses benim mi" sorusunu
+kendi başına cevaplıyor.
+
+| Alan | Nerede | Varsayılan |
+|---|---|---|
+| `FootstepAudio.ownHeavyStepVolumeScale` | Ayak sesi | 0.35 |
+| `MonsterAttack.ownHitVolumeScale` | İsabet/jumpscare | 0.4 |
+
+`RpcHit`'in kendisi hâlâ **herkese** gidiyor (`includeOwner` kapatılmadı) —
+tek değişen, kısma kararının RPC'nin İÇİNDE, `isLocalPlayer` şartına bağlı
+olarak verilmesi. Savurma sesine (`swingClip`) bilerek dokunulmadı: zaten
+`RpcSwing`'de `includeOwner = false` var ve canavar kendi savurmasını AYRI bir
+yerel çağrıdan (`ReleaseSwing`) duyuyor — istenirse aynı desen oraya da
+eklenir, ama şimdilik yalnızca istenen iki ses kısıldı.
+
+Sayılar yine tahmin — oynayarak ayarlanacak.
+
 ---
 
 ## 13. Menü ve lobi

@@ -129,6 +129,13 @@ public class MonsterAttack : NetworkBehaviour
     [SerializeField] private float swingVolume = 0.7f;
     [SerializeField] private float hitVolume = 0.9f;
 
+    [Tooltip("Canavar kendi isabet/jumpscare sesini SIFIR mesafeden duyuyor — " +
+        "3B ses mesafeyle düşmediği için tam seviye (0.9) kulak ağrıtıyor. " +
+        "Yalnızca CANAVARI OYNAYAN kişide bu çarpanla kısılıyor (2026-09-13); " +
+        "kaçanlar (yakalanan dahil) sesi OLDUĞU GİBİ duymaya devam ediyor — " +
+        "jumpscare'in işi zaten onları ürkütmek, canavarı değil.")]
+    [SerializeField] private float ownHitVolumeScale = 0.4f;
+
     [Header("İsabet Kontrolü")]
     [Tooltip("Görüşü kesen katmanlar. Yakalamaca > Katmanları Kur bunu Harita " +
         "yapıyor; ~0 bırakılırsa yerdeki varil de ışını keser ve kaçana " +
@@ -486,7 +493,12 @@ public class MonsterAttack : NetworkBehaviour
     [ClientRpc]
     private void RpcHit()
     {
-        Play(hitClip, hitVolume);
+        // Bu RPC herkese gidiyor (includeOwner kapatılmadı, bkz. üstteki
+        // özet): canavarın kendi ekranında da tam burada, kendi objesinden
+        // çalıyor — yani dinleyici (kamerası) kaynağın üstünde. Yalnızca o
+        // durumda kısılıyor; kaçanlar aynı sesi mesafesine göre normal
+        // duyuyor.
+        Play(hitClip, isLocalPlayer ? hitVolume * ownHitVolumeScale : hitVolume);
 
         // Yakalama animasyonu YALNIZCA buradan: bu Rpc sunucu isabeti
         // doğruladığında çağrılıyor. Iskalarsan hiç gelmiyor, dolayısıyla

@@ -87,6 +87,14 @@ public class FootstepAudio : MonoBehaviour
     [Tooltip("Eğilerek gitmek gizlenmenin yolu — kasten çok düşük.")]
     [SerializeField] private float crouchVolume = 0.12f;
 
+    [Tooltip("Canavarın kendi ağır adımı kendi kulağında SIFIR mesafeden " +
+        "çalıyor — 3B ses mesafeyle düşmediği için tam seviye rahatsız edici " +
+        "geliyor. Yalnızca CANAVARI OYNAYAN kişide bu çarpanla kısılıyor " +
+        "(2026-09-13); kaçanlar canavarın adımını hâlâ normal, mesafeyle " +
+        "düşen hâliyle duyuyor — ses zaten ağdan gitmiyor, burada değişen " +
+        "yalnızca yerel çalma ölçeği.")]
+    [SerializeField] private float ownHeavyStepVolumeScale = 0.35f;
+
     [SerializeField] private Vector2 landPitchRange = new Vector2(0.92f, 1.08f);
 
     [Header("Uzak oyuncu")]
@@ -244,20 +252,26 @@ public class FootstepAudio : MonoBehaviour
 
     private void PlayStep(float speed)
     {
-        AudioClip clip = SelectStep();
+        bool isMonster = participant != null && participant.Role == RoundRole.Monster;
+        AudioClip clip = isMonster && heavyStep != null ? heavyStep : lightStep;
         if (clip == null)
             return;
 
         // Tek klip elimizde; perdeyi hafif oynatmak üst üste aynı sesi
         // duymanın makineleşmiş hissini kırıyor.
         source.pitch = Random.Range(stepPitchRange.x, stepPitchRange.y);
-        source.PlayOneShot(clip, SelectVolume(speed));
-    }
 
-    private AudioClip SelectStep()
-    {
-        bool isMonster = participant != null && participant.Role == RoundRole.Monster;
-        return isMonster && heavyStep != null ? heavyStep : lightStep;
+        float volume = SelectVolume(speed);
+
+        // Canavarın kendi ekranında dinleyici (kamerası) kaynağın üstünde —
+        // yalnızca o durumda kısılıyor, kaçanlar aynı adımı mesafesine göre
+        // normal duyuyor (yukarıdaki tooltip). `FootstepAudio` düz bir
+        // MonoBehaviour, `isLocalPlayer` yok — `RoundParticipant` üzerinden
+        // okunuyor (o bir NetworkBehaviour).
+        if (isMonster && participant.isLocalPlayer)
+            volume *= ownHeavyStepVolumeScale;
+
+        source.PlayOneShot(clip, volume);
     }
 
     private float SelectVolume(float speed)
