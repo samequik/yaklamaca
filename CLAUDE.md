@@ -429,16 +429,19 @@ de henüz kod tarafında ele alınmadı.
      **Henüz yazılmadı** — kod-ile-katılmanın gizli odalarda da çalışmaya
      devam etmesi gerektiği için `EOSLobby`'nin arama/izin mantığına dikkatli
      bakmak gerekiyor, gözü kapalı bir onay kutusu kadar basit olmayabilir.
-4. **Harita küçük geldi.** **Araç YAZILDI (2026-09-13, bölüm 0.1, iki
-   turda):** `Yakalamaca > Haritayı Genişlet (güney kanat)` — mevcut haritaya
-   dokunmadan güneye ~%58'lik yeni bir kanat ekliyor (duvar, zemin, tavan, 2
-   kapı, 2 eğilme geçidi) ve **kendi kendini SciFi Kit'le giydiriyor** (ikinci
-   tur — ilk sürümde bu adım `Haritayı Giydir`'e bırakılmıştı ve o pencere
-   yeni kanadı hiç görmüyordu, kullanıcı "giydirmiyor" diye bildirdi). Kod
-   derlendi, geometri elle doğrulandı, ama **Unity'de henüz hiç
-   çalıştırılmadı** — kullanıcı çalıştırıp sonucu görecek, ince düzenlemeyi
-   (hangi kapı nerede duracak vb.) kendisi yapacak. Sonra sırayla: Katmanları
-   Kur → Harita Süsle → Sesleri Yerleştir → Işığı Pişir.
+4. **Harita küçük geldi.** **Araç YAZILDI ve KULLANICI TARAFINDAN KURULDU
+   (2026-09-13, bölüm 0.1, üç turda):** `Yakalamaca > Haritayı Genişlet
+   (güney kanat)` — mevcut haritaya dokunmadan güneye ~%58'lik yeni bir kanat
+   ekledi (duvar, zemin, tavan, kapı, eğilme geçidi), kendi kendini SciFi
+   Kit'le giydirdi. Üçüncü turda bir isim-çakışması hatası (`Duvar_3_0`)
+   düzeltildi (ayrıntı bölüm 0.1). **Kullanıcı kanadı kurup ELLE İNCE
+   DÜZENLEMESİNİ TAMAMLADI** (kapı/geçit/süs yerleşimi) — artık ELLE
+   DÜZENLENMİŞ sayılıyor, aynı bölüm 0 kuralı burada da geçerli. Ardından
+   `Harita Süsle`ye kanadı hedefleyen bir `Hedef` alanı eklendi (araç
+   olduğu gibi çalıştırılsaydı ana haritanın süslerini silip kanada hiçbir
+   şey eklemezdi) ve `Güney Kanadına Işık Ekle (rastgele lamba)` yazıldı
+   (kanat hâlâ ışıksızdı). **Kalan:** `Katmanları Kur` → `Sesleri Yerleştir`
+   → `Işığı Pişir` (yeni kanat + lambaları da dahil).
 5. ~~**Diriltme terminali**~~ **YAPILDI (2026-09-13)** (bölüm 23,
    `Interaction/RevivalStation.cs`, `UI/RevivalScreen.cs`):
    - Süre 15 sn → **10 sn**. Üç beceri sınavının zamanlaması da (3./7./11.
@@ -799,6 +802,33 @@ kapılara ses bağlar) → `Işığı Pişir` (yeni kanat şu an ışıksız).
 doğrulandı, ama Unity'de hiç açılıp çalıştırılmadı. İlk çalıştırmada
 konsoldaki "Bağlantı doğrulandı" / "UYARI: X hücreye ulaşılamıyor" satırına
 bak.
+
+### Işık: `Güney Kanadına Işık Ekle (rastgele lamba)` (2026-09-13)
+
+Kullanıcı kanadı tamamen elle düzenledikten SONRA istedi: "kod falan yerlerini
+değiştirip bozma, kanada rastgele lamba ekle." `Editor/WingLightingSetup.cs`
+— kanadın KENDİ altına yeni bir `Lambalar` grubu ekliyor, `AtmosphereSetup`
+(Atmosfer Kur) ÇALIŞTIRILAMAZ (bölüm 0) ve zaten `GameObject.Find` ile
+arasaydı "Lambalar" ismi ana haritanınkiyle çakışırdı (`Duvar_3_0`
+hikâyesinin aynısı, bkz. yukarı).
+
+Yerleşim algoritması `AtmosphereSetup.BuildLights` ile BİREBİR AYNI (rastgele
+nokta → `Physics.CheckSphere` ile duvar kontrolü → min mesafe → koy), ışık
+ayarları da (şiddet 0.75, menzil 8, renk) aynı — kanat ana haritadan farklı
+bir parlaklıkta görünmesin diye. Lamba sayısı (8) alan oranından hesaplandı:
+ana harita 14 lamba/54.4², kanat 41.6² → ~%58 → 14×0.58≈8.
+
+**Armatür de aynı adımda takılıyor**, `Haritayı Giydir`'e bırakılmadı —
+o pencere `Lambalar`'ı yine `GameObject.Find("Harita")` üstünden arıyor ve
+kanadın kendi grubuna hiç ulaşmıyor (`MazeExpansionSetup`'ın "Haritayı
+Giydir yeni kanadı görmüyor" dersinin aynısı). `MapDressWindow`'un paylaşılan
+`Place`/`MeasurePrefab` yardımcıları (`internal`) doğrudan çağrılıyor.
+
+**Var olan hiçbir şeye dokunmuyor** — yalnızca yeni `Lambalar` grubunu
+kurup/silip yeniden dağıtıyor (rerun'da bile SADECE bu grup, kanadın
+duvarları/kapıları/geçitleri/süsleri asla). Kanat henüz OYNANARAK
+doğrulanmadı, lambalar da öyle — `Işığı Pişir` çalıştırılınca sahnedeki
+bütün ışıklarla (ana harita + bu kanat) birlikte pişecek.
 
 ---
 
@@ -1354,6 +1384,7 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Diriltme Sistemini Kur | Ceset gövde prefabı + haritanın iki ucuna diriltme kabini (bkz. bölüm 23) |
 | Hataları Temizle (Sahne Onarımı) | Eksik NetworkIdentity ekler, ağ öncesi artıkları söker |
 | **Haritayı Genişlet (güney kanat)** | Mevcut haritaya dokunmadan güneye yeni bir kanat ekler (bkz. bölüm 0.1) |
+| **Güney Kanadına Işık Ekle (rastgele lamba)** | Kanadın kendi altına rastgele lamba serpiştirir, kanadın geri kalanına dokunmaz (bkz. bölüm 0.1) |
 
 > ### Editörde çalışan her API build'de yok
 >
