@@ -381,8 +381,12 @@ Bu liste kullanıcının playtest sonrası verdiği ham geri bildirim.
 henüz gelmedi — o gelmeden denge sayılarına dokunulmayacak. Diğer maddeler
 de henüz kod tarafında ele alınmadı.
 
-1. **[EN KRİTİK] Canavar çok güçlü — hiç kaçış olmadı.** Denge ayrıntıları
-   kullanıcıdan ayrıca gelecek (hangi sayı, ne kadar). Gelmeden dokunma.
+1. **[EN KRİTİK, ama bilerek ERTELENDİ] Canavar çok güçlü — hiç kaçış
+   olmadı.** Kullanıcının 2026-09-13 sonundaki güncellemesi: asıl sorunun
+   haritanın küçük olması olduğunu düşünüyor (madde 4'te büyütüldü,
+   terminal/kapı mesafeleri açıldı) — büyümüş haritayla önce oynayıp
+   görmek istiyor, sayılara şimdilik dokunma. Hâlâ hiçbir denge sayısı
+   değişmedi; ayrıntı gelirse (hangi sayı, ne kadar) devam edilecek.
 2. **Ses bug'ı — kararsız, HENÜZ ÇÖZÜLMEDİ.** Bazı sesler bazen çalıyor bazen
    çalışmıyor. **Araştırıldı (2026-09-13):** `NetworkPlayerSetup.
    DisableOtherAudioListeners`/`Configure` doğru görünüyor — her istemci
@@ -429,32 +433,32 @@ de henüz kod tarafında ele alınmadı.
      **Henüz yazılmadı** — kod-ile-katılmanın gizli odalarda da çalışmaya
      devam etmesi gerektiği için `EOSLobby`'nin arama/izin mantığına dikkatli
      bakmak gerekiyor, gözü kapalı bir onay kutusu kadar basit olmayabilir.
-4. **Harita küçük geldi.** **Araç YAZILDI ve KULLANICI TARAFINDAN KURULDU
-   (2026-09-13, bölüm 0.1, üç turda):** `Yakalamaca > Haritayı Genişlet
-   (güney kanat)` — mevcut haritaya dokunmadan güneye ~%58'lik yeni bir kanat
-   ekledi (duvar, zemin, tavan, kapı, eğilme geçidi), kendi kendini SciFi
-   Kit'le giydirdi. Üçüncü turda bir isim-çakışması hatası (`Duvar_3_0`)
-   düzeltildi (ayrıntı bölüm 0.1). **Kullanıcı kanadı kurup ELLE İNCE
-   DÜZENLEMESİNİ TAMAMLADI** (kapı/geçit/süs yerleşimi) — artık ELLE
-   DÜZENLENMİŞ sayılıyor, aynı bölüm 0 kuralı burada da geçerli. Ardından
-   `Harita Süsle`ye kanadı hedefleyen bir `Hedef` alanı eklendi (araç
-   olduğu gibi çalıştırılsaydı ana haritanın süslerini silip kanada hiçbir
-   şey eklemezdi) ve `Güney Kanadına Işık Ekle (rastgele lamba)` yazıldı
-   (kanat hâlâ ışıksızdı — ışık eklerken bir tavan-çakışması hatası bulunup
-   düzeltildi, bkz. yukarı). **Kullanıcı sonra kanada elle 2 terminal + 1
-   çıkış taşıdı, 1 kapı + 1 diriltme istasyonu ekledi** — hepsi ölçülüp
-   doğrulandı (yukarıdaki kutu). **Bulunan iki gerçek sorun:** (1) taşınan
-   çıkış artık kanadın dış duvarının dışında, ulaşılamaz durumda — kullanıcı
-   düzeltmeli; (2) `RevivalStation.duration` sahnede hâlâ 15'te takılıydı,
-   `Diriltme Süresini Senkronize Et` aracı yazıldı ama henüz çalıştırılmadı.
-   **Kalan:** çıkışı düzelt → süreyi senkronize et → `Katmanları Kur` →
-   `Sesleri Yerleştir` → `Işığı Pişir` (yeni kanat + lambaları da dahil).
-5. ~~**Diriltme terminali**~~ **YAPILDI (2026-09-13), ama sahne SENKRON
-   DEĞİLDİ — bkz. yukarı** (bölüm 23, `Interaction/RevivalStation.cs`,
+4. ~~**Harita küçük geldi.**~~ **BİTTİ (2026-09-13, bölüm 0.1, tam bir
+   oturum sürdü).** `Yakalamaca > Haritayı Genişlet (güney kanat)` mevcut
+   haritaya dokunmadan güneye ~%58'lik yeni bir kanat ekledi, kendi kendini
+   SciFi Kit'le giydirdi (iki hata bulunup düzeltildi: isim çakışması
+   `Duvar_3_0`, ışık eklerken tavan-çakışması). Kullanıcı kanadı kurup ELLE
+   İNCE DÜZENLEMESİNİ TAMAMLADI (kapı/geçit/süs yerleşimi, sonra elle 2
+   terminal + 1 çıkış taşıdı, 1 kapı + 1 diriltme istasyonu ekledi — hepsi
+   ölçülüp doğrulandı). `Harita Süsle`ye kanadı hedefleyen bir `Hedef`
+   alanı eklendi. Yol boyunca bulunan ve düzeltilen iki gerçek hata:
+   `RevivalStation.duration`'ın sahnede hâlâ 15'te takılı kalması (yeni
+   `Diriltme Süresini Senkronize Et` aracıyla), `ExitGate.
+   ReportEscapeTrigger`'ın terminal tamamlanmadan sessizce reddetmesi
+   (artık log yazıyor). "Çıkış ulaşılamaz" şüphesi kullanıcının testiyle
+   yanlış çıktı. **Kullanıcı `Katmanları Kur` → `Sesleri Yerleştir` →
+   `Işığı Pişir`'in hepsini çalıştırdı, hepsi doğrulandı.** Canavar dengesi
+   bilerek ERTELENDİ (kullanıcı: büyümüş haritayla önce oynayıp görecek).
+   **Tek yarım kalan:** `Menü Kur` ikinci kostüm figürünü kurdu ama arka
+   odayı (SciFi Kit prefabı yüklenemediği için) sessizce atladı — kullanıcı
+   konsolu kontrol edip gerekirse `Menü Kur`'u tekrar çalıştıracak.
+5. ~~**Diriltme terminali**~~ **YAPILDI (2026-09-13) — sahne de artık
+   SENKRON** (bölüm 23, `Interaction/RevivalStation.cs`,
    `UI/RevivalScreen.cs`):
-   - Süre 15 sn → **10 sn** — bu **koddaki** varsayılan; sahnedeki üç
-     istasyon `Diriltme Süresini Senkronize Et` çalıştırılana kadar hâlâ
-     15 sn kullanıyor (2026-09-13, ikinci bulgu). Üç beceri sınavının
+   - Süre 15 sn → **10 sn** — kod değişikliği sahnedeki istasyonlara
+     kendiliğinden yansımamıştı (bölüm 0.1'in ikinci bulgusu); `Diriltme
+     Süresini Senkronize Et` yazılıp kullanıcı tarafından çalıştırıldı,
+     üç istasyon da artık gerçekten 10 sn. Üç beceri sınavının
      zamanlaması da (3./7./11. saniye → **2./4.5./7. saniye**) buna göre
      yeniden ölçeklendi — aksi halde üçüncü sınav (eski: 11. sn) yeni 10
      sn'lik tavanın üstünde
@@ -573,7 +577,7 @@ karşı yeni bir aracı. Ölçülmedi.
 |---|---|---|
 | 0 | ~~**Diriltme sistemi**~~ | **YAPILDI** (2026-09-08, bölüm 23). Açık kalan tek tasarım sorusu: **canavarın karşı hamlesi** — diriltme bugün tek taraflı bir kazanç |
 | 1 | ~~**Yakınlık sesi (kalp atışı)**~~ | **YAPILDI** (2026-09-13, bölüm 12). `HeartbeatAudio`, 2B, `ScreenEffects.DreadAt`'ten besleniyor |
-| 2 | ~~**Bıçak sesleri**~~ (teknik borç 1) | **Yarı YAPILDI** (2026-09-13). Jumpscare (`Bicak_Isabet`, canavar yakalayınca) gerçek dosyayla değişti. `Bicak_Savurma` (kaçırma anı) hâlâ sentetik yer tutucu |
+| 2 | ~~**Bıçak sesleri**~~ (teknik borç 1) | **YAPILDI sayılıyor** (2026-09-13). Jumpscare (`Bicak_Isabet`, canavar yakalayınca) gerçek dosyayla değişti. `Bicak_Savurma` (kaçırma anı) hâlâ sentetik yer tutucu ama kullanıcı bilerek DEĞİŞTİRMEK İSTEMİYOR — "rahatsız etmiyor, oyuna uydu gibi." Gerçek dosya bulunursa `Sesleri Yerleştir` tekrar çalıştırmak yeterli, ama artık ACİL değil |
 | 3 | **Çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynadığımız için bugün görünmüyor |
 | 4 | **Kapıdan vuruş** | İki oyuncu da kapıya 0.3 m mesafedeyken ışın kapıya varmadan kesiliyor ve isabet sayılıyor |
 | 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
@@ -890,31 +894,60 @@ normal kapı** (Ctrl+D ile `Kapi_5_7`'den) ve **1 yeni diriltme istasyonu**
   istasyonun `bodyAnchor`/`revivePoint`/`indicator`'ı da KENDİ alt
   objelerine bakıyor (orijinalinkine değil) — Unity'nin duplicate'i iç
   referansları doğru yeniden bağlamış.
-- **AMA çıkış artık ULAŞILAMAZ durumda.** Ölçüldü: yeni konumundaki en yakın
-  kanat duvarı (`Duvar_0_11`, hâlâ SAPASAĞLAM) çıkış grubunun 0.89 m
-  ÖTESİNDE duruyor — yani grup, kanadın dış duvarının HEMEN DIŞINDA, boşlukta
-  duruyor. Kanadın iç koridorundan bu noktaya giden hiçbir açıklık yok.
-  **Kullanıcı ya bu duvarı silip bir geçit açmalı ya da çıkışı gerçek bir
-  açıklığın olduğu başka bir yere taşımalı** — ben haritaya dokunmuyorum
-  (bölüm 0), bu satır yalnızca bulguyu kaydediyor.
-- **AYRICA `RevivalStation.duration` hâlâ 15'te takılıymış — 10'a
-  indirilmesi hiç işlememişti.** Sahnedeki ÜÇ istasyonun da (`Diriltme_A`,
-  `Diriltme_B`, yeni kopya) `duration` alanı hâlâ **15** taşıyordu; kodun
-  varsayılanı `10f`. Sebep tam bölüm 16'nın "koddaki varsayılanı değiştirmek
-  yetmiyor" tuzağı: `Diriltme_A`/`B` o kod değişikliğinden ÇOK ÖNCE
-  kurulmuştu, alanları o an serileştirildi ve kod değişince kendiliğinden
-  güncellenmedi — kopyalama da eski değeri miras aldı. **Yani "15→10
-  YAPILDI" diye yazan bir önceki not YANLIŞTI: kod değişmişti ama sahne
-  hiç güncellenmemişti.** Düzeltmek için `Editor/RevivalDurationSync.cs`
-  yazıldı (`Yakalamaca > Diriltme Süresini Senkronize Et`) — kodun GÜNCEL
-  varsayılanını geçici bir örnekten okuyup (sabiti ikinci kez yazmadan)
-  sahnedeki her istasyona zorluyor. **Kullanıcının bunu ÇALIŞTIRMASI
-  gerekiyor**, henüz çalıştırılmadı.
-- **Duvarı düzelttikten sonra: "çıkıştan geçiyoruz ama kazanmıyoruz."**
+- **"Çıkış ulaşılamaz" şüphesi YANLIŞ çıktı.** Yeni konumundaki en yakın
+  kanat duvarına (`Duvar_0_11`) olan mesafe (0.89 m) ölçülüp "kanadın dış
+  duvarının dışında, boşlukta kalmış olabilir" diye kaydedilmişti. Kullanıcı
+  fiilen oradan yürüyüp geçtiğini bildirdi — yani gerçekte ulaşılabiliyormuş,
+  koordinat hesabı tek başına tam resmi vermiyordu (muhtemelen başka bir
+  yönden bağlantı var). **Ders: statik koordinat hesabı, kullanıcının
+  Editor'de gördüğü canlı geometrinin yerini tutmuyor** — çelişince
+  kullanıcının elle test ettiği gözlem kazanır.
+- **`RevivalStation.duration` hâlâ 15'te takılıymış — DÜZELTİLDİ VE
+  ÇALIŞTIRILDI.** Sahnedeki ÜÇ istasyonun da (`Diriltme_A`, `Diriltme_B`,
+  yeni kopya) `duration` alanı hâlâ **15** taşıyordu; kodun varsayılanı
+  `10f`. Sebep tam bölüm 16'nın "koddaki varsayılanı değiştirmek yetmiyor"
+  tuzağı: `Diriltme_A`/`B` o kod değişikliğinden ÇOK ÖNCE kurulmuştu,
+  alanları o an serileştirildi ve kod değişince kendiliğinden güncellenmedi
+  — kopyalama da eski değeri miras aldı. **Yani "15→10 YAPILDI" diye yazan
+  bir önceki not YANLIŞTI: kod değişmişti ama sahne hiç güncellenmemişti.**
+  `Editor/RevivalDurationSync.cs` yazıldı (`Yakalamaca > Diriltme Süresini
+  Senkronize Et`) ve kullanıcı tarafından çalıştırıldı — üç istasyon da
+  artık 10 sn.
+- **"Çıkıştan geçiyoruz ama kazanmıyoruz" — KURAL, HATA DEĞİL, ÇÖZÜLDÜ.**
   Kablolama (relay, tetikleyici, `ExitGate`) tek tek doğrulandı, hepsi
   sağlamdı — sebep `RoundManager.ExitOpen`'ın (gereken terminal sayısı
   bitmeden hep `false`) sessizce reddetmesiydi, taşımayla ilgisi yoktu.
-  Ayrıntı ve eklenen tanı logu bölüm 11.5'te.
+  `ExitGate.ReportEscapeTrigger`'a artık her ret durumunda konsola sebep
+  yazan bir log eklendi (ayrıntı bölüm 11.5'te). Kullanıcı terminalleri
+  bitirip tekrar denedi: **çalışıyor, sorun yok.**
+- **`Katmanları Kur` ve `Sesleri Yerleştir` de çalıştırıldı, ikisi de
+  doğrulandı.** İlki normal çıktı verdi (yeni kapı/istasyon zaten
+  orijinallerinin katmanını miras almıştı, 1 obje düzeltildi). İkincisi
+  için kullanıcı emin değildi ("çalıştı mı bilemem") — sahne dosyasından
+  doğrudan kontrol edildi: yeni kapının (`Kapi_5_7 (1)`) `SlidingDoor`'unda
+  hem `AudioSource` hem `moveClip` (`Kapi.mp3`) doğru bağlanmış. Bu araç
+  **bileşen türüne göre** tarıyor (`FindObjectsOfType<SlidingDoor>`), yani
+  yeni kapıyı konumundan bağımsız otomatik yakalamış.
+- **`Işığı Pişir` de çalıştırıldı** (kullanıcı özellikle söylemedi, disk
+  üzerindeki lightmap dosyalarının değiştiği görülüp fark edildi).
+- **Canavar dengesi bilerek ERTELENDİ.** Kullanıcının gerekçesi: asıl sorun
+  haritanın küçük olmasıydı, artık büyüdü ve terminal/kapı mesafeleri açıldı
+  — sayılara dokunmadan önce büyümüş haritayla nasıl hissettirdiğini görmek
+  istiyor. Hiçbir denge sayısı bu oturumda değiştirilmedi.
+- **`Bicak_Savurma` (kılıç savurma/ıskalama sesi) bilinçli olarak
+  DEĞİŞTİRİLMEYECEK.** Hâlâ sentetik yer tutucu ama kullanıcı "rahatsız
+  etmiyor, hatta oyuna uydu gibi" dedi — teknik borç 1'in bu yarısı artık
+  "eksik" değil "kullanıcı onayladı, böyle kalsın" durumunda.
+- **`Menü Kur` çalıştırıldı ama YARIM kaldı.** İkinci kostüm önizleme
+  figürü (`Kacan_1`) doğru kuruldu. Ama menünün arkasındaki oda
+  (`MenuStageSetup.BuildRoom`) kurulmadı — `Zemin_0_0` sahnede yok. Kod
+  okununca sebep netleşti: `BuildRoom` SciFi Kit'ten zemin/duvar prefabı
+  yükleyemezse (`floorPrefab == null || wallPrefab == null`) sessizce
+  (yalnızca bir `Debug.LogWarning` ile) o kısmı atlayıp geri kalanına
+  (karakterler dahil) devam ediyor — tam olarak gözlenen bu. **Henüz
+  doğrulanmadı:** kullanıcı konsolda bu uyarıyı görüyor mu bakacak; görürse
+  çözüm `Menü Kur`'u bir daha çalıştırmak (araç her seferinde `MenuSahnesi`yi
+  komple silip yeniden kuruyor, tekrar basmak tamamen güvenli).
 
 ---
 
