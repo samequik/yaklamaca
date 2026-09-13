@@ -813,11 +813,39 @@ değiştirip bozma, kanada rastgele lamba ekle." `Editor/WingLightingSetup.cs`
 arasaydı "Lambalar" ismi ana haritanınkiyle çakışırdı (`Duvar_3_0`
 hikâyesinin aynısı, bkz. yukarı).
 
-Yerleşim algoritması `AtmosphereSetup.BuildLights` ile BİREBİR AYNI (rastgele
+Yerleşim algoritması `AtmosphereSetup.BuildLights` ile AYNI DESEN (rastgele
 nokta → `Physics.CheckSphere` ile duvar kontrolü → min mesafe → koy), ışık
-ayarları da (şiddet 0.75, menzil 8, renk) aynı — kanat ana haritadan farklı
-bir parlaklıkta görünmesin diye. Lamba sayısı (8) alan oranından hesaplandı:
-ana harita 14 lamba/54.4², kanat 41.6² → ~%58 → 14×0.58≈8.
+rengi/menzili/şiddeti (0.75, 8) aynı — kanat ana haritadan farklı bir
+parlaklıkta görünmesin diye. Lamba sayısı (8) alan oranından hesaplandı: ana
+harita 14 lamba/54.4², kanat 41.6² → ~%58 → 14×0.58≈8.
+
+> **İlk sürüm 0/8 lamba yerleştirdi — `AtmosphereSetup`'ın yükseklik/yarıçap
+> SAYILARINI da (2.6 / 0.8) kopyalamıştı ve bu, GERÇEK bir geometrik hataya
+> düşüyordu.** Kullanıcı "ışık gelmedi" dedi; sahne dosyası doğrudan
+> okundu: `Lambalar` grubu kurulmuştu ama **0 çocuğu vardı** — yerleşim
+> döngüsü 800 denemenin hiçbirinde başarılı olamamıştı.
+>
+> Sebep ölçüldü: tavan `WallHeight+0.25=3.25`'te, 0.5 kalınlığında, yani ALT
+> yüzü dünya Y=3.0. Örnekleme yüksekliği (2.6) + yarıçap (0.8) = **3.4** —
+> tavanın 0.4 m içine giriyor. Tavan kanadın TÜM alanını kapladığı için bu
+> çakışma HER (x,z) noktasında koşulsuz gerçekleşiyordu: `Physics.
+> CheckSphere` her seferinde tavana çarpıp reddediyordu.
+>
+> **Ana haritada aynı sayılar neden yıllardır sorun çıkarmamıştı?**
+> `AtmosphereSetup.Setup()` tavanı ışıklardan HEMEN ÖNCE, AYNI çağrıda
+> kuruyor — yani `Physics.CheckSphere` çalıştığı anda tavanın collider'ı o
+> karede YENİ oluşturulmuş oluyor, ve Unity'nin fizik broadphase'i aynı
+> karede yaratılan bir collider'ı senkronize etmeden önce sorgulanırsa
+> GÖRMEYEBİLİYOR. Ana haritanın 14 lambası bu yüzden hatayı hiç görmedi —
+> zamanlama şansı. Bu araç ise ÇOKTAN KAYDEDİLİP YENİDEN AÇILMIŞ bir
+> sahnede (tavan tamamen senkron) çalıştığı için aynı hatayı GERÇEKTEN
+> yakaladı.
+>
+> Ders: **"eski araçta hiç sorun çıkmadı" bir algoritmanın doğru olduğunu
+> kanıtlamıyor** — yalnızca çalıştırma zamanlamasının o hatayı gizlediğini
+> gösterebilir. `AtmosphereSetup.cs`'e dokunulmadı (çalıştırılamaz zaten);
+> düzeltme yalnızca burada: yükseklik 2.6→**2.5**, yarıçap 0.8→**0.4**,
+> toplamları (2.9) artık tavanın alt yüzüne (3.0) hiç değmiyor.
 
 **Armatür de aynı adımda takılıyor**, `Haritayı Giydir`'e bırakılmadı —
 o pencere `Lambalar`'ı yine `GameObject.Find("Harita")` üstünden arıyor ve

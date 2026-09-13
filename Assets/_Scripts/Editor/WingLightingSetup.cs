@@ -17,10 +17,38 @@ using UnityEngine.SceneManagement;
 /// bir `Lambalar` grubu ekliyor, kanadın duvarlarına/kapılarına/geçitlerine/
 /// süslerine (kullanıcının artık ELLE düzenlediği hiçbir şeye) dokunmuyor.
 ///
-/// ### Yerleşim `AtmosphereSetup.BuildLights` ile AYNI algoritma
+/// ### Yerleşim `AtmosphereSetup.BuildLights` ile AYNI algoritma — ama GERÇEKTEN test edildiğinde bir gizli hata çıktı
 ///
 /// Rastgele nokta örnekle → `Physics.CheckSphere` ile duvarın içine
 /// düşmediğini doğrula → önceki lambalardan yeterince uzak mı bak → koy.
+///
+/// **İlk sürüm `AtmosphereSetup`'ın SAYILARINI da (yükseklik 2.6, yarıçap
+/// 0.8) birebir kopyalamıştı ve 0/8 lamba yerleştirdi — sahne dosyasından
+/// doğrulandı (`Lambalar` grubu kuruldu ama içi boştu).** Sebep geometrik:
+/// tavan `wallHeight+0.25=3.25` konumunda, 0.5 kalınlığında, yani ALT yüzü
+/// dünya Y=3.0'da. Örnekleme yüksekliği 2.6 + yarıçap 0.8 = **3.4** —
+/// tavanın 0.4 m İÇİNE giriyor. Tavan kanadın TÜM alanını kapladığı için bu
+/// çakışma HER (x,z) noktasında, KOŞULSUZ gerçekleşiyor: 800 denemenin
+/// hepsi `Physics.CheckSphere`'de tavana çarpıp reddediliyordu.
+///
+/// **Ana haritada aynı sayılar neden şimdiye kadar hiç sorun çıkarmadı?**
+/// `AtmosphereSetup.Setup()` `BuildCeiling`'i `BuildLights`'tan HEMEN ÖNCE,
+/// AYNI çağrıda çalıştırıyor — yani tavanın collider'ı `Physics.CheckSphere`
+/// çağrıldığı anda AYNI KAREDE yeni oluşturulmuş oluyor. Unity'nin fizik
+/// broadphase'i aynı karede yaratılan bir collider'ı senkronize ETMEDEN
+/// önce sorgulanırsa onu GÖRMEYEBİLİYOR — yani ana haritanın 14 lambası bu
+/// GERÇEK çakışma hatasını hiç görmedi, çünkü tavan o an fiziksel olarak
+/// henüz "sorgulanabilir" değildi. Bu araç ise ÇOKTAN KAYDEDİLİP YENİDEN
+/// AÇILMIŞ bir sahnede (tavan uzun süredir var, tamamen senkron) çalışıyor,
+/// yani aynı hatayı GERÇEKTEN yakalıyor.
+///
+/// **Ders: "eski araçta hiç sorun çıkmadı" bir algoritmanın doğru olduğunu
+/// kanıtlamıyor — yalnızca çalıştırma zamanlamasının o hatayı gizlediğini
+/// gösterebilir.** `AtmosphereSetup.cs`'e dokunulmadı (bölüm 0 — çalıştırılamaz
+/// zaten, ve orada hâlâ "şans eseri" çalışıyor); yükseklik/yarıçap yalnızca
+/// BURADA, tavana asla değmeyecek şekilde küçültüldü (`LightHeight`+
+/// `WallClearanceRadius` = 2.9 < 3.0 tavan alt yüzü — 0.1 m güvenli pay).
+///
 /// Kod ikinci kez yazılmadı, kopyalandı: `AtmosphereSetup`'ın kendisi
 /// `internal`/paylaşılabilir değil (bütün metotları private static) ve tek
 /// kullanımlık bir algoritma için üçüncü bir sınıfa taşımak (`MazeMapBuilder`/
@@ -69,13 +97,18 @@ public static class WingLightingSetup
     // haritayla aynı hissetsin diye ölçüldü, rastgele seçilmedi.
     private const int LightCount = 8;
 
-    // Geri kalan dördü AtmosphereSetup.BuildLights/CreateLight ile BİREBİR
-    // AYNI — ayrıntılı gerekçe orada (bölüm 3). Farklı bir sayı, kanadı ana
-    // haritadan gözle görülür başka bir parlaklıkta/yoğunlukta bırakırdı.
+    // Işık RENGİ/MENZİLİ/ŞİDDETİ AtmosphereSetup.CreateLight ile BİREBİR
+    // AYNI (bölüm 3) — farklı bir sayı kanadı ana haritadan gözle görülür
+    // başka bir parlaklıkta bırakırdı.
     private const float LightRange = 8f;
     private const float LightIntensity = 0.75f;
-    private const float LightHeight = 2.6f;
     private const float MinLightSpacing = 7f;
+
+    // YÜKSEKLİK ve YARIÇAP artık AtmosphereSetup'takiyle AYNI DEĞİL, bilerek
+    // — sınıf yorumundaki "gizli hata" kutusuna bak. İkisinin toplamı tavanın
+    // alt yüzüne (dünya Y=3.0) ASLA değmemeli: 2.5 + 0.4 = 2.9, 0.1 m pay.
+    private const float LightHeight = 2.5f;
+    private const float WallClearanceRadius = 0.4f;
 
     // MapDressWindow.lampWidth varsayılanıyla AYNI — armatür ana haritadakiyle
     // aynı görünsün diye.
@@ -142,7 +175,11 @@ public static class WingLightingSetup
         // da aynı mantıkla (54.4/2 - 3.2 ≈ 24) hesaba oturuyor, burada aynı
         // formül kanadın kendi ölçüsüne uygulanıyor.
         float halfSize = span / 2f - MazeMapBuilder.CellSize;
-        float height = Mathf.Min(LightHeight, MazeMapBuilder.WallHeight - 0.3f);
+
+        // height + WallClearanceRadius tavanın alt yüzüne (WallHeight) ASLA
+        // değmemeli — sınıf yorumundaki "gizli hata" kutusuna bak. Duvar
+        // yüksekliği elle küçültülmüş olabilir diye Min ile de sınırlanıyor.
+        float height = Mathf.Min(LightHeight, MazeMapBuilder.WallHeight - WallClearanceRadius - 0.1f);
 
         Bounds lampBounds = MapDressWindow.MeasurePrefab(lampPrefab);
         float lampWidth = Mathf.Max(lampBounds.size.x, lampBounds.size.z);
@@ -160,8 +197,9 @@ public static class WingLightingSetup
                 height,
                 center.z + Random.Range(-halfSize, halfSize));
 
-            // Duvarın içine lamba koymayalım — AtmosphereSetup.BuildLights ile aynı kontrol.
-            if (Physics.CheckSphere(candidate, 0.8f, ~0, QueryTriggerInteraction.Ignore))
+            // Duvarın içine lamba koymayalım. Yarıçap AtmosphereSetup'takinden
+            // (0.8) KÜÇÜK — sınıf yorumundaki "gizli hata" kutusuna bak.
+            if (Physics.CheckSphere(candidate, WallClearanceRadius, ~0, QueryTriggerInteraction.Ignore))
                 continue;
             if (IsTooCloseToExisting(group.transform, candidate))
                 continue;
@@ -176,9 +214,19 @@ public static class WingLightingSetup
         EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         EditorSceneManager.SaveOpenScenes();
 
+        if (placed == 0)
+        {
+            Debug.LogWarning(
+                $"'{WingName}' altına HİÇ lamba yerleştirilemedi ({attempts} deneme). " +
+                $"Yükseklik ({height:0.00}) + yarıçap ({WallClearanceRadius}) tavanın alt " +
+                $"yüzüne ({MazeMapBuilder.WallHeight}) değiyor olabilir, ya da koridorlar " +
+                "artık çok dar/dolu. Grup boş kaldı, elle silip tekrar deneyebilirsin.");
+            return;
+        }
+
         string warning = placed < LightCount
             ? $"\nUYARI: yalnızca {placed}/{LightCount} lamba için yer bulunabildi " +
-              "(koridorlar dar ya da çok dolu olabilir)."
+              $"({attempts} deneme — koridorlar dar ya da çok dolu olabilir)."
             : "";
 
         Debug.Log(
