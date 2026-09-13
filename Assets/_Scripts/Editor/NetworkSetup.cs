@@ -291,12 +291,10 @@ public static class NetworkSetup
         // profil kendiliğinden uygulanıyor, RoundManager'ın profil bilmesine
         // gerek kalmıyor.
         MovementProfile monsterProfile = GetOrCreateProfile("CanavarProfili",
-            walkSpeed: 210f, sprintSpeed: 420f, crouchMultiplier: 0.42f,
-            slideBoost: 70f, slideFriction: 1.15f);
+            walkSpeed: 210f, sprintSpeed: 420f, crouchMultiplier: 0.42f);
 
         MovementProfile runnerProfile = GetOrCreateProfile("KacanProfili",
-            walkSpeed: 200f, sprintSpeed: 400f, crouchMultiplier: 0.35f,
-            slideBoost: 60f, slideFriction: 1.2f);
+            walkSpeed: 200f, sprintSpeed: 400f, crouchMultiplier: 0.35f);
 
         SerializedObject serializedParticipant = new SerializedObject(participant);
         serializedParticipant.FindProperty("monsterProfile").objectReferenceValue = monsterProfile;
@@ -378,7 +376,7 @@ public static class NetworkSetup
     }
 
     private static MovementProfile GetOrCreateProfile(string name, float walkSpeed, float sprintSpeed,
-        float crouchMultiplier, float slideBoost, float slideFriction)
+        float crouchMultiplier)
     {
         const string folder = "Assets/_ScriptableObjects";
         string path = $"{folder}/{name}.asset";
@@ -394,8 +392,6 @@ public static class NetworkSetup
         profile.walkSpeed = walkSpeed;
         profile.sprintSpeed = sprintSpeed;
         profile.crouchSpeedMultiplier = crouchMultiplier;
-        profile.slideBoost = slideBoost;
-        profile.slideFriction = slideFriction;
         AssetDatabase.CreateAsset(profile, path);
 
         return profile;

@@ -18,13 +18,6 @@ public class MovementProfile : ScriptableObject
     [Range(0.1f, 1f)]
     public float crouchSpeedMultiplier = 0.35f;
 
-    [Header("Kayma")]
-    [Tooltip("Kayma başlarken mevcut yöne eklenen hız (u/s).")]
-    public float slideBoost = 60f;
-
-    [Tooltip("Kayarken uygulanan sürtünme. Düşük değer = daha uzun kayma. Normal sürtünme 5.5.")]
-    public float slideFriction = 1.2f;
-
     // Aşağıdakiler eskiden profilin dışındaydı; oradaki not "ikisi de hızla
     // orantılı çalışıyor, role göre değişmesi gerekmiyor" diyordu. Canavara
     // araba benzeri bir hareket verilince o gerekçe düştü: artık iki rolün

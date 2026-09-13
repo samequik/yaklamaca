@@ -108,29 +108,6 @@ public class PlayerController : MonoBehaviour
 
     [Header("Eğilme (Crouch)")]
     [SerializeField] private float crouchSpeedMultiplier = 0.35f; // GMod'un SetCrouchedWalkSpeed'i gibi, walkSpeed'in oranı
-
-    // Kayma, Source modeline uygun şekilde ayrı bir itme kuvvetiyle değil
-    // sürtünmeyi düşürerek yapılıyor: mevcut momentum korunuyor, kendiliğinden
-    // sönüyor. Böylece hızlıyken kayma uzun, yavaşken hiç başlamıyor.
-    [Header("Kayma (Slide)")]
-    [Tooltip("Kayma başlarken eklenen hız (u/s). Profilden ezilir.")]
-    [SerializeField] private float slideBoost = 60f;
-
-    [Tooltip("Kayarken sürtünme. Profilden ezilir.")]
-    [SerializeField] private float slideFriction = 1.2f;
-
-    [Tooltip("Bu hızın altında kayma başlamaz — yürürken eğilmek kayma sayılmasın.")]
-    [SerializeField] private float slideMinStartSpeed = 300f;
-
-    [Tooltip("Bu hızın altına düşünce kayma biter.")]
-    [SerializeField] private float slideEndSpeed = 150f;
-
-    [SerializeField] private float maxSlideDuration = 1.1f;
-    [SerializeField] private float slideCooldown = 0.7f;
-
-    [Tooltip("Kayarken yön verme gücü. 0 = hiç dönemezsin, 1 = normal. Dar koridorda biraz kontrol şart.")]
-    [Range(0f, 1f)]
-    [SerializeField] private float slideControl = 0.25f;
     [SerializeField] private float duckTime = 0.4f;               // TIME_TO_DUCK
     [SerializeField] private float unduckTime = 0.2f;             // TIME_TO_UNDUCK
 
@@ -194,10 +171,6 @@ public class PlayerController : MonoBehaviour
     private float cameraPullTimer;
     private float cameraPullRampIn;
     private float cameraPullRampOut;
-
-    private bool isSliding;
-    private float slideTimer;
-    private float nextSlideTime;
 
     private readonly Collider[] overlapBuffer = new Collider[8];
     private readonly RaycastHit[] cameraHits = new RaycastHit[8];
@@ -398,8 +371,6 @@ public class PlayerController : MonoBehaviour
         walkSpeed = profile.walkSpeed;
         sprintSpeed = profile.sprintSpeed;
         crouchSpeedMultiplier = profile.crouchSpeedMultiplier;
-        slideBoost = profile.slideBoost;
-        slideFriction = profile.slideFriction;
 
         accelerate = profile.accelerate;
         friction = profile.friction;
@@ -478,7 +449,6 @@ public class PlayerController : MonoBehaviour
         // yerine koyuyor ve sınırı orada hazır bulmalı.
         UpdateCameraClearance();
 
-        UpdateSlide(intent);   // eğilmeden önce: kayma zorunlu eğilme getiriyor
         HandleCrouch(intent);
         ReadMovementInput(intent);
 
@@ -491,10 +461,7 @@ public class PlayerController : MonoBehaviour
         if (isGrounded)
         {
             ApplyFriction();
-            // Kayarken ivme kısılıyor; yoksa hemen sprint hızına dönüp
-            // kayma diye bir şey kalmıyor. Sıfır da değil, çünkü dar koridorda
-            // hiç yön veremeden kaymak duvara çarpmak demek.
-            Accelerate(wishSpeed, isSliding ? accelerate * slideControl : accelerate);
+            Accelerate(wishSpeed, accelerate);
         }
         else
         {
@@ -538,49 +505,6 @@ public class PlayerController : MonoBehaviour
     }
 
     /// <summary>
-    /// Kayma durumunu günceller.
-    ///
-    /// Başlama koşulu: zemindeyken Ctrl'e basmak ve yeterince hızlı olmak.
-    /// "Koşarak zıplayıp inince Ctrl" durumu ayrıca kodlanmadı — iniş anında
-    /// zaten zeminde ve hızlı olduğun için aynı koşul kendiliğinden sağlanıyor.
-    ///
-    /// Ctrl'i bırakmak kaymayı bitirmez; hız düşene ya da süre dolana kadar
-    /// sürer. Tuşu basılı tutmayı zorunlu kılmak kaymayı zahmetli bir hareket
-    /// haline getiriyordu.
-    /// </summary>
-    private void UpdateSlide(MovementIntent intent)
-    {
-        float horizontalSpeed = HorizontalSpeed;
-
-        if (isSliding)
-        {
-            slideTimer -= Time.deltaTime;
-
-            bool finished = !isGrounded || slideTimer <= 0f || horizontalSpeed < slideEndSpeed;
-            if (!finished)
-                return;
-
-            isSliding = false;
-            nextSlideTime = Time.time + slideCooldown;
-            return;
-        }
-
-        if (!intent.crouchPressed || !isGrounded)
-            return;
-        if (Time.time < nextSlideTime)
-            return;
-        if (horizontalSpeed < slideMinStartSpeed)
-            return;
-
-        isSliding = true;
-        slideTimer = maxSlideDuration;
-
-        // Mevcut gidiş yönüne küçük bir itme — kaymanın başladığı hissedilsin.
-        Vector3 direction = new Vector3(velocity.x, 0f, velocity.z) / horizontalSpeed;
-        velocity += direction * slideBoost;
-    }
-
-    /// <summary>
     /// Source'un duck mekaniği: hull yukarıdan kısalır (ayaklar sabit kalır),
     /// göz hizası 64u'dan 28u'ya iner. Tavan alçaksa doğrulamaya izin verilmez —
     /// havalandırma boşluğunun ortasında kalkıp duvara sıkışmayı bu engelliyor.
@@ -589,8 +513,7 @@ public class PlayerController : MonoBehaviour
     {
         UpdateCameraPull();
 
-        // Kayarken zorla eğik kalınır; Ctrl bırakılsa bile gövde yerde.
-        if (intent.crouch || isSliding)
+        if (intent.crouch)
             duckFraction = Mathf.MoveTowards(duckFraction, 1f, Time.deltaTime / Mathf.Max(duckTime, 0.01f));
         else if (CanStandUp())
             duckFraction = Mathf.MoveTowards(duckFraction, 0f, Time.deltaTime / Mathf.Max(unduckTime, 0.01f));
@@ -953,8 +876,7 @@ public class PlayerController : MonoBehaviour
         }
 
         float control = Mathf.Max(speed, stopSpeed);
-        float activeFriction = isSliding ? slideFriction : friction;
-        float newSpeed = Mathf.Max(speed - control * activeFriction * Time.deltaTime, 0f);
+        float newSpeed = Mathf.Max(speed - control * friction * Time.deltaTime, 0f);
 
         velocity.x *= newSpeed / speed;
         velocity.z *= newSpeed / speed;

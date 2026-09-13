@@ -66,8 +66,6 @@ public static class MovementProfileSetup
         profile.walkSpeed = 200f;
         profile.sprintSpeed = 400f;
         profile.crouchSpeedMultiplier = 0.35f;
-        profile.slideBoost = 60f;
-        profile.slideFriction = 1.2f;
 
         profile.accelerate = 14f;
         profile.friction = 5.5f;
@@ -119,8 +117,6 @@ public static class MovementProfileSetup
         profile.sprintSpeed = 380f;
 
         profile.crouchSpeedMultiplier = 0.35f;
-        profile.slideBoost = 60f;
-        profile.slideFriction = 1.2f;
 
         // İvme ve sürtünme KAÇANLA AYNI. İlk denemede bunları düşürmüştüm ve
         // yanlıştı: canavar duruştan kalkarken de ağırlaşıyordu, her yavaşlama
