@@ -134,7 +134,7 @@ public class CharacterSelectPanel : MonoBehaviour
         CharacterCatalog.Costume costume = list[index];
 
         if (roleLabel != null)
-            roleLabel.SetText(monsterMode ? "CANAVAR KOSTÜMÜ" : "KAÇAN KOSTÜMÜ");
+            roleLabel.SetText(Localization.Get(monsterMode ? "CANAVAR KOSTÜMÜ" : "KAÇAN KOSTÜMÜ"));
 
         if (costumeLabel != null)
             costumeLabel.SetText(costume.Name);
@@ -157,15 +157,15 @@ public class CharacterSelectPanel : MonoBehaviour
 
         if (!many)
         {
-            statusLabel.SetText("Şimdilik tek kostüm var. Yenileri eklenince burada çıkacak. " +
-                "Modeli fareyle sürükleyerek çevirebilirsin.");
+            statusLabel.SetText(Localization.Get("Şimdilik tek kostüm var. Yenileri eklenince burada çıkacak. " +
+                "Modeli fareyle sürükleyerek çevirebilirsin."));
             return;
         }
 
         // Ekranın tek gerçek sınırı bu ve söylenmesi gerekiyor: oyuncu canavar
         // kostümünü seçip canavar olacağını sanmamalı.
-        statusLabel.SetText(monsterMode
+        statusLabel.SetText(Localization.Get(monsterMode
             ? "Canavarı oda sahibi seçiyor. Bu yalnızca canavar olursan görünüşün."
-            : "Kostüm yalnızca görünüş: hız, boy ve menzil değişmiyor.");
+            : "Kostüm yalnızca görünüş: hız, boy ve menzil değişmiyor."));
     }
 }

@@ -276,6 +276,30 @@ public class FootstepAudio : MonoBehaviour
         if (isMonster && participant.isLocalPlayer)
             volume *= ownHeavyStepVolumeScale;
 
+        // GEÇİCİ TEŞHİS LOGU (2026-09-14) — "izlerken canavarın adımı bazen
+        // duyulmuyor" şikâyeti için. Mesafe teşhisi kullanıcı tarafından
+        // ÇÜRÜTÜLDÜ (dibindeyken bile duyulmuyor) ve kod okumakla ikinci bir
+        // sebep bulunamadı: kaynak/dinleyici/ses seviyesi hepsi doğru
+        // görünüyor. Tahmin etmek yerine ölçüyoruz — bir dahaki sefere
+        // olduğunda bu satır konsolda gerçek durumu gösterecek. Kesinleşince
+        // BU BLOK SİLİNMELİ, kalıcı bir log değil.
+        if (isMonster)
+        {
+            int enabledListeners = 0;
+            foreach (AudioListener listener in FindObjectsOfType<AudioListener>())
+            {
+                if (listener.enabled)
+                    enabledListeners++;
+            }
+
+            Debug.Log($"[SesTeşhis] Canavar adımı: konum={transform.position}, " +
+                $"clip={clip.name}, volume={volume:F2}, " +
+                $"source.enabled={source.enabled}, source.mute={source.mute}, " +
+                $"kendi canavarım={participant.isLocalPlayer}, " +
+                $"AudioListener.volume={AudioListener.volume:F2}, " +
+                $"sahnede AÇIK dinleyici sayısı={enabledListeners}");
+        }
+
         source.PlayOneShot(clip, volume);
     }
 }

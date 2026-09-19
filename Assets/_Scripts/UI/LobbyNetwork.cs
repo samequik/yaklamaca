@@ -109,6 +109,7 @@ public class LobbyNetwork : MonoBehaviour
 
     private void Update()
     {
+        RebindToLiveManager();
         TickConnectTimeout();
         TickPhase();
     }
@@ -118,6 +119,8 @@ public class LobbyNetwork : MonoBehaviour
     /// <summary>Sunucuyu açıp kendi de oyuncu olarak katılır (Mirror'ın host modu).</summary>
     public void HostLobby()
     {
+        RebindToLiveManager();
+
         NetworkManager manager = NetworkManager.singleton;
         if (manager == null)
         {
@@ -128,7 +131,7 @@ public class LobbyNetwork : MonoBehaviour
 
         if (NetworkServer.active || NetworkClient.active)
         {
-            StatusMessage = "Zaten bir odadasın.";
+            StatusMessage = Localization.Get("Zaten bir odadasın.");
             return;
         }
 
@@ -140,7 +143,7 @@ public class LobbyNetwork : MonoBehaviour
         // kurulmuşken bile. Hazır olana kadar bekliyoruz.
         if (relayTransport != null && !UseRelay)
         {
-            StatusMessage = "EOS bağlanıyor…";
+            StatusMessage = Localization.Get("EOS bağlanıyor…");
 
             if (menu != null)
                 menu.ShowLobby();
@@ -194,8 +197,9 @@ public class LobbyNetwork : MonoBehaviour
             // kod yanlış çıkıyor; bütün adresleri yazmak oyuncunun doğrusunu
             // tanıyıp arkadaşına vermesini sağlıyor.
             RoomCode = LobbyCode.FromAddress(LobbyCode.LocalAddress());
-            StatusMessage = "EOS hazır değil, yerel oda kuruldu. Katılacak kişi " +
-                $"şu adreslerden birini yazmalı:\n{LobbyCode.LocalAddresses()}";
+            StatusMessage = Localization.Format(
+                "EOS hazır değil, yerel oda kuruldu. Katılacak kişi şu adreslerden birini yazmalı:\n{0}",
+                LobbyCode.LocalAddresses());
 
             manager.StartHost();
             return;
@@ -210,7 +214,7 @@ public class LobbyNetwork : MonoBehaviour
         if (relayLobby == null)
         {
             RoomCode = EOSSDKComponent.LocalUserProductIdString;
-            StatusMessage = "İnternet odası. Kodu kopyalayıp arkadaşına ver.";
+            StatusMessage = Localization.Get("İnternet odası. Kodu kopyalayıp arkadaşına ver.");
 
             manager.StartHost();
             return;
@@ -221,7 +225,7 @@ public class LobbyNetwork : MonoBehaviour
         // 32 karakterden 6 karaktere dönerdi; oyuncu arkadaşına hangisini
         // vereceğini bilemez ve muhtemelen ilk gördüğünü verirdi.
         RoomCode = LobbyCode.Unknown;
-        StatusMessage = "Oda kuruluyor…";
+        StatusMessage = Localization.Get("Oda kuruluyor…");
 
         relayLobby.HostRoom(
             PlayerProfile.Name,
@@ -237,7 +241,7 @@ public class LobbyNetwork : MonoBehaviour
                 }
 
                 RoomCode = code;
-                StatusMessage = "İnternet odası. Kodu arkadaşına söyle.";
+                StatusMessage = Localization.Get("İnternet odası. Kodu arkadaşına söyle.");
 
                 manager.StartHost();
             },
@@ -253,8 +257,8 @@ public class LobbyNetwork : MonoBehaviour
                 Debug.LogWarning($"EOS lobi servisi: {error}");
 
                 RoomCode = EOSSDKComponent.LocalUserProductIdString;
-                StatusMessage = "Kısa kod alınamadı. Uzun kodla devam: " +
-                    "kodu kopyalayıp arkadaşına ver.";
+                StatusMessage = Localization.Get(
+                    "Kısa kod alınamadı. Uzun kodla devam: kodu kopyalayıp arkadaşına ver.");
 
                 manager.StartHost();
             });
@@ -263,6 +267,8 @@ public class LobbyNetwork : MonoBehaviour
     /// <summary>Kod ya da ham IP ile bağlanır.</summary>
     public void JoinLobby(string codeOrAddress)
     {
+        RebindToLiveManager();
+
         NetworkManager manager = NetworkManager.singleton;
         if (manager == null)
         {
@@ -273,7 +279,7 @@ public class LobbyNetwork : MonoBehaviour
 
         if (NetworkServer.active || NetworkClient.active)
         {
-            StatusMessage = "Zaten bir odadasın.";
+            StatusMessage = Localization.Get("Zaten bir odadasın.");
             return;
         }
 
@@ -311,15 +317,15 @@ public class LobbyNetwork : MonoBehaviour
         else
         {
             StatusMessage = UseRelay
-                ? $"Kod okunamadı. {LobbyCode.RoomCodeLength} harflik oda kodu, " +
-                  $"{LobbyCode.Length} harflik yerel kod ya da IP adresi bekleniyor."
-                : $"Kod okunamadı. {LobbyCode.Length} harf ya da bir IP adresi bekleniyor. " +
-                  "(EOS hazır değil, oda koduyla katılamazsın.)";
+                ? Localization.Format("Kod okunamadı. {0} harflik oda kodu, {1} harflik yerel kod ya da IP adresi bekleniyor.",
+                    LobbyCode.RoomCodeLength, LobbyCode.Length)
+                : Localization.Format("Kod okunamadı. {0} harf ya da bir IP adresi bekleniyor. (EOS hazır değil, oda koduyla katılamazsın.)",
+                    LobbyCode.Length);
             return;
         }
 
         leaving = false;
-        StatusMessage = "Bağlanılıyor…";
+        StatusMessage = Localization.Get("Bağlanılıyor…");
         connectTimer = connectTimeout;
 
         manager.networkAddress = address;
@@ -336,10 +342,10 @@ public class LobbyNetwork : MonoBehaviour
     /// reddediyor ve geriye yalnızca zaman aşımı kalıyordu — sebebi hiçbir
     /// yerde görünmüyordu.
     /// </summary>
-    private const string SelfConnectMessage =
+    private static string SelfConnectMessage => Localization.Get(
         "Bu senin kendi odan. Aynı bilgisayardaki iki kopya aynı EOS kimliğini " +
         "paylaşıyor, yani kendine bağlanamazsın — test için ikinci bir makine " +
-        "gerekiyor.";
+        "gerekiyor.");
 
     /// <summary>
     /// Kısa kodla katılır: önce EOS'a odayı sorup host'un adresini alıyor,
@@ -357,7 +363,7 @@ public class LobbyNetwork : MonoBehaviour
     {
         leaving = false;
         RoomCode = code.ToUpperInvariant();
-        StatusMessage = "Oda aranıyor…";
+        StatusMessage = Localization.Get("Oda aranıyor…");
 
         relayLobby.JoinRoom(
             code,
@@ -383,7 +389,7 @@ public class LobbyNetwork : MonoBehaviour
                     return;
                 }
 
-                StatusMessage = "Bağlanılıyor…";
+                StatusMessage = Localization.Get("Bağlanılıyor…");
                 connectTimer = connectTimeout;
 
                 UseTransport(manager, relayTransport);
@@ -439,9 +445,69 @@ public class LobbyNetwork : MonoBehaviour
         Transport.active = wanted;
     }
 
+    /// <summary>
+    /// Transport ve lobi servisi alanlarını, o an YAŞAYAN ağ yöneticisinin
+    /// bileşenlerine yeniden bağlar.
+    ///
+    /// **Neden gerekiyor: NASIL OYNANIR'dan dönünce menü ölü kopyaya
+    /// bakıyordu.** `NetworkManager` DontDestroyOnLoad ile sahne değişiminden
+    /// sağ çıkıyor. Tutorial'dan ana menüye dönülürken SampleScene baştan
+    /// yükleniyor ve sahnedeki İKİNCİ NetworkManager'ı Mirror kendisi yok
+    /// ediyor ("Multiple NetworkManagers detected") — o objenin üstündeki
+    /// KcpTransport, EosTransport, EOSSDKComponent ve RelayLobby de onunla
+    /// gidiyor. Bu bileşenin Inspector'dan bağlı alanları tam olarak o yok
+    /// edilen kopyaları gösteriyordu: EOS hazır olduğu hâlde
+    /// `relayTransport == null` çıkıyor, LOBİ KUR sessizce "EOS hazır değil,
+    /// yerel oda kuruldu"ya (EOS öncesinin 7 harflik IP koduna) düşüyor ve
+    /// katılma ekranındaki oda listesi kayboluyordu. Tutorial'a bir kez giren
+    /// oyuncu o oturumda internetten oynayamıyordu.
+    ///
+    /// Yaşayan yönetici aynı bileşenleri taşıyor ve EOS girişi onda zaten
+    /// yapılmış durumda. Yeniden BAĞLAMAK yetiyor; yöneticiyi silip EOS'u
+    /// baştan başlatmak ise aynı süreçte SDK'yı ikinci kez açmak demekti
+    /// (bkz. EOSSDKComponent.OnApplicationQuit — kapatma yalnızca çıkışta).
+    ///
+    /// Her karede çağrılıyor: yok edilme kare SONUNDA oluyor, yani sahnenin
+    /// yüklendiği karede alan hâlâ sağlam görünüyor. Maliyeti üç null kontrolü.
+    /// </summary>
+    private void RebindToLiveManager()
+    {
+        relayTransport = FromLiveManager(relayTransport);
+        relayLobby = FromLiveManager(relayLobby);
+        localTransport = FromLiveManager(localTransport);
+    }
+
+    /// <summary>
+    /// Referans yok edilmiş bir kopyayı gösteriyorsa yaşayan yöneticideki
+    /// aynı türden bileşeni döndürür; sağlamsa ya da hiç atanmamışsa olduğu
+    /// gibi bırakır. `JoinLobbyPanel` de aynı sebeple kullanıyor.
+    /// </summary>
+    public static T FromLiveManager<T>(T reference) where T : Component
+    {
+        // Unity'nin `==` işleci yok edilmiş objeyi null sayıyor, C#'ın
+        // ReferenceEquals'ı saymıyor. İkisi ayrışıyorsa elimizde yok edilmiş
+        // bir kopya var. Hiç atanmamış alan (gerçek null) olduğu gibi dönüyor:
+        // EOS kurulmamış bir projede aranacak bir şey yok.
+        if (reference != null || ReferenceEquals(reference, null))
+            return reference;
+
+        NetworkManager manager = NetworkManager.singleton;
+        if (manager == null)
+            return reference;
+
+        // Tür, yok edilmiş kopyanın KENDİ türünden okunuyor (GetType yok
+        // edilmiş objede de çalışır). Alan tipiyle aramak yanlış olurdu:
+        // `localTransport` soyut `Transport` tipinde ve yöneticide iki
+        // transport birden duruyor — ilk bulunan EOS olabilirdi.
+        Component live = manager.GetComponent(reference.GetType());
+        return live != null ? (T)live : reference;
+    }
+
     /// <summary>Odadan ayrılır. Sunucuysak oda kapanıyor, herkes düşüyor.</summary>
     public void Leave()
     {
+        RebindToLiveManager();
+
         NetworkManager manager = NetworkManager.singleton;
         leaving = true;
         connectTimer = 0f;
@@ -485,7 +551,7 @@ public class LobbyNetwork : MonoBehaviour
             return;
 
         GUIUtility.systemCopyBuffer = RoomCode;
-        StatusMessage = "Kod panoya kopyalandı.";
+        StatusMessage = Localization.Get("Kod panoya kopyalandı.");
     }
 
     // ---------- Ağ olayları ----------
@@ -508,9 +574,27 @@ public class LobbyNetwork : MonoBehaviour
             return;
         }
 
-        StatusMessage = hadLocalPlayer
-            ? "Bağlantı koptu — oda sahibi çıkmış olabilir."
-            : "Bağlanılamadı. Kodu kontrol et; sunucu aynı ağda mı?";
+        // Atılma/yasaklanma normal bir koptan ÖNCE kontrol ediliyor: ikisi de
+        // aynı Mirror olayından (OnDisconnectedEvent) geçiyor ve ayırt eden
+        // tek şey RoundManager.ServerKick'in bağlantı kapanmadan HEMEN ÖNCE
+        // yolladığı bildirim (bkz. RoundParticipant.TargetNotifyKicked).
+        // Kontrol edilmezse kovulan oyuncu "oda sahibi çıkmış olabilir" gibi
+        // YANLIŞ bir mesaj görürdü.
+        if (RoundParticipant.WasKicked)
+        {
+            StatusMessage = Localization.Get(RoundParticipant.WasBanned
+                ? "Oda sahibi seni bu oturum için yasakladı."
+                : "Oda sahibi seni odadan çıkardı.");
+
+            RoundParticipant.WasKicked = false;
+            RoundParticipant.WasBanned = false;
+        }
+        else
+        {
+            StatusMessage = Localization.Get(hadLocalPlayer
+                ? "Bağlantı koptu — oda sahibi çıkmış olabilir."
+                : "Bağlanılamadı. Kodu kontrol et; sunucu aynı ağda mı?");
+        }
 
         hadLocalPlayer = false;
 
@@ -534,7 +618,7 @@ public class LobbyNetwork : MonoBehaviour
         if (NetworkClient.isConnected)
             return;
 
-        StatusMessage = "Bağlanılamadı (zaman aşımı). Kodu kontrol et; oda hâlâ açık mı?";
+        StatusMessage = Localization.Get("Bağlanılamadı (zaman aşımı). Kodu kontrol et; oda hâlâ açık mı?");
 
         NetworkManager manager = NetworkManager.singleton;
         leaving = true;

@@ -176,19 +176,28 @@ public class RevivalStation : NetworkBehaviour, IInteractable
         // Bu kabin bu kişiyi zaten dirilttiyse ceset boşuna taşınmasın: yazı
         // ilk satırda söylüyor ve oyuncuyu diğer kabine yolluyor.
         if (carrying && !CanRevive(held.VictimNetId))
-            return held.VictimName + " bu kabinde diriltildi — diğer kabini dene";
+            return held.VictimName + Localization.Get(" bu kabinde diriltildi — diğer kabini dene");
 
-        if (operatorId != 0) return "Diriltme terminali kullanımda";
+        if (operatorId != 0) return Localization.Get("Diriltme terminali kullanımda");
 
         if (corpseId == 0)
-            return carrying ? "Cesedi kabine yerleştir" : "Diriltme kabini — bir ceset getir";
+        {
+            return Localization.Get(carrying
+                ? "Cesedi kabine yerleştir"
+                : "Diriltme kabini — bir ceset getir");
+        }
 
         // Elinde ceset varken terminali çalıştıramıyorsun (CmdUse reddediyor).
         // Yazı bunu söylemezse oyuncu E'ye basıp hiçbir şey olmadığını görüyor
         // ve kabini bozuk sanıyor.
-        if (carrying) return "Kabin dolu — taşıdığın cesedi önce bırak";
+        if (carrying) return Localization.Get("Kabin dolu — taşıdığın cesedi önce bırak");
 
-        return locked ? "Diriltme terminalinin kilidini aç" : "Diriltmeyi başlat — 15 saniye";
+        // Süre DOĞRUDAN alandan okunuyor, sabit yazılmıyor: burada bir kere
+        // "15 saniye" sabitlenmişti ve duration 10'a inince (bkz. alandaki not)
+        // yazı hiç güncellenmemişti — oyuncu 15 saniye okuyup 10'da bitiyor görüyordu.
+        return locked
+            ? Localization.Get("Diriltme terminalinin kilidini aç")
+            : Localization.Format("Diriltmeyi başlat — {0:0} saniye", duration);
     }
     public void Interact(GameObject user) => CmdUse();
     private RoundParticipant Validate(NetworkConnectionToClient sender)

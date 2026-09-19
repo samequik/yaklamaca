@@ -401,6 +401,53 @@ public class RoundParticipant : NetworkBehaviour
             RoundManager.Instance.ServerRequestStart(this);
     }
 
+    /// <summary>
+    /// Menüden çağrılır: bir oyuncuyu at (ban=false) ya da bu oturum boyunca
+    /// yasakla (ban=true). Yetkiyi, hedefin geçerliliğini ve kendini/botu
+    /// atmanın engellenmesini sunucu doğruluyor (bkz. RoundManager.ServerKick)
+    /// — burası yalnızca isteği taşıyor.
+    /// </summary>
+    public void RequestKick(uint targetNetId, bool ban)
+    {
+        if (isLocalPlayer)
+            CmdRequestKick(targetNetId, ban);
+    }
+
+    [Command]
+    private void CmdRequestKick(uint targetNetId, bool ban)
+    {
+        if (RoundManager.Instance != null)
+            RoundManager.Instance.ServerKick(this, targetNetId, ban);
+    }
+
+    /// <summary>
+    /// Atıldığını/yasaklandığını bu oturumda son öğrenen bilgi. STATİK,
+    /// çünkü bağlantı zaten kapanmak üzere — bir SyncVar'ın gitmesine gerek
+    /// yok. `LobbyNetwork.HandleDisconnected` bunu okuyup doğru mesajı
+    /// seçtikten sonra sıfırlıyor; okunmazsa kovulan oyuncu "oda sahibi
+    /// çıkmış olabilir" gibi YANLIŞ bir mesaj görürdü (CLAUDE.md bölüm
+    /// 11.5'in "sessiz/yanlış ret" dersinin aynısı: bir bilgi eksikse ya
+    /// doğru söylenmeli ya hiç söylenmemeli, yanlış söylenmemeli).
+    /// </summary>
+    public static bool WasKicked { get; set; }
+
+    /// <summary>Atılma mı yasaklanma mı — ikinci durumda bir daha giremiyor.</summary>
+    public static bool WasBanned { get; set; }
+
+    [Server]
+    public void ServerNotifyKicked(bool banned)
+    {
+        if (connectionToClient != null)
+            TargetNotifyKicked(connectionToClient, banned);
+    }
+
+    [TargetRpc]
+    private void TargetNotifyKicked(NetworkConnectionToClient target, bool banned)
+    {
+        WasKicked = true;
+        WasBanned = banned;
+    }
+
     // ---------- Sunucunun yazdığı lobi durumu ----------
 
     [Server]

@@ -78,6 +78,11 @@ public class JoinLobbyPanel : MonoBehaviour
 
     private void Update()
     {
+        // Tutorial'dan dönüşte `relayLobby` yok edilmiş bir kopyayı
+        // gösteriyor ve liste hiç görünmüyordu — ayrıntı
+        // LobbyNetwork.RebindToLiveManager'da.
+        relayLobby = LobbyNetwork.FromLiveManager(relayLobby);
+
         RefreshStatus();
 
         // Ekrana girer girmez bir kez aranıyor: listeyi görmek için ayrıca bir
@@ -111,11 +116,13 @@ public class JoinLobbyPanel : MonoBehaviour
     /// <summary>"ODALARI YENİLE" düğmesi.</summary>
     public void RefreshRooms()
     {
+        relayLobby = LobbyNetwork.FromLiveManager(relayLobby);
+
         if (!CanList || listing)
             return;
 
         listing = true;
-        listStatus = "Odalar aranıyor…";
+        listStatus = Localization.Get("Odalar aranıyor…");
         ApplyRows();
 
         relayLobby.ListRooms(
@@ -131,15 +138,16 @@ public class JoinLobbyPanel : MonoBehaviour
 
                 if (rooms.Count == 0)
                 {
-                    listStatus = "Açık oda yok. Arkadaşının kodunu bekliyorsan onu yaz.";
+                    listStatus = Localization.Get("Açık oda yok. Arkadaşının kodunu bekliyorsan onu yaz.");
                 }
                 else if (rooms.Count > visible)
                 {
                     // Servis listeden fazlasını döndürebiliyor. Sessizce kesmek,
                     // arkadaşının odasını görmeyen oyuncuya "oda kapanmış"
                     // dedirtirdi — sayıyı söylemek kodu yazdırıyor.
-                    listStatus = $"{rooms.Count} oda bulundu, ilk {visible} tanesi " +
-                        "gösteriliyor. Aradığın yoksa kodu yaz.";
+                    listStatus = Localization.Format(
+                        "{0} oda bulundu, ilk {1} tanesi gösteriliyor. Aradığın yoksa kodu yaz.",
+                        rooms.Count, visible);
                 }
                 else
                 {
@@ -156,7 +164,7 @@ public class JoinLobbyPanel : MonoBehaviour
                 // Liste alınamaması katılmayı engellemiyor: kod yolu EOS'un
                 // lobi aramasından bağımsız çalışıyor. Mesaj bu yüzden bir hata
                 // değil, bir bilgi.
-                listStatus = $"Oda listesi alınamadı ({error}). Kodla katılabilirsin.";
+                listStatus = Localization.Format("Oda listesi alınamadı ({0}). Kodla katılabilirsin.", error);
                 ApplyRows();
             });
     }
@@ -194,7 +202,7 @@ public class JoinLobbyPanel : MonoBehaviour
         }
 
         if (refreshLabel != null)
-            refreshLabel.SetText(listing ? "ARANIYOR…" : "ODALARI YENİLE");
+            refreshLabel.SetText(Localization.Get(listing ? "ARANIYOR…" : "ODALARI YENİLE"));
 
         if (rows == null)
             return;
@@ -218,7 +226,7 @@ public class JoinLobbyPanel : MonoBehaviour
                 // Adsız oda, adını kaydetmemiş bir oyuncunun odası. Boş bırakmak
                 // satırı okunmaz yapardı; kodun kendisi her zaman var.
                 row.nameLabel.SetText(string.IsNullOrWhiteSpace(info.Name)
-                    ? "İsimsiz oda"
+                    ? Localization.Get("İsimsiz oda")
                     : info.Name);
             }
 
@@ -240,7 +248,7 @@ public class JoinLobbyPanel : MonoBehaviour
             : listStatus;
 
         statusLabel.SetText(string.IsNullOrEmpty(message)
-            ? "Arkadaşının verdiği kodu ya da IP adresini gir."
+            ? Localization.Get("Arkadaşının verdiği kodu ya da IP adresini gir.")
             : message);
     }
 }

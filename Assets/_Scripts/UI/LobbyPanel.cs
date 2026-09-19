@@ -23,6 +23,14 @@ public class LobbyPanel : MonoBehaviour
         public Image background;
         public TMP_Text nameLabel;
         public TMP_Text statusLabel;
+
+        [Tooltip("Yalnızca oda sahibi kullanabiliyor; kendi satırında ve bot " +
+            "satırlarında hiç görünmüyor (kickable değil, gri değil — bu " +
+            "ikisi için düğme zaten anlamsız).")]
+        public Button kickButton;
+        public TMP_Text kickLabel;
+        public Button banButton;
+        public TMP_Text banLabel;
     }
 
     [Header("Bağlantılar")]
@@ -67,7 +75,7 @@ public class LobbyPanel : MonoBehaviour
         "olmasının bir maliyeti yok ama 5 Hz göz için zaten anlık.")]
     [SerializeField] private float refreshRate = 5f;
 
-    private const string EmptySlotText = "— boş —";
+    private static string EmptySlotText => Localization.Get("— boş —");
 
     private float refreshTimer;
 
@@ -203,7 +211,7 @@ public class LobbyPanel : MonoBehaviour
         }
 
         if (rosterCountLabel != null)
-            rosterCountLabel.SetText("Oyuncular: {0}/{1}", members.Count, LobbyRoster.MaxPlayers);
+            rosterCountLabel.SetText(Localization.Get("Oyuncular: {0}/{1}"), members.Count, LobbyRoster.MaxPlayers);
     }
 
     private void ApplySlot(int index, LobbyRoster.Member member)
@@ -223,11 +231,11 @@ public class LobbyPanel : MonoBehaviour
             string name = member.DisplayName;
 
             if (member.IsLocal && member.IsRoomOwner)
-                name = $"{name}  (sen, oda sahibi)";
+                name = Localization.Format("{0}  (sen, oda sahibi)", name);
             else if (member.IsLocal)
-                name = $"{name}  (sen)";
+                name = Localization.Format("{0}  (sen)", name);
             else if (member.IsRoomOwner)
-                name = $"{name}  (oda sahibi)";
+                name = Localization.Format("{0}  (oda sahibi)", name);
 
             slot.nameLabel.SetText(name);
             slot.nameLabel.color = Color.white;
@@ -240,19 +248,21 @@ public class LobbyPanel : MonoBehaviour
         // bilmesi gereken ilk şey kimin kovalayacağı.
         if (member.IsChosenMonster)
         {
-            slot.statusLabel.SetText("CANAVAR");
+            slot.statusLabel.SetText(Localization.Get("CANAVAR"));
             slot.statusLabel.color = monsterTextColor;
         }
         else if (member.IsReady)
         {
-            slot.statusLabel.SetText("HAZIR");
+            slot.statusLabel.SetText(Localization.Get("HAZIR"));
             slot.statusLabel.color = readyTextColor;
         }
         else
         {
-            slot.statusLabel.SetText("bekliyor");
+            slot.statusLabel.SetText(Localization.Get("bekliyor"));
             slot.statusLabel.color = waitingTextColor;
         }
+
+        ApplyKickControls(slot, member);
     }
 
     private void ApplyEmptySlot(int index)
@@ -275,6 +285,70 @@ public class LobbyPanel : MonoBehaviour
             slot.statusLabel.SetText(string.Empty);
             slot.statusLabel.color = emptyTextColor;
         }
+
+        SetKickButtonsVisible(slot, false);
+    }
+
+    /// <summary>
+    /// AT/YASAKLA: kendi satırında ve bot satırlarında hiç GÖSTERİLMİYOR —
+    /// ikisi de anlamsız (kendini atmak, botun zaten ayrı bir kaldırma yolu
+    /// var, bkz. sunucu penceresi [5]). Bu, HAZIR/CANAVAR/BAŞLAT
+    /// düğmelerinin izlediği "gizleme değil griye alma" kuralından
+    /// (CLAUDE.md bölüm 13) BİLEREK farklı: o kural görüntüleyenin YETKİSİ
+    /// hakkında ("bu bende değil" der, "yok" demez), burada eksik olan yetki
+    /// değil satırın kendisinin bu eyleme UYGUNLUĞU.
+    ///
+    /// Uygun satırlarda düğmeler HERKESE görünüyor ama yalnızca oda sahibi
+    /// için tıklanabiliyor — işte o kısım griye alma kuralını izliyor.
+    /// </summary>
+    private void ApplyKickControls(SlotView slot, LobbyRoster.Member member)
+    {
+        bool applicable = !member.IsLocal && !member.IsBot;
+        SetKickButtonsVisible(slot, applicable);
+
+        if (!applicable)
+            return;
+
+        RoundParticipant local = RoundParticipant.Local;
+        bool owner = local != null && local.IsRoomOwner;
+
+        SetButtonEnabled(slot.kickButton, slot.kickLabel, owner);
+        SetButtonEnabled(slot.banButton, slot.banLabel, owner);
+
+        uint targetNetId = member.NetId;
+
+        // Kalıcı (editör zamanı) dinleyici burada işe yaramaz: bu düğmenin
+        // hedefi ancak ÇALIŞMA ANINDA, o an bu satırda kim olduğuna göre
+        // belli oluyor. `RefreshRoster` yalnızca gerçek bir değişiklikte
+        // çağrıldığı için (LobbyRoster.Changed) her tazelemede yeniden
+        // bağlamanın maliyeti yok.
+        if (slot.kickButton != null)
+        {
+            slot.kickButton.onClick.RemoveAllListeners();
+            slot.kickButton.onClick.AddListener(() => RequestKick(targetNetId, false));
+        }
+
+        if (slot.banButton != null)
+        {
+            slot.banButton.onClick.RemoveAllListeners();
+            slot.banButton.onClick.AddListener(() => RequestKick(targetNetId, true));
+        }
+    }
+
+    private static void SetKickButtonsVisible(SlotView slot, bool visible)
+    {
+        if (slot.kickButton != null)
+            slot.kickButton.gameObject.SetActive(visible);
+
+        if (slot.banButton != null)
+            slot.banButton.gameObject.SetActive(visible);
+    }
+
+    private static void RequestKick(uint targetNetId, bool ban)
+    {
+        RoundParticipant local = RoundParticipant.Local;
+        if (local != null)
+            local.RequestKick(targetNetId, ban);
     }
 
     private void RefreshButtons()
@@ -285,7 +359,7 @@ public class LobbyPanel : MonoBehaviour
         SetButtonEnabled(readyButton, readyLabel, local != null);
 
         if (readyLabel != null)
-            readyLabel.SetText(local != null && local.IsReady ? "HAZIR DEĞİLİM" : "HAZIRIM");
+            readyLabel.SetText(Localization.Get(local != null && local.IsReady ? "HAZIR DEĞİLİM" : "HAZIRIM"));
 
         // Canavar seçimi ve başlatma yalnızca oda sahibinde. Düğmeler
         // gizlenmiyor, griye alınıyor: gizlemek diğer oyuncuya "böyle bir şey
@@ -293,13 +367,13 @@ public class LobbyPanel : MonoBehaviour
         SetButtonEnabled(monsterButton, monsterLabel, owner);
 
         if (monsterLabel != null)
-            monsterLabel.SetText($"Canavar: {DescribeMonsterChoice()}");
+            monsterLabel.SetText(Localization.Format("Canavar: {0}", DescribeMonsterChoice()));
 
         bool canStart = RoundManager.CanStartFromClient(out _);
         SetButtonEnabled(startButton, startLabel, owner && canStart);
 
         if (startLabel != null)
-            startLabel.SetText("BAŞLAT");
+            startLabel.SetText(Localization.Get("BAŞLAT"));
     }
 
     /// <summary>
@@ -322,7 +396,7 @@ public class LobbyPanel : MonoBehaviour
     {
         uint choice = RoundManager.Instance != null ? RoundManager.Instance.MonsterChoice : 0u;
         if (choice == 0 || roster == null)
-            return "Rastgele";
+            return Localization.Get("Rastgele");
 
         var members = roster.Members;
         for (int i = 0; i < members.Count; i++)
@@ -331,7 +405,7 @@ public class LobbyPanel : MonoBehaviour
                 return members[i].DisplayName;
         }
 
-        return "Rastgele";
+        return Localization.Get("Rastgele");
     }
 
     private void RefreshStatus()
@@ -351,12 +425,14 @@ public class LobbyPanel : MonoBehaviour
 
         if (local == null)
         {
-            statusLabel.SetText("Odaya giriliyor…");
+            statusLabel.SetText(Localization.Get("Odaya giriliyor…"));
             return;
         }
 
         string state = RoundManager.CanStartFromClient(out string reason)
-            ? (local.IsRoomOwner ? "Herkes hazır — başlatabilirsin." : "Herkes hazır. Oda sahibi başlatacak.")
+            ? Localization.Get(local.IsRoomOwner
+                ? "Herkes hazır — başlatabilirsin."
+                : "Herkes hazır. Oda sahibi başlatacak.")
             : reason;
 
         // Tur bitip lobiye dönüldüğünde sonucu burada görüyorsun. `result`
@@ -373,9 +449,9 @@ public class LobbyPanel : MonoBehaviour
 
         switch (manager.Result)
         {
-            case RoundResult.MonsterWins: return "Geçen tur: canavar kazandı";
-            case RoundResult.RunnersWin: return "Geçen tur: kaçanlar kazandı";
-            case RoundResult.Aborted: return "Geçen tur iptal oldu (canavar ayrıldı)";
+            case RoundResult.MonsterWins: return Localization.Get("Geçen tur: canavar kazandı");
+            case RoundResult.RunnersWin: return Localization.Get("Geçen tur: kaçanlar kazandı");
+            case RoundResult.Aborted: return Localization.Get("Geçen tur iptal oldu (canavar ayrıldı)");
             default: return string.Empty;
         }
     }

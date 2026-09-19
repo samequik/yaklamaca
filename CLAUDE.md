@@ -33,17 +33,31 @@ göstergesi ve TAB paneli** (bölüm 19) · **gerçek UI** (bölüm 20) ·
 **fizik motorlu ceset/ragdoll** (bölüm 21) ·
 **ceset taşıma ve diriltme** (bölüm 23) · git · **GitHub** (bölüm 24) ·
 **korku ekran efektleri** (bölüm 25) · **menü arka planı ve karakter seçimi**
-(bölüm 13 — kodu bitti, sahneye girmesi için `Menü Kur` bekliyor).
+(bölüm 13 — kod ve sahne tamam, 2026-09-20'de `Menü Kur` çalıştırıldı) ·
+**retro PSP görünümü** (bölüm 25, 2026-09-19 — dört turda oturdu; kullanıcı
+F10'la karşılaştırıp **İnce**'yi, yani 1080p'de 960×540 / her piksel 2×2 olan
+kademeyi seçti ve o artık varsayılan. Varsayılan olarak açılışı henüz
+oynanmadı).
 
 **Diriltme de bitti** (bölüm 23). Ceset haritada duruyor, taşınıyor, kabine
-konuyor; terminalde 15 saniyelik işlem hatasız biterse kaçan orada diriliyor.
-21.2'de açık bırakılan altı tasarım sorusunun beşi cevaplandı; kalan tek soru
-**canavarın karşı hamlesi** — bugün diriltmeyi kesintiye uğratacak hiçbir aracı
-yok.
+konuyor; terminalde **10 saniyelik** işlem hatasız biterse kaçan orada
+diriliyor. 21.2'de açık bırakılan altı tasarım sorusunun beşi cevaplandı; kalan
+tek soru **canavarın karşı hamlesi** — bugün diriltmeyi kesintiye uğratacak
+hiçbir aracı yok.
 
-**Sıradaki büyük iş, oynanarak ölçmek.** Yazılmış ama iki makineyle hiç
-denenmemiş iki sistem var (sesli sohbetin ağ yolu ve ceset senkronunun istemci
-tarafı) ve bütün denge sayıları hâlâ tahmin.
+> Burada bir süre "terminalde 15 saniyelik işlem" yazıyordu; süre 2026-09-13'te
+> **10 saniyeye** indi (bölüm 23) ve bu satır güncellenmemişti. Aynı ailedeki
+> ders bölüm 1'de de var: **belgedeki bir sayı, koddaki sayının kanıtı değil.**
+
+**Sıradaki büyük iş, oynanarak ölçmek.** Sesli sohbetin ağ yolu (2026-09-08) ve
+ceset senkronunun istemci tarafı (2026-09-14) artık gerçek oturumlarda
+doğrulandı — burada uzun süre "ikisi de hiç denenmedi" yazıyordu, o da
+bayatlamıştı. Geriye **bütün denge sayıları** ve aşağıdaki devir listesindeki
+"yazıldı ama oynanmadı" maddeleri kalıyor.
+
+> **Yeni bir oturum açıyorsan önce aşağıdaki "2026-09-20: OTURUM DEVRİ"
+> başlığını oku.** Ne bitti, ne bekliyor, hangi araç çalıştırılacak, neye izin
+> yok — hepsi orada, dosyanın tamamını taramana gerek kalmadan.
 
 ---
 
@@ -368,6 +382,462 @@ Hepsinin ayrıntısı bölüm 23'te; özet:
 
 ---
 
+### 2026-09-16 oturumunda yapılanlar: yayın öncesi üç ekleme ve bir kriz
+
+İlk demo itch.io'da **Terminal Five** adıyla yayınlandı. Koddaki ve menüdeki
+`Yakalamaca` adı **bilerek değiştirilmedi**: kullanıcı yeni adı yalnızca
+bildirdi, yeniden adlandırma istemedi. Tekrar yayından önce üç şey istendi.
+
+#### 1. Mini harita GİZLENDİ
+
+`MiniMapView.Awake` panelin kendi objesini kapatıyor: sahneye dokunmadan, tek
+satır. Kullanıcı "istediğim gibi değil, karışık" dedi ve sonraya bıraktı. Kod
+da `Menü Kur`'daki kurulum da duruyor; geri açmak o satırı silmek.
+
+Bölüm 20'nin "kendi objesini kapatan bileşen kendini bir daha açamaz" dersine
+takılmıyor, çünkü burada istenen tam olarak kalıcı kapanma.
+
+#### 2. Dil seçeneği: ilk açılışta İngilizce, Türkçe ayarlardan
+
+| Parça | İşi |
+|---|---|
+| `UI/Localization.cs` | Çeviri tablosu, `Get`/`Format`, `Changed` olayı. Kayıt `PlayerPrefs "Ayar_Dil"`, varsayılan **English** |
+| `UI/LocalizedText.cs` | `Menü Kur`'un sabit yazdığı başlıklar; dil değişince kendini yeniden yazıyor |
+| `SettingsPanel.ToggleLanguage` | Seçeneklerdeki dil düğmesi |
+
+**Anahtar, Türkçe metnin KENDİSİ**; ayrı kısa anahtar yok. Kaynak kod okunabilir
+Türkçe kalıyor, tablo onu İngilizceye çeviriyor. Tabloda karşılığı olmayan bir
+metin **sessizce Türkçe görünür** (`Get` anahtarı geri döndürüyor) — yeni bir
+metin eklerken tabloya karşılığını da ekle.
+
+**Her karede kendisi yazan paneller** `LocalizedText` KULLANMIYOR, metni
+doğrudan `Localization.Get`'ten geçiriyor: aynı etikete hem sabit bileşen hem
+panelin kendi `Refresh`'i yazsaydı ikisi yarışırdı.
+
+`Menü Kur` çalıştırıldı, dil düğmesi sahneden doğrulandı.
+
+#### 3. Tutorial: ana menüde NASIL OYNANIR
+
+| Parça | İşi |
+|---|---|
+| `Editor/TutorialSetup.cs` | `Yakalamaca > Tutorial Sahnesi Kur` — `Assets/_Scenes/TutorialScene.unity`'yi kurup Build Settings'e ekliyor |
+| `Core/TutorialBootstrap.cs` | Sahne açılınca dinlemeyen host + `StartRoundAsRunner`; Esc ya da çıkıştan kaçış → SampleScene |
+| `UI/TutorialCaptionTrigger.cs` | Koridordaki tetik kutuları: yazıyı bir kez gösteriyor, tuş adını atamalardan okuyor |
+| `UI/TutorialHud.cs` | Yazının kendisi (DontDestroyOnLoad, kendi Canvas'ı) |
+
+52 m düz koridor, sırayla: eğilme kirişi · kapı + düğme · terminal · camın
+ardında canavar modeli · ölü eğitim botu + diriltme kabini · çıkış kilidi ve
+kapısı. **Hepsi oyunun GERÇEK bileşenleri** (Terminal, SlidingDoor, ExitLock,
+RevivalStation, Corpse…), taklit değil.
+
+**Neden ayrı SAHNE:** harita elle düzenlendi (bölüm 0). Koridor o sahnede de
+1000 m aşağıda duruyor: araç çalışırken iki sahne kısa süre üst üste açık
+kalıyor ve ilk sürümde koridor haritanın içinden geçiyormuş gibi görünmüştü.
+
+**Sahneye NetworkManager KONMADI**, menüden DontDestroyOnLoad ile geliyor.
+Sahne doğrudan açılıp Play'e basılırsa çalışmaz, yalnızca ana menüden.
+
+**İlk görünüm düz küpler ve aydınlık bir yönlü ışıktı.** Kullanıcı ilk
+gördüğünde **"oyunun çok eski sürümü"** diye okudu. 2026-09-17'de oyunun
+kendi parçalarıyla yeniden kuruldu — bkz. madde 5.
+
+**Editor.log'dan doğrulanan:** sahne açılıyor, tur başlıyor, eğitim botu
+elenip ceset bırakıyor, Esc ana menüye dönüyor. **Doğrulanmayan:** terminal,
+diriltme ve çıkış adımları baştan sona oynanarak tamamlanmadı.
+
+#### 4. Kriz: "oyunum bozuldu, eski sürümü geldi" — veri kaybı YOKTU
+
+Araç ilk denemelerde patladı ve Editor kullanıcının gözünde bozuldu: prefab
+örneğinin çocuğunu başka yere taşımak yasak (`UnpackPrefabInstance` eklendi) ·
+kaydedilmemiş bir "Untitled" sahne additive açmayı engelledi · Ctrl+S "Farklı
+Kaydet" penceresi açtı · `Menü Kur` Untitled aktifken çalışınca menü O sahneye
+kuruldu ve Untitled kaldırılınca menü de gitti (`Menü Kur` tekrar
+çalıştırılınca geri geldi).
+
+**Kanıtla doğrulandı, tahminle değil:**
+
+- SampleScene nesne nesne git'le karşılaştırıldı: HEAD'de 1663, şimdi 1980
+  nesne. Azalan **tek** şey `Menü Kur`'un yeniden ürettiği menünün içi —
+  HEAD'de üst üste iki menü canvas'ı vardı, şimdi bir tane. Harita, kabinler,
+  doğum noktaları ve test nesneleri aynı ya da fazla.
+- `RenderSettings` (sis, ortam 0.006, yansıma 0.2) ile pişmiş ışık ve
+  occlusion referansları HEAD'le birebir aynı.
+- Git'te hiçbir geri alma yok (reflog temiz).
+
+**Ama iki GERÇEK hata vardı, ikisi de kodda:**
+
+| Hata | Sebep | Düzeltme |
+|---|---|---|
+| Tutorial'dan dönünce LOBİ KUR "EOS hazır değil, yerel oda" diyor, oda listesi kayboluyor | SampleScene yeniden yüklenince Mirror sahnedeki İKİNCİ NetworkManager'ı yok ediyor; üstündeki EosTransport, RelayLobby ve KcpTransport da gidiyor ve menünün Inspector referansları o ölü kopyaları gösteriyor | `LobbyNetwork.RebindToLiveManager` / `FromLiveManager`: ölü referans yaşayan yöneticideki aynı türden bileşene bağlanıyor. `JoinLobbyPanel` de aynısını yapıyor |
+| Tutorial gerçek bir sunucu açıyordu | `StartHost` o an takılı transport'u dinletiyor: EOS ya da KCP (UDP 7777 — yayınlanan oyunda güvenlik duvarı uyarısı) | `NetworkServer.listen = false`; `StopHost` onu kendisi geri açıyor |
+
+Birincisi büyük ihtimalle kullanıcının "eski sürüm" dediği şeyin öbür yarısıydı:
+lobi **EOS öncesinin** 7 harflik IP koduna düşüyordu.
+
+**Yöneticiyi silip baştan kurmak seçilmedi.** EOSSDKComponent de o objede ve
+SDK yalnızca uygulama kapanırken serbest bırakılıyor. Silip yeniden kurmak aynı
+süreçte EOS'u ikinci kez başlatmak demekti — ancak build'de ve iki makineyle
+sınanabilecek bir risk. Yeniden bağlamak EOS'a hiç dokunmuyor.
+
+**Üçüncüsü gizli bir tehlikeydi.** `TutorialSetup` eski kökü
+`GameObject.Find("Tutorial")` ile BÜTÜN açık sahnelerde arıyordu ve aktif
+sahnenin gerçekten değişip değişmediğine bakmıyordu. SampleScene'de "Tutorial"
+adlı bir obje olsaydı silinirdi; aktif sahne değişmeseydi koridor ve aydınlık
+ortam ayarı ana sahneye yazılırdı. Arama artık tutorial sahnesinin köklerine
+kapsanmış, aktif sahne değişmezse araç duruyor — bölüm 0.1'in `Duvar_3_0`
+dersinin aynısı. Her çalıştırmada biriken yönlü ışık da artık temizleniyor.
+
+İki derleme de (Runtime + Editor) Unity'nin Roslyn'iyle sıfır hatayla geçti ve
+yeni metotların DLL'de olduğu doğrulandı. **Henüz OYNANARAK doğrulanmadı.**
+
+**Yan bulgu:** test tuşları ([1]-[5]) yayınlanan build'de de çalışıyor —
+`RoundManager.HandleTestKeys` `#if UNITY_EDITOR || DEVELOPMENT_BUILD` ile
+korunmuyor. Host turda 3'e basarsa kendini eliyor. Ayrı bir iş olarak not
+edildi.
+
+> **Ders 1: DontDestroyOnLoad bir nesneye sahnedeki Inspector referansı, o
+> sahne yeniden yüklenince ÖLÜ kopyayı gösterir.** Mirror'ın "Multiple
+> NetworkManagers detected ... will be destroyed" satırı zararsız bir uyarı
+> gibi duruyor; aslında o objeye bağlı her referansın o anda öldüğünü
+> söylüyor. Hiçbir yerde hata çıkmıyor: Unity için yok edilmiş referans
+> `null`'dan farksız ve kod "EOS kurulmamış" yoluna sessizce düşüyor.
+>
+> **Ders 2: kullanıcıya "konsolda ne yazıyor" diye sormadan önce Editor.log'a
+> bak.** `C:\Users\TR\AppData\Local\Unity\Editor\Editor.log` Play oturumlarını
+> (`Loaded scene`), araçların loglarını ve istisnaların TAM yığınını tutuyor.
+> Bu krizin teşhisi baştan sona oradan çıktı — hangi test tuşuna basıldığı
+> bile (`HandleTestKeys → SimulateLocalElimination`).
+
+> ### ~~GİT'TEKİ SON KAYIT GÜNEY KANADINI İÇERMİYOR~~ — ÇÖZÜLDÜ (2026-09-20)
+>
+> 2026-09-16'dan 2026-09-20'ye kadar geçerliydi: `SampleScene.unity`
+> 2026-09-13'ten beri commit'lenmemişti; güney kanadı, taşınan terminaller,
+> tutorial, dil seçeneği, kick/ban ve retro görünüm yalnızca diskteydi.
+>
+> **Hepsi commit'lenip GitHub'a push edildi.** `git checkout -- .` artık
+> gerçekten geri alma komutu. Ayrıntı devir notunun 5. maddesinde.
+
+#### 5. 2026-09-17: tutorial oyunun parçalarıyla yeniden kuruldu, düşme hatası kapandı
+
+Kullanıcı düzeltmeleri denedi ("bir şeyim gitmemiş") ve iki şey istedi:
+tutorial oyundaki eşyalarla kurulsun, girince haritadan düşmesin.
+
+**Düşmenin üç sebebi vardı, üçü de ölçülerek bulundu:**
+
+| Sebep | Kanıt | Düzeltme |
+|---|---|---|
+| Doğum noktası zeminin 5 cm üstündeydi | Oyuncu prefabında `CharacterController.center` = 0, yani konum KAPSÜLÜN MERKEZİ; gerçek haritadaki `Dogum_1..6` hep y=0.7 | Doğum noktası 0.7 m'de |
+| Zemin 10 cm'lik bir levhaydı | Gerçek haritanın `Zemin`'i 0.5 m (y=-0.25) | 0.5 m |
+| Ölü eğitim botu oyuncuyla AYNI noktaya diziliyordu | `ServerPlaceParticipants` botları da diziyor; `RunnerSlot`'un 1.6 m halkası 3.2 m'lik koridorda duvara çarpıp çapaya düşüyor | `RoundManager.placeBotsAtRoundStart` (varsayılan AÇIK, tutorial'da kapalı) |
+
+Ayrıca doğum noktasına `NetworkStartPosition` kondu. Sahnede hiç yoktu, yani
+Mirror oyuncuyu dünya merkezinde, koridorun 1000 m üstünde doğuruyordu ve tur
+başlayana kadar boşluğa düşüyordu.
+
+**Koridor artık gerçek haritanın kodundan geçiyor** (`Editor/TutorialSetup.cs`
+baştan yazıldı). Gerçek harita gibi bir ızgara (x=2 sütunu koridor, 17 satır):
+
+| Parça | Kaynak |
+|---|---|
+| Blok, 0.5 m zemin/tavan, eğilme geçidi (1.4 × 1.1), iki düğmeli kapı | `MazeMapBuilder` ölçüleri ve `internal` yardımcıları |
+| `Wall Plain` panelleri, zemin/tavan karoları, `Wall BayDoor` | `MazeExpansionSetup.DressWing` ile aynı kural |
+| Terminal (Fusebox 01) | `ObjectiveSetup.CreateTerminal` |
+| Çıkış kapısı gövdesi, sahanlık | `ObjectiveSetup.DressExitDoor` / `BuildVestibule` |
+| Diriltme kabini (yan girintide, 90° çevrilmiş) | `RevivalSetup.BuildStation` (artık kökü döndürüyor) |
+| Asılı lambalar | `WingLightingSetup` ile aynı ışık + `Hanging Light` |
+| Kapı, düğme, terminal, kilit, kabin sesleri | `AudioImportSetup` ile aynı klip ve kaynak ayarları |
+| Varil, kasa, çöp kutusu | `Harita Süsle`'nin kit parçaları, sabit yerlerde |
+
+Bunun için `ObjectiveSetup`'taki dört metot (`CreateTerminal`,
+`DressExitDoor`, `BuildVestibule`, `GetOrCreateUnlitMaterial`) ve
+`RevivalSetup.BuildStation` `private`'tan `internal`'a çekildi — gövdelerine
+dokunulmadı. Bölüm 0.1'in "kopyalamak yerine internal" tercihiyle aynı.
+
+Atmosfer oyunun karanlık dilinde ama öğretici için yumuşatılmış: ortam 0.03
+(harita 0.006), sis 0.03 (harita 0.045). Canavar vitrini artık ızgarada
+gerçek bir oda, cam koridora bakan yüzünde.
+
+**İki akış hatası daha kapandı:**
+
+- **Tutorial bitmiyordu.** Tutorial botu diriltmeyi öğretiyor; dirilen bot
+  sahada kalınca bölüm 11.1 gereği tur bitmiyor ve oyuncu kaçtıktan sonra
+  izleyicide asılı kalıyordu. `TutorialBootstrap` artık oyuncunun KENDİSİNİN
+  kaçmasına bakıyor. Botun hızı sıfır: dirilince kabinde duruyor.
+- **Yazılar okunmadan kayboluyordu.** İstasyon tetikleri birkaç metre arayla;
+  yürürken art arda tetiklenen yazı öncekini anında siliyordu. `TutorialHud`
+  artık her yazıyı en az 3 sn gösterip sonrakini sıraya alıyor.
+
+Yeni yazıların İngilizcesi `Localization`'a eklendi; eskiden kalan üç tutorial
+anahtarı yerlerine konan yenileriyle değişti.
+
+**Yan bulgu — gerçek haritada, DÜZELTİLMEDİ, ayrı iş:** `ObjectiveSetup.BuildExit`
+merkezi duvar bloğundan (y=1.5) okuyup üstüne yarım duvar yüksekliği daha
+ekliyor. Sahneden ölçüldü, İKİ çıkışta da `Engel` (canavar engeli) ve sahanlık
+duvarları yerden **1.5–4.5 m** arasında duruyor. Canavarın kapsülü 1.37 m, yani
+engelin **altından geçebilir** — "canavar çıkıştan geçemez" kuralı büyük
+ihtimalle bozuk. Tutorial'ın çıkışı zemin hizasıyla kuruluyor. Düzeltmesi için
+`Terminal ve Çıkış Kur`'u yeniden çalıştırmak ÇÖZÜM DEĞİL: çıkışları baştan
+kurar ve kullanıcının güney kanadına taşıdığı `Cikis_*_1`'i geri alır.
+
+Eski tutorial'ın `Assets/_Art/Materials/Tutorial_*.mat` materyalleri
+(`Tutorial_Cam` hariç) artık kullanılmıyor.
+
+İki derleme de (Runtime + Editor) sıfır hatayla geçti, yeni metotlar DLL'de
+doğrulandı. **Henüz Unity'de çalıştırılmadı:** `Tutorial Sahnesi Kur` yeniden
+çalıştırılmalı, sonra NASIL OYNANIR baştan sona oynanmalı.
+
+#### 6. 2026-09-17 (ikinci tur): kapsül, terminal ekranı ve Esc menüsü
+
+Kullanıcı tutorial'ı oynadı ve üç şey bildirdi. Üçünün de sebebi ayrıydı ama
+ikisi aynı kökten geliyordu: **tutorial sahnesinde menü canvas'ı yoktu.**
+
+| Şikâyet | Gerçek sebep | Düzeltme |
+|---|---|---|
+| Ölü bedenin yerinde parlayan beyaz bir kapsül duruyor | Model bağlandığı an gövdeyi gizleme işi `RoundParticipant`'tan `PlayerBodyVisual`'a geçiyor (`SetVisualActive`: bodyVisual varsa ona). `Refresh` kapsülü `ApplyMode(capsuleRenderer, …)` ile kapatıyor — ama `TutorialSetup.BuildDeadBot` o alanı hiç doldurmuyordu, yani kapatacak bir şey bulamıyordu ve yer tutucu kapsül modelin içinde açık kalıyordu | `BuildDeadBot` artık `capsuleRenderer`'ı bağlıyor — `TestBotSetup`'ta zaten yazılı olan satır |
+| Terminal ekranları gözükmüyor | `TerminalScreen`/`ExitLockScreen` `OyunHud`'ın çocuğu olarak kuruluyor (bölüm 20) ve tutorial sahnesinde hiç menü canvas'ı yoktu: terminale bağlanıyordun, ekran çizilmiyordu. Nişangah ve tur satırları da aynı sebeple yoktu | `MenuSetup.BuildTutorialMenu` |
+| Esc'ye basınca tutorial'dan anında çıkıyor | `TutorialBootstrap.Update` Esc'yi kendisi dinleyip doğrudan `ReturnToMenu` çağırıyordu | O blok kaldırıldı; Esc'yi artık `MenuController` yakalıyor ve normal duraklatma menüsünü açıyor |
+
+**`MenuSetup.BuildTutorialMenu`: ana menünün yapıcıları ikinci sahnede.**
+Ayrı bir menü kodu YAZILMADI — `Build()`'in kendi metotları çağrıldı: HUD,
+duraklatma, seçenekler, ses, tuş atamaları, mikrofon göstergesi, TAB paneli.
+Dışarıda kalanlar ve sebepleri:
+
+- **Lobi, katılma, karakter, isim ekranları ve `LobbyNetwork` yok.**
+  Tutorial'da oda kurulmuyor; üstelik `LobbyNetwork.TickPhase` tur bitince
+  lobiyi açmaya çalışır ve `TutorialBootstrap`'ın çıkış akışıyla çakışırdı.
+- **Mini harita yok** (`BuildGameHud(withMinimap: false)`). `BuildMinimap`
+  duvarları sahneden okuyor ve bu araç çalışırken SampleScene de açık: gerçek
+  haritanın yüzlerce duvarı tutorial canvas'ına çizilirdi.
+- **`MenuStageSetup` çağrılmıyor.** Karartmanın içindeki `MenuStage` sahne
+  kökünü bulamayınca kendini sessizce kapatıyor, yani arka plan düz siyah
+  kalıyor — duraklatmada zaten karartma kapalı ve arkada koridor görünüyor.
+
+**Duraklatma ekranı artık çağırana göre değişiyor.** `BuildPausePanel`
+`LobbyNetwork` yerine bir eylem + etiket alıyor: ana oyunda `ODADAN AYRIL` →
+`LobbyNetwork.Leave`, tutorial'da `TUTORIAL'DAN ÇIK` →
+`TutorialBootstrap.ReturnToMenu` (bu yüzden `public` oldu — kalıcı dinleyici
+yalnızca public, parametresiz metot bağlıyor). Eylem null ise düğme hiç
+kurulmuyor: `UnityEventTools` null eylemde istisna atıyor ve basılıp hiçbir şey
+yapmayan bir düğme "bozuk" diye okunurdu.
+
+**İki sessiz tuzak baştan kapatıldı:**
+
+- **`EnsureEventSystem` KULLANILMADI.** O metot `FindObjectOfType` ile bütün
+  açık sahnelere bakıyor ve araç çalışırken SampleScene de açık — oradaki
+  EventSystem'i bulup tutorial sahnesini olaysız bırakırdı. EventSystem'i
+  olmayan bir canvas'ta hiçbir düğme tıklanamaz ve **hiçbir yerde hata
+  yazmaz.** Tutorial menüsü kendi EventSystem'ini koşulsuz kuruyor; yeniden
+  kurulumda `Menu` ve `EventSystem` kökleri de siliniyor (yoksa her
+  çalıştırmada bir canvas daha birikir ve `MenuController.Instance` hangisi
+  olur belirsizleşir).
+- **`MenuController.Start` isim ekranına düşüyordu.** `startScreen` tutorial'da
+  `None` ama `Start` "adı yoksa `NameEntry`" diyor ve o panel orada kurulmuyor:
+  `Show` boş referansı sessizce atlar, ekranda hiçbir şey görünmez ve oyun
+  duraklamış olarak asılı kalırdı. `startScreen == None` artık koşulsuz `None`.
+
+Karşılama yazısı da güncellendi (Esc artık çıkmıyor, duraklatıyor) ve
+`TUTORIAL'DAN ÇIK` `Localization`'a eklendi.
+
+İki derleme de sıfır hatayla geçti; `BuildTutorialMenu`, `withMinimap`,
+`capsuleRenderer`, `LEAVE TUTORIAL` ve yeni karşılama metni DLL'lerde
+doğrulandı.
+
+**`Tutorial Sahnesi Kur` kullanıcı tarafından çalıştırıldı ve sahne sorunsuz
+açılıyor** (2026-09-17). Yani araç hatasız geçti ve tutorial ana menüden
+girilebiliyor. **Üç düzeltmenin tek tek OYNANARAK doğrulanması hâlâ açık:**
+ölü botun yanında kapsül kaldı mı, terminale bağlanınca ekran çiziliyor mu,
+Esc duraklatma menüsünü açıp seçenekleri çalıştırıyor mu.
+
+---
+
+### 2026-09-19: retro PSP görünümü
+
+Kullanıcı tutorial'ın düzeldiğini bildirdi ("şu an her şey iyi") ve bir görünüm
+isteği getirdi: oyun "eski PSP oyunları gibi, biraz pikselli" görünsün.
+
+Yapılan, bölüm 25'in yeni **"Retro PSP görünümü"** başlığında: görüntü düşük
+çözünürlüğe inip keskin piksellerle büyütülüyor, üstüne eski konsol rengi gibi
+titreşimli bir renk azaltma biniyor. **F10** kademeleri geziyor.
+
+**İlk sürüm (1080p'de 480×270, 32 renk seviyesi) oynandı:** kullanıcı "güzel
+olmuş, istediğim gibi" dedi ve üç düzeltme istedi — uzaktaki şeyler fazla
+pikselli, el feneri fazla parlak, menüdeki karakterler fazla pikselli. Aynı gün
+yapıldı: varsayılan **640×360 / 64 seviye** ("Hafif"), **fener %25 kısık**
+(2.6 → 1.95, bloom'a dokunulmadan), **menü oyunun iki katı satırla**. Ekran
+görüntüsünden kullanıcının Game penceresinin ~500 satır olduğu anlaşıldı;
+küçük pencerede görünümün kaybolmaması için ayrı bir yol eklendi. Ayrıntılar
+bölüm 25'in "ikinci tur" başlığında.
+
+Hiçbir araç çalıştırmak gerekmiyor. C# ve shader çevrimdışı derlendi (shader
+Unity'nin kendi D3D derleyicisiyle, iki renk uzayında da); ikinci tur **henüz
+oynanarak görülmedi.**
+
+**Üçüncü tur, aynı gün:** kullanıcı F10'la kademeleri gezdi ama "sırayla
+değişiyor, hangisi hangisi anlamıyorum" dedi — F10 kademeyi yalnızca konsola
+yazıyordu. Artık ilk basıştan sonra **sol alt köşede bir etiket** açık kademeyi
+ve o pencerede gerçekte hangi çözünürlükte çizildiğini yazıyor (bölüm 25,
+"Kademeler ve F10").
+
+**Dördüncü tur, aynı gün — karar verildi:** etiketle karşılaştıran kullanıcı
+"2x2 İnce en iyisi gibi, diğerleri çok pikselliyor" dedi. **İnce (1080p'de
+960×540, her piksel 2×2) artık varsayılan**; Hafif ve PSP listeden çıktı, F10
+yalnızca retro açık/kapalı. Menü de oyunla aynı 2×2'ye bağlandı ve "küçük
+pencere yolu" kaldırıldı — İnce'yle 720/768/800 satırlık gerçek ekranlarda
+düzensiz piksel üretecekti. Ayrıntı bölüm 25, "Dördüncü tur".
+
+---
+
+### 2026-09-20: OTURUM DEVRİ — yeni oturum buradan başlasın
+
+Bu başlık, bir sonraki oturumun **ilk okuyacağı yer**. 6700 satırlık dosyayı
+baştan sona taramadan "ne bitti, ne bekliyor, neye dokunulmaz" cevabını
+veriyor. Bir iş kapandıkça buradan silinmeli — bu bölüm ancak güncel kaldığı
+sürece işe yarar.
+
+> **Kullanıcının bugünkü ifadesi: "hatamız yok."** Yani oyun şu an çalışır
+> durumda ve bilinen bir arıza YOK. Yeni oturum bir hata avıyla değil,
+> aşağıdaki **doğrulama** ve **açık iş** listeleriyle başlamalı. Bir şikâyet
+> gelirse de önce ÖLÇ — bu dosyanın en pahalı dersi, tahminle yazılan bir
+> düzeltmenin yanlış sorunu "çözüp" asıl sebebi geciktirmesi (bkz. izleyici
+> ayak sesi, 2026-09-14).
+
+#### 1. En son ne yapıldı: retro görünüm, dört tur (2026-09-19)
+
+| Tur | Kullanıcı ne dedi | Ne yapıldı |
+|---|---|---|
+| 1 | "PSP gibi, biraz pikselli olsun" | Düşük çözünürlük + NOKTA süzgeçli büyütme + 4×4 Bayer renk azaltma; **F10** kademeleri geziyor |
+| 2 | "güzel olmuş" + uzaktakiler fazla pikselli · fener fazla parlak · menü fazla pikselli | Varsayılan Hafif (640×360 / 64 seviye), fener %25 kısık (`Flashlight.IntensityScale` = 0.75, bloom'a dokunulmadan), menü oyunun iki katı satırla |
+| 3 | "sırayla değişiyor, hangisi hangisi anlamıyorum" | Sol alt köşede **kademe etiketi** — kendi Canvas'ı, yalnızca editör/dev build, o pencerede gerçekte çizilen çözünürlüğü de yazıyor |
+| 4 | "2x2 İnce en iyisi gibi, diğerleri çok pikselliyor" | **İnce varsayılan** (1080p'de 960×540), Hafif ve PSP listeden silindi, menü oyunla eşitlendi, "küçük pencere yolu" kaldırıldı |
+
+Dokunulan dosyalar: `Player/ScreenEffects.cs` · `UI/MenuStage.cs` ·
+`_Art/Shaders/Resources/EkranEfekti.shader` · `Player/Flashlight.cs`.
+**Hiçbir editör aracı gerekmiyor** — efekt yerel kameraya çalışma anında
+takılıyor. Bütün gerekçeler bölüm 25'in "Retro PSP görünümü" başlığında.
+
+Derleme durumu: Runtime (hem editör tanımlarıyla hem `UNITY_EDITOR` TANIMSIZ
+sürümle, yani yayınlanan build'in benzeriyle), Editor derlemesi ve shader (iki
+renk uzayında) — **hepsi sıfır hata**, yeni semboller DLL'de doğrulandı.
+
+#### 2. Yazıldı ve derlendi, ama OYNANARAK GÖRÜLMEDİ
+
+Bu listenin tamamı "kod doğru görünüyor" seviyesinde. Yeni oturum kod
+değiştirmeden önce kullanıcıya bunları sorabilir; biri bozuksa sebebi
+muhtemelen aşağıdaki satırın kendisidir.
+
+| Ne | Nereden geldi | Nasıl doğrulanır |
+|---|---|---|
+| Retro **İnce'nin varsayılan açılması**, menünün 2×2 hâli, F10 etiketi | 2026-09-19, 4. tur | Play — ama Game penceresi **"Play Maximized"** ya da oyun tam ekran olmalı (810 satırın altında pikselleme kendiliğinden kapanıyor) |
+| Tutorial: ölü botun yanındaki kapsülün gitmesi, terminal ekranının çizilmesi, Esc'nin duraklatma açması | 2026-09-17, 2. tur | Ana menü → NASIL OYNANIR |
+| Tutorial'ın baştan sona bitirilmesi (terminal → diriltme → çıkış) | 2026-09-16 | aynı |
+| Lobide **AT / YASAKLA** düğmeleri | 2026-09-14 | iki makine (`Menü Kur` 2026-09-20'de çalıştırıldı, düğmeler sahnede) |
+| İzleyici kamerasının zıplamada sarsılmaması (`pivotHeightSmoothTime`) | 2026-09-14 | öl, birini izle, o zıplasın |
+| Elenen birinin sahadakilere konuşamaması | bölüm 19 | iki makine |
+| Mini harita (bugün **gizli**: `MiniMapView.Awake` kendi objesini kapatıyor) | 2026-09-14 / 16 | ancak o tek satır silinirse |
+
+Fener kısma (1.95) ve 64 renk seviyesi 3. ve 4. tur oynanışında ekrandaydı;
+kullanıcı ayrıca şikâyet etmedi ama **açıkça da onaylamadı** — "sorun yok" ile
+"beğenildi" aynı şey değil.
+
+#### 3. Bekleyen ARAÇ çalıştırması YOK — üçü de çalıştırıldı (2026-09-20)
+
+Kullanıcı üç aracı sırayla çalıştırdı; sahne ve prefab dosyalarından
+doğrulandı:
+
+| Sıra | Araç | Sahneden ölçülen |
+|---|---|---|
+| 1 | `Kaçan Modelini Kur` | `KacanGovde_0`, `KacanGovde_1`, `CanavarGovde` prefabda; `runnerBodies` iki kayıtla dolu |
+| 2 | `Diriltme Sistemini Kur` | `CorpseBody_0.prefab`, `CorpseBody_1.prefab` yerinde |
+| 3 | `Menü Kur` | 2 önizleme figürü, 268 köşe ayracı, **228 zemin karosu + 6 duvar paneli** (arka oda) |
+
+> ### DOĞRULAMA KOMUTU YANLIŞTI — "oda kurulmadı" YANLIŞ ALARMDI
+>
+> Burada ve iki yerde daha şu komut yazıyordu:
+> `grep -c "m_Name: Zemin_0_0" …` — ve **her zaman 0 dönüyor.** 2026-09-13'te
+> bu, "`BuildRoom` SciFi Kit prefabını yükleyemedi, sessizce atladı" diye
+> okundu ve o teşhis bir haftadır belgede duruyordu.
+>
+> Ölçüldü ve çürüdü: iki prefab da **tam beklenen yolda** duruyor
+> (`SciFi Warehouse Kit/Prefabs/Structures/…`), yani yükleme hiç başarısız
+> olmamış. Gerçek sebep `MenuStageSetup.PlaceKitPiece`'in satır 262'de
+> `PrefabUtility.InstantiatePrefab` kullanması: oda **prefab örneklerinden**
+> kuruluyor ve prefab örneğinin adı sahne dosyasında `m_Name` satırında değil
+> `m_Modifications` içinde duruyor.
+>
+> Doğru komut — bugün **1** dönüyor:
+>
+> ```
+> grep -c "value: Zemin_0_0" Assets/_Scenes/SampleScene.unity
+> ```
+>
+> Ders: **yanlış bir doğrulama komutu, olmayan bir arıza ÜRETİR.** Belge bu
+> tuzağı menü figürleri için zaten yazmıştı ("adları `m_Name` satırında değil
+> `m_Modifications` içinde geçiyor") ama aynı dosyadaki oda komutu
+> düzeltilmemişti. Bir kurulum aracının çıktısını doğrularken önce
+> **`new GameObject` mi `InstantiatePrefab` mi** kullandığına bak.
+
+#### 4. Açık işler
+
+| # | İş | Durum ve not |
+|---|---|---|
+| 1 | **Denge — canavar çok güçlü** | Beş kişilik testte bir saat boyunca hiç kaçış olmadı. Kullanıcı "oyun tam çıkana kadar muhtemelen oturmayacak" diyor: tek seferde kapanacak bir madde değil. **Kullanıcıdan sayısal ayrıntı gelmeden denge sayılarına dokunma** |
+| 2 | **Oda gizliliği (herkese açık / gizli)** | Henüz YAZILMADI. Gizli oda listede görünmemeli ama kodla katılma çalışmaya devam etmeli — `EOSLobby`'nin arama/izin mantığı okunmadan tahmin yürütme |
+| 3 | **Canavarın karşı hamlesi** + **özelliği olan ikinci canavar** | Diriltme bugün tek taraflı bir kazanç (bölüm 23). İkisi TEK çözümde birleşebilir (kalan iş 0 ve 8) |
+| 4 | **Çıkış engeli havada duruyor** | Ölçüldü: iki çıkışta da `Engel` ve sahanlık duvarları yerden **1.5–4.5 m** arasında, canavarın kapsülü 1.37 m → altından geçebilir, yani "canavar çıkıştan geçemez" kuralı muhtemelen bozuk. **`Terminal ve Çıkış Kur` ÇÖZÜM DEĞİL** — çıkışları baştan kurar ve kullanıcının güney kanadına taşıdığı `Cikis_*_1`'i geri alır |
+| 5 | **Test tuşları yayınlanan build'de aktif** | `RoundManager.HandleTestKeys` `#if UNITY_EDITOR \|\| DEVELOPMENT_BUILD` ile korunmuyor; host turda [3]'e basarsa kendini eliyor |
+| 6 | **Geçici teşhis logu hâlâ duruyor** | `Player/FootstepAudio.cs:295`, `[SesTeşhis]` satırı. İzleyicinin canavar adımını duymaması netleşince **SİLİNMELİ**; kalıcı log olarak bırakılmadı |
+| 7 | **EOS: aynı anda iki oda kurulunca ikincisi listede görünmüyor** | `RelayLobby` ve paketin `EOSLobby`'si satır satır okundu, **kod hatası bulunamadı**. Kalan iki açıklama kod dışı (arama indeksinde gecikme / "aynı cihaz = aynı kimlik"). Yeniden test tarifi "Sıradaki adımlar"da |
+| 8 | **`EosApiKey.asset` client secret** | Depo GİZLİ kaldığı sürece sorun yok. Herkese açılmadan ÖNCE Epic'ten anahtar yenilenmeli — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
+| 9 | **Unity-Chan lisansı (UCL)** | Kullanıcı kararı: bilerek EN SONA, oyun tam çıkarken |
+| 10 | Teknik borç: **kapıdan vuruş** · **çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynandığı için bugün görünmüyor |
+
+#### 5. Git: HEPSİ KAYIT ALTINDA (2026-09-20)
+
+Kullanıcı izin verdi; **93 yol commit'lenip GitHub'a push edildi**
+(`github.com/samequik/yaklamaca`, **gizli** depo). Aynı push 2026-09-08'den
+beri birikmiş **53 yerel commit'i** de götürdü — depo o tarihten beri hiç
+push edilmemişti.
+
+İçindekiler: güney kanadı ve elle düzenlemeleri, taşınan terminaller ve
+çıkış, tutorial sahnesi, dil seçeneği, kick/ban, retro PSP görünümü ve üç
+kurulum aracının sahne çıktısı.
+
+- `git checkout -- .` ve `git reset --hard` artık **gerçekten geri alma
+  komutu** — son kayıt güncel. 2026-09-16'dan beri süren "bu komut siler"
+  uyarısı kalktı.
+- Push'ta **LFS gerekmedi**: en büyük dosya `SampleScene.unity`, 10 MB
+  (GitHub sınırı 100 MB). `Assets/unity-chan!` `.gitignore`'da, 216 MB
+  commit'e hiç girmiyor.
+- **Depo GİZLİ kalmalı:** `EosApiKey.asset` izleniyor ve client secret
+  taşıyor (bölüm 24). Herkese açmadan ÖNCE Epic'ten anahtar yenilenmeli.
+- Bundan sonrası bölüm 24'ün kuralı: **her oynanabilir duruma geldiğinde**
+  commit.
+
+#### 6. Yeni oturumun uyacağı değişmez kurallar (özet)
+
+- **`Labirent Harita Kur` ve `Atmosfer Kur` YASAK.** Harita elle düzenlendi;
+  bu ikisi sildiklerini sahneye de kendileri kaydediyor, Ctrl+Z kurtarmıyor
+  (bölüm 0). Gerçekten gerektiğine inanıyorsan önce SOR ve neyin kaybolacağını
+  say.
+- **Sahne araçlarını kullanıcı çalıştırır.** Menü öğesi çalıştırılmaz;
+  `.unity` ve `.prefab` YAML'ı elle düzenlenmez — prefab değerleri koddan ya da
+  çalışma anında yazılır (bölüm 16'nın "koddaki varsayılanı değiştirmek
+  yetmiyor" tuzağı bunun öbür yüzü).
+- **Satır sonlarını ÖLÇ, tahmin etme.** CLAUDE.md LF, AGENTS.md CRLF,
+  `Assets/_Scripts` karışık (bölüm 0).
+- **CLAUDE.md her değiştiğinde AGENTS.md senkronlanır:**
+  `python -c "open('AGENTS.md','w',encoding='utf-8').write(open('CLAUDE.md',encoding='utf-8').read().replace('CLAUDE.md','AGENTS.md'))"`
+  — metin modunda yazıldığı için AGENTS.md CRLF çıkıyor, yani HEAD'deki hâliyle
+  aynı kalıyor ve diff küçük oluyor.
+- **`Assets/unity-chan!` commit'e hiç girmiyor** (216 MB, `.gitignore`).
+- **İç ad `YAKALAMACA` değişmiyor.** Yayın adı *Terminal Five*, ama kullanıcı
+  yalnızca yeni adı bildirdi; yeniden adlandırma istemedi.
+- **Anlatım:** sade Türkçe, adım adım, kanıtla. Kısa "şuna bas" talimatı
+  kullanıcıyı kızdırıyor; kriz anında önce verinin güvende olduğunu ÖLÇEREK
+  göster.
+
+---
+
 ### Sıradaki adımlar
 
 #### 2026-09-13: Beş kişilik GERÇEK oynanış testi — geri bildirim (HENÜZ UYGULANMADI)
@@ -387,21 +857,71 @@ de henüz kod tarafında ele alınmadı.
    terminal/kapı mesafeleri açıldı) — büyümüş haritayla önce oynayıp
    görmek istiyor, sayılara şimdilik dokunma. Hâlâ hiçbir denge sayısı
    değişmedi; ayrıntı gelirse (hangi sayı, ne kadar) devam edilecek.
-2. **Ses bug'ı — kararsız, HENÜZ ÇÖZÜLMEDİ.** Bazı sesler bazen çalıyor bazen
-   çalışmıyor. **Araştırıldı (2026-09-13):** `NetworkPlayerSetup.
-   DisableOtherAudioListeners`/`Configure` doğru görünüyor — her istemci
-   kendi AudioListener'ını doğru açıp kapatıyor, sahnede birden fazla aktif
-   dinleyici kalma riski yok. `AudioPanel`'in genel ses kaydırıcısı da
-   (`AudioListener.volume`) `PlayerPrefs`'ten doğru okuyup yazıyor, başka bir
-   yerden ezilmiyor. **Kod okumakla bulunamadı; iki ayrı ihtimal var ve
-   HANGİSİ olduğu netleşmeden ilerlenemez:**
-   - **Ses EFEKTLERİ** mi (adım, kapı, terminal, jumpscare…) yoksa
-   - **SESLİ SOHBET** mi (bölüm 19 — proximity/jitter/paket kaybı zaten
-     unreliable bir kanal ve ilk kez 5 kişiyle, gerçek ağ koşullarında test
-     edildi)?
-   
-   Kullanıcıya sorulacak: hangisiydi, hangi sesti, ne zaman oluyordu
-   (biri katılınca/ayrılınca mı, uzun oturumda mı, belirli bir aksiyonda mı)?
+   **2026-09-14 netleşmesi:** kullanıcı dengenin oyun TAM çıkana kadar
+   muhtemelen hiç "oturmayacağını" düşünüyor — yani bu tek seferde
+   kapanacak bir madde değil, sürekli oynanarak ayarlanacak açık bir iş
+   olarak ele alınmalı.
+2. **Ses bug'ı — muhtemelen sesli sohbet, HENÜZ TAM DOĞRULANMADI.**
+   Kullanıcı 2026-09-14'te netleştirdi: sorun **sesli sohbet** tarafıydı
+   (ses efektleri değil) — ama bunu da henüz TAM test etmedi, ayrıntı
+   (hangi durumda, ne zaman) hâlâ gelecek. Araştırılan kod
+   (`NetworkPlayerSetup`, `AudioPanel`) temiz görünüyor; sorun muhtemelen
+   bölüm 19'un zaten "kararsız kanal" dediği yakınlık/jitter/paket kaybı
+   tarafında — gerçek 5 kişilik ağ koşullarında ilk kez test edildiği için
+   sürpriz değil. Kesin sebep netleşmeden kod değişikliği yapılmadı.
+
+   **Ayrıca, İZLEYİCİ MODUNDA iki ayrı ses/kamera sorunu bildirildi
+   (2026-09-14, kullanıcı geri bildirimi — yukarıdaki ses bug'ından
+   BAĞIMSIZ, ayrı bir konu). Biri YANLIŞ teşhis edildi ve geri alındı,
+   biri düzeltildi:**
+
+   - ~~**Canavarın ayak sesi izlerken duyulmuyordu — mesafe sanılmıştı,
+     YANLIŞTI.**~~ İlk teşhis "28 m'lik menzil (bölüm 12) büyümüş haritada
+     yetmiyor" oldu ve izlerken menzili 200 m'ye çıkaran bir değişiklik
+     yazıldı. **Kullanıcı bunu kesin dille reddetti: "sorun mesafe değil"**
+     — verdiği örnek canavarın kaçanın DİBİNDE olduğu bir kovalamacaydı ve
+     o mesafede bile hiç duyulmuyordu. **Değişiklik tamamen geri alındı**
+     (`Player/FootstepAudio.cs`, `Core/SpectatorController.cs` — geri alma
+     da derlendi, sıfır hata). Kod okunarak ekarte edilenler: dinleyici
+     (`AudioListener`) `SpectatorController`'ın sürdüğü AYNI kamera
+     transformunda (yani izlerken doğru konuma taşınıyor) · ses seviyesi
+     yolu (`ownHeavyStepVolumeScale`) yalnızca canavarı OYNAYANI etkiliyor,
+     izleyiciyi değil · `RoundRole`/`IsAlive` kontrolleri izleyiciye özel
+     bir engel içermiyor · mağara yankısının `reverbZoneMix`'i yalnızca
+     kurulumda (editör aracında) yazılıyor, çalışma anında dokunulmuyor.
+     **Gerçek sebep hâlâ bilinmiyor.** Kullanıcı netleştirdi (2026-09-14,
+     ikinci mesaj): dinleyici TAMAMEN bozuk değil — "bazı sesler geliyor,
+     bazıları gelmiyor", en net örnek canavarın adımı. Bu, "izleyicinin
+     AudioListener'ı toptan çalışmıyor" ihtimalini eliyor ama kod okumakla
+     ikinci bir sebep bulunamadı.
+
+     **Üçüncü kez tahmin etmek yerine GEÇİCİ BİR TEŞHİS LOGU eklendi**
+     (`FootstepAudio.PlayStep`, `isMonster` iken): konum, kullanılan klip,
+     hesaplanan ses seviyesi, `source.enabled`/`source.mute`,
+     `AudioListener.volume` ve sahnedeki AÇIK dinleyici sayısını konsola
+     yazıyor. Derlendi, sıfır hata. **Bir dahaki sefere sorun olduğunda
+     (tercihen HOST'un kendisi izlerken, çünkü konsolu ancak Editor'de
+     çalışan taraf görüyor) konsol çıktısı gerçek sebebi verecek** —
+     özellikle "AÇIK dinleyici sayısı" 1'den farklıysa (birden fazla aktif
+     `AudioListener`, Unity'nin davranışı belirsizleştirir) bu tek başına
+     açıklayıcı olabilir. **Kesinleşince bu log bloğu SİLİNMELİ**, kalıcı
+     bir log olarak bırakılmadı.
+   - **YAPILDI: izlerken, izlenen kişi zıplayınca kamera da "zıplıyordu".**
+     `SpectatorController.FollowTarget` yörünge pivotunu doğrudan hedefin
+     `transform.position.y`'sine bağlıyordu; zıplama pivotu ANINDA
+     yükseltince (varsayılan açı/mesafede kamera zaten tavana yakın
+     hedefleniyor, bölüm 3'teki 3 m tavan) duvar/tavan kaçınma ışını
+     tavana çarpıp kamerayı içeri fırlatıyordu — "zıplarken duvara
+     çarpıyor" şikâyeti tam buydu. Pivotun dikey konumu artık `SmoothDamp`
+     ile süzülüyor (`pivotHeightSmoothTime`, 0.35 sn): eğilme gibi
+     yavaş/kalıcı bir değişiklik hâlâ takip ediliyor, zıplama gibi hızlı
+     bir sıçrama artık süzülüp kamerayı sarsmıyor. Derlendi, sıfır hata —
+     **henüz oynanarak doğrulanmadı.**
+
+   > Ders: **"mesafe" makul bir ilk tahmindi ama TAHMİNDİ** — kullanıcının
+   > tek bir somut karşı örneği (canavar dibindeyken bile duyulmuyor) onu
+   > anında çürüttü. Ölçmeden/doğrulamadan yazılan bir düzeltme, yanlış
+   > sorunu "çözebilir" ve asıl sebebi bulmayı geciktirir.
 3. **Lobi/bağlantı sorunları** (EOS relay, bölüm 13):
    - Kullanıcı host olduğunda diğerleri katılamadı.
    - Başkası host'ken: katılıp ayrıldıktan sonra kullanıcı **tekrar
@@ -419,14 +939,12 @@ de henüz kod tarafında ele alınmadı.
      test aynı makineden/ağdan karışınca). **Yeniden test önerisi:** iki
      FARKLI kişi aynı anda oda kursun, ~10 sn bekleyip herkes listeyi
      yenilesin, o zaman gerçek bir kod hatası mı yoksa gecikme mi ayrılır.
-   - **Yeni: lobiden atma (kick/ban) yok.** Oda sahibinin istenmeyen bir
-     oyuncuyu çıkarmasının hiçbir yolu yok (test botu kaldırma [5] farklı bir
-     şey — gerçek oyuncuya işlemiyor). Genel bir "oyuncuyu at" komutu
-     gerekiyor; kalıcı engelleme (ban, aynı oturumda tekrar giremesin) ile
-     geçici atmanın (kick, tekrar deneyebilir) ayrı şeyler olduğu netleşmeli.
-     **Henüz yazılmadı** — Mirror'da standart yol (`connectionToClient.
-     Disconnect()`), riskli değil ama roster UI'ına dokunuyor, ayrı bir
-     iş turu olarak planlandı.
+   - ~~**Lobiden atma (kick/ban) yok.**~~ **YAZILDI (2026-09-14, bölüm 13),
+     henüz OYNANARAK doğrulanmadı.** Oda sahibi artık her satırda AT/YASAKLA
+     görüyor; kick tekrar girişe izin veriyor, ban bağlantı adresini bu
+     barındırma oturumu boyunca engelliyor. Ayrıntı ve bilinen sınır (yalnızca
+     lobi panelinden, TAB'dan değil) bölüm 13'te. **Bekleyen:** `Menü Kur`
+     çalıştırılmalı (yeni düğmeler sahnede yok), sonra iki makineyle denenmeli.
    - **Yeni: oda gizliliği yok.** Şu an her oda hem kod hem oda listesi
      üzerinden herkese açık. **Herkese açık / gizli** (public/private) ayrımı
      istendi: gizli oda listede görünmesin, yalnızca kodu bilen katılabilsin.
@@ -494,42 +1012,23 @@ de henüz kod tarafında ele alınmadı.
    25) korundu — şikâyet edilen o değildi, şiddetti. Sayılar yine tahmin,
    oynayarak ayarlanacak.
 
-#### BEKLEYEN ARAÇ ÇALIŞTIRMASI VAR: `Menü Kur`
+#### BEKLEYEN ARAÇ ÇALIŞTIRMASI KALMADI (2026-09-20)
 
-**Menü sahnesinin arka odası ve yeni ışık değerleri SAHNEYE GİRMEDİ.**
-`MenuStageSetup` figürlerin arkasına oyunun kendi zemini ve duvarını kuruyor,
-ışık şiddetleri de üçte bire indi — ikisi de `Menü Kur` çalıştırılana kadar
-görünmüyor.
+Üç araç da sırayla çalıştırıldı ve doğrulandı — ölçüm tablosu yukarıdaki
+devir notunun 3. maddesinde. Sıra şuydu ve önemliydi (ikincisi birincinin
+çıktısını, üçüncüsü ikisininkini okuyor):
+`Kaçan Modelini Kur` → `Diriltme Sistemini Kur` → `Menü Kur`.
 
-Aynı çalıştırma **seçim ekranındaki beyaz kutuyu da temizliyor.** O kutu eski
-kostüm renginin göstergesiydi; renk yolu kaldırılınca kimse ona renk yazmaz
-oldu ve `Image`'in varsayılanı beyaz olduğu için ekranda boş beyaz bir kare
-kaldı. Panel yeniden kurulunca obje de gidiyor.
+Menü sahnesinin arka odası, yeni ışık şiddetleri, seçim ekranındaki beyaz
+kutunun temizlenmesi ve lobideki AT/YASAKLA düğmeleri — dördü de artık
+sahnede. (Beyaz kutu eski kostüm renginin göstergesiydi; renk yolu
+kaldırılınca kimse ona renk yazmaz oldu ve `Image`'in varsayılanı beyaz
+olduğu için ekranda boş bir kare kalmıştı. Panel yeniden kurulunca obje de
+gitti.)
 
-Doğrulama komutu — sıfır dönerse oda kurulmamış demektir:
-
-```
-grep -c "m_Name: Zemin_0_0" Assets/_Scenes/SampleScene.unity
-```
-
-**Ayrıca ikinci kostüm (Unity-chan) geldi ve ÜÇ araç gerekiyor, bu sırayla:**
-
-| Sıra | Araç | Neden |
-|---|---|---|
-| 1 | `Kaçan Modelini Kur` | İki kostüm gövdesini oyuncu prefabına kuruyor |
-| 2 | `Diriltme Sistemini Kur` | O gövdelerden kostüm başına ceset üretiyor |
-| 3 | `Menü Kur` | Önizleme figürleri, oda, beyaz kutu |
-
-Sıra önemli: ikincisi birincinin çıktısını, üçüncüsü ikisininkini okuyor.
-Atlanırsa anlaşılır bir hata veriyor, sessiz kalmıyor.
-
-> **Unity dosyaları henüz İÇE AKTARMADI da.** `MenuStage.cs`,
-> `MenuStageCamera.cs` ve `MenuStageSetup.cs` için `.meta` dosyası yok ve
-> `Library/ScriptAssemblies/Assembly-CSharp.dll` kaynaklardan eski. Yani menü
-> aracı Unity'de görünmeden önce projenin bir kez odağa alınması gerekiyor —
-> bölüm 14'ün sonundaki "Unity'nin derlemeyi atlaması" tuzağının aynısı.
-> Derleme kendisi temiz: iki derleme de Unity'nin Roslyn'iyle çevrimdışı
-> denendi ve sıfır hata verdi.
+`MenuStage.cs`, `MenuStageCamera.cs` ve `MenuStageSetup.cs` için `.meta`
+dosyaları da artık var — Unity üçünü de içe aktardı. Burada bir süre "henüz
+içe aktarmadı" yazıyordu; 2026-09-20'de ölçülüp kaldırıldı.
 
 Önceki bekleyen iş kapandı: `Menü Kur` **2026-09-10'da** bir kez çalıştırıldı
 ve skor tablosunun `Not` etiketi sahneye girdi (beş satırın beşinde de var).
@@ -552,15 +1051,12 @@ süzmesi — üçü de sahada doğrulandı, hiçbiri varsayım değil artık.
 Sınanmamış tek ayrıntı kaldı: **elenen birinin sahadakilere konuşamaması.**
 Kod öyle diyor (bölüm 19) ama iki makinede özellikle denenmedi.
 
-**2. Cesedi iki makinede dene** — sesli sohbetle **aynı sınıftan bir boşluk.**
-Ceset host'ta çalışıyor, ama host'ta `RagdollSync.Update` ilk satırda
-`isServer` görüp çıkıyor: yani **senkron yolunun istemci tarafı bugüne kadar
-bir kez bile çalışmadı.** Ragdoll'un tamamı orada kinematik ve pozu ağdan
-alıyor; sınanmamış varsayım az değil (paketin çözülmesi, kemik indekslerinin
-iki tarafta tutması, yumuşatma).
-
-Bakılacaklar: ceset karşı tarafta da aynı pozda mı · biri iterken öbürü
-hareketi görüyor mu · ceset oturunca iki ekranda aynı yerde mi duruyor.
+**2. ~~Cesedi iki makinede dene~~ YAPILDI (2026-09-14).** Beş kişilik gerçek
+oturumda ceset defalarca taşındı, kabine konup diriltildi — **hatasız,
+herkes için.** Sesli sohbetle aynı sınıftan olan bu boşluk artık kapandı:
+senkron yolunun istemci tarafı (ragdoll'un kinematik pozu, kemik eşleşmesi,
+yumuşatma) ilk kez gerçek ağ koşullarında koştu ve tuttu, hiçbiri artık
+sınanmamış varsayım değil.
 
 **3. Denge ölçümü.** Bütün sayılar hâlâ tahmin. Özellikle **direksiyon cezası**
 (bölüm 1) yepyeni ve hiç ölçülmedi: canavar artık hem %5 yavaş başlıyor hem
@@ -570,6 +1066,150 @@ değiştirilince kalıcı.
 Zıplama da bu oturumda değişti (yerçekimi 900, sprint sıçraması +60 u/s):
 koşarken zıplamak artık gözle görülür bir mesafe kazandırıyor, kaçanın canavara
 karşı yeni bir aracı. Ölçülmedi.
+
+### Mini harita: SADE sürüm YAPILDI (2026-09-14) — çok rollü fikir hâlâ not
+
+> **2026-09-16: GİZLENDİ.** Kullanıcı istediği gibi bulmadı; `MiniMapView.Awake`
+> paneli kapatıyor. Aşağıdakilerin hepsi hâlâ geçerli, geri açmak o tek satırı
+> silmek.
+
+Kullanıcı önce elaborate bir fikir istedi (aşağıda, "Fikir" başlığı altında
+duruyor — HENÜZ YAPILMADI), sonra en sade hâlini istedi ve **o yazıldı**:
+sol üst köşede, sabit yönlü (Pac-Man tarzı, dönmeyen) kuş bakışı bir mini
+harita; üstünde YALNIZCA kendi konumun, bir nokta olarak — kaçansan yeşil,
+canavarsan kırmızı. Terminal/takım arkadaşı/ceset/canavar konumu YOK —
+aşağıdaki elaborate fikrin hiçbir denge/sızıntı sorusu bu sade sürüm için
+geçerli değil, çünkü zaten bildiğin kendi konumunu görmek kimseye avantaj
+vermiyor.
+
+**Nasıl yapıldı:**
+
+- `Editor/MenuSetup.cs`'e `BuildMinimap` metodu eklendi, `BuildGameHud`'ın
+  içinden çağrılıyor — `BuildVoiceHud`/`BuildScoreboard` ile aynı desen,
+  ayrı bir menü öğesi YOK. **Yani mini haritanın sahneye girmesi için
+  `Menü Kur`'un tekrar çalıştırılması gerekiyor.**
+- **Gerçek bir üstten kamera + RenderTexture KURULMADI, bilerek.** Harita
+  tavanlı (bölüm 3, 3 m) — üstten bakan bir kamera tavanı görürdü, ya
+  tavanı ayrı bir katmana taşımak (dört var olan katmana beşinci eklemek,
+  `LayerSetup`'ın çekirdek riski) ya da kamerayı duvarlarla tavan arasına
+  sıkıştırmak (aralarında boşluk yok, WallHeight=3=tavan alt yüzü)
+  gerekirdi. Onun yerine harita DÜZ 2B: duvar bloklarının GERÇEK dünya
+  konumları `Menü Kur` çalışırken sahneden OKUNUP küçük UI kareleri olarak
+  çiziliyor — render maliyeti yok, tavan sorunu hiç yok.
+- **Duvar araması bölüm 0.1'in "Duvar_3_0 isim çakışması" dersine uyuyor:**
+  `GameObject.Find("Duvar_...")` gibi global bir arama YOK, `Harita` ve
+  `Harita_Genisleme_Guney` köklerine `Transform.Find("Duvarlar")` ile
+  kapsanmış bir tarama var. İkisinden bulunan TÜM duvarlar TEK bir sınır
+  kutusuna (bounding box) oturtuluyor — kanadın ana haritayla nasıl
+  hizalandığını (bölüm 0.1'in elle hesabı) burada tekrar hesaplamaya hiç
+  gerek yok, sahnedeki gerçek konum zaten doğru cevabı veriyor. Harita
+  ileride büyürse (yeni bir kanat) `Menü Kur` yeniden çalıştırılınca
+  sınırlar kendiliğinden güncellenir.
+- Çalışma anı parçası yeni bir dosyada: `UI/MiniMapView.cs`. Kendi konumunu
+  `WorldToMapPoint` ile çizim alanına projekte ediyor — **aynı formülü
+  editör aracı da duvar noktalarını çizerken kullanıyor**, iki yerde ayrı
+  ayrı yazılmadı (`MiniMapView.WorldToMapPoint` public static, `MenuSetup`
+  ondan çağırıyor — Editor derlemesi Runtime derlemesine referans veriyor,
+  ters yönde değil, yani bu güvenli).
+- Görünürlüğü `GameHud`'ın kendi `CanvasGroup`'undan bedava geldi: panel
+  `OyunHud`'ın çocuğu, yani nişangah/tur bilgisiyle AYNI kuralla açılıp
+  kapanıyor (menü açıkken gizli) — ayrı bir görünürlük kodu yazılmadı.
+
+**İki derleme de (Runtime + Editor) sıfır hata ile geçti — henüz OYNANARAK
+doğrulanmadı.** `Menü Kur` çalıştırılıp gerçek oynanışta denenmeli: nokta
+doğru yerde mi, ölçek doğru mu, kaçan/canavar renk geçişi rol değişince
+doğru çalışıyor mu.
+
+> **Derleme kontrolünde bir tuzağa daha düşüldü, not edilmeye değer:**
+> yeni bir `.cs` dosyasını `.mine.rsp`'ye eklerken dosyanın SONUNA satır
+> sonu OLMADAN `echo >>` ile eklemek, son satırla birleşip TEK bozuk bir
+> satır üretti — derleme sıfır hatayla "geçti" ama yeni dosya aslında hiç
+> derlenmemişti (csc sessizce yok saymıştı). Ancak `.dll`'de yeni sınıfın
+> adını arayıp GERÇEKTEN orada olduğunu görünce fark edildi. Ders: bir
+> `.rsp`'ye elle satır eklerken önce dosyanın satır sonuyla mı bittiğini
+> ölç (bölüm 0'ın LF/CRLF dersinin aynı ailesi) — "derleme sıfır hatayla
+> geçti" tek başına "yeni dosya gerçekten derlendi" anlamına gelmiyor.
+
+---
+
+### Fikir (henüz kod yok): kaçan rolleri + ÇOK ROLLÜ mini harita (2026-09-14)
+
+Kullanıcının ilk (daha kapsamlı) fikri: bir köşede (ya da bir tuşa basınca)
+kuş bakışı bir mini harita, üstünde kendi konumun nokta olarak. 4 kaçana
+FARKLI roller verilsin, her rol haritada FARKLI bir bilgi görsün:
+
+| Rol | Haritada gördüğü |
+|---|---|
+| 1 | Terminallerin yeri |
+| 2 | Diğer kaçanların canlı konumu |
+| 3 | Cesetlerin ve diriltme istasyonlarının yeri |
+| 4 | **Canavarın canlı konumu** |
+
+Canavarın da KENDİ, her zaman açık haritası olacak: terminallerin yeri,
+bitince çıkış kapılarının yeri.
+
+**Bu bir NOT, spesifikasyon değil — henüz yazılmadı, henüz karara
+bağlanmadı.** Ön analiz:
+
+**Ağ maliyeti üç rolde bedava, birinde değil.** Terminal/ceset/istasyon
+konumları sabit sahne objeleri — senkrona bile gerek yok. Kaçan
+konumları zaten `NetworkTransform` ile herkese gidiyor (3B modeli
+görünebilmesi için öyle olmak zorunda) — mini haritada göstermek var olan
+pozisyonu 2B'ye projekte etmekten ibaret. **Canavarın konumu muhtemelen
+aynı sebepten zaten herkese senkron ama bölüm 4'ün kuralı ("istemciye
+görmesi gerekmeyen bilgiyi gönderme") tam tersini söylüyor** — bugün bu
+yalnızca karanlıkla/sisle GİZLENİYOR, veri seviyesinde engellenmiyor,
+yani değiştirilmiş bir istemci muhtemelen bugün bile duvar ardındaki
+canavarı görebilir. "Canavarı gören kaçan" rolünü buna güvenerek yazmak
+yanlış olur; doğrusu izlerin yolunu (yalnızca canavarın bağlantısına giden
+özel mesaj) TERSİNE çevirmek: sunucu canavarın konumunu yalnızca o role
+sahip kaçana özel bir mesajla göndersin. Diğer üç rol saf istemci işi, bu
+dördüncüsü gerçek bir sunucu değişikliği istiyor.
+
+**Denge riski — ÇÖZÜM YÖNÜ BULUNDU (kullanıcı önerisi, 2026-09-14):
+karşılıklı görünürlük.** Tek taraflı bir radar ("canavarın konumunu
+bilen kaçan, tek taraflı avantaj") yerine, canavarı gören kaçan CANAVAR
+TARAFINDAN DA her zaman görülüyor — ikisi birbirinin konumunu sürekli
+biliyor. Bu, endişe edilen "sesli sohbetle anında ekibe aktarır, canavarın
+gizlilik avantajı sıfırlanır" sorununu kökten değiştiriyor: artık bedava
+bir bilgi kanalı değil, canavarla o kaçan arasında KARŞILIKLI bir avlanma
+dinamiği. Canavar bu kaçanı özellikle avlayıp radarı susturmayı
+seçebilir, ya da tam tersi onu bilerek atlayıp bilmediği diğer üç kaçana
+yönelebilir — ikisi de canavara gerçek bir taktik seçenek veriyor, tek
+taraflı bir açık değil.
+
+**Not edilecek yan etki (KARAR gerekmiyor, yalnızca oynanışta izlenecek):**
+bu, canavarı gören kaçanı canavarın DOĞAL ilk hedefi yapabilir — radarı
+susturmak en yüksek değerli eleme. Yüksek risk/yüksek katkı bir rol olması
+kötü değil (birçok oyunda "keşifçi" rolü böyledir) ama gerçekten eğlenceli
+mi yoksa o rolü kimse istemez mi hâle mi geliyor, ancak oynanarak anlaşılır.
+
+**Harita TÜM haritayı gösterecek, kısmi/sisli bir görünüm değil**
+(kullanıcı netleştirdi, 2026-09-14) — bölge sınırlı ya da menzile bağlı bir
+görünüm değil, açıldığında bütün labirent (ana harita + güney kanadı) tek
+seferde görünüyor.
+
+**Görsel: gerçek üstten kamera değil, düz 2B panel önerilir.** `MenuStage`
+gibi (bölüm 13) ikinci kamera + RenderTexture kurulabilir ama harita
+tavanlı (bölüm 3) — üstten kamera tavanı görür, ekstra katman/maske işi
+çıkarır. Daha ucuzu: `Duvar_X_Z` ızgarasından üretilen düz bir 2B çizgi
+haritası (yeni bir editör aracı, "her şeyi araçla üret" alışkanlığının
+aynısı) + üstüne konan `Image` noktalar (dünya X,Z → harita UI koordinatı,
+düz matematik). Render maliyeti yok, tavan sorunu yok. Tüm haritayı tek
+panelde göstermek bu yaklaşımla daha da kolay: sabit bir ölçekte
+(dünya boyutu / panel boyutu) tek seferlik bir projeksiyon yeterli.
+
+**Renkler mevcut dili izlemeli:** canavar KIRMIZI (zaten kimlik rengi,
+bölüm 5/13), terminaller kendi durum renkleri (bölüm 11.2), diriltme
+istasyonu turkuaz (bölüm 23), takım arkadaşı nötr bir renk.
+
+**Kararlaştırılmamış sorular:**
+1. Roller nasıl dağıtılıyor — lobide elle mi (kostüm seçimi gibi), tur
+   başında rastgele mi (MonsterChoice gibi)?
+2. 4'ten az kaçan varsa roller ne oluyor — boş mu kalıyor, yeniden mi
+   dağıtılıyor?
+3. Mini harita hangi tuşla açılıyor, TAB paneli gibi hareketi kesmeden mi
+   (bölüm 19), yoksa terminal odaklanması gibi kilitli mi?
 
 #### Kalan işler
 
@@ -585,7 +1225,7 @@ karşı yeni bir aracı. Ölçülmedi.
 | 7 | ~~**Korku ekran efektleri**~~ | **YAPILDI** (2026-09-10, bölüm 25). Vinyet, gren, renk ayrışması, renk kaybı; canavar yaklaştıkça artıyor. Paket eklenmedi. Ayarlardaki kaydırıcı da geldi (2026-09-12) |
 | 8 | **Kostüm sistemi ÇALIŞIYOR, ikinci canavar kaldı** | **YAPILDI** (2026-09-12, bölüm 13): katalog, çoklu gövde, lobiden seçim, canlı önizleme, kostüme göre ceset. İki kaçan kostümü var (muz adam, Unity-chan); üçüncüsü bir satır ve üç araç çalıştırmak. **Kalan: özelliği olan ikinci canavar** — kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1). **Madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
 | 9 | ~~**Menü arka planı**~~ | **YAPILDI** (2026-09-12, bölüm 13). Kaçan ve canavar menünün arkasında duruyor; ayrı bir kamera hedef dokuya çiziyor. Yeni modeller gelince aynı sahneye eklenecek |
-| 10 | **Unity-Chan Lisansı (UCL) kontrolü** | **Yayın öncesi bakılmalı.** Karakter oyunda canavar tarafından yakalanıp öldürülüyor; UCL'nin şiddet/imaj kısıtlarına uyup uymadığı ve kredilerde isim/logo zorunluluğu kontrol edilmeli. Sorun çıkarsa çözüm kostümü menüden gizlemek — kod ve gövde dizisi zaten dizi tabanlı, tek kostümü kaldırmak `CharacterCatalog.Runners`'dan bir satır silmek kadar basit |
+| 10 | **Unity-Chan Lisansı (UCL) kontrolü** | **Kullanıcı kararı (2026-09-14): bilerek EN SONA bırakıldı** — oyun TAM çıkarılırken yapılacak, şimdi değil. Karakter oyunda canavar tarafından yakalanıp öldürülüyor; UCL'nin şiddet/imaj kısıtlarına uyup uymadığı ve kredilerde isim/logo zorunluluğu kontrol edilmeli. Sorun çıkarsa çözüm kostümü menüden gizlemek — kod ve gövde dizisi zaten dizi tabanlı, tek kostümü kaldırmak `CharacterCatalog.Runners`'dan bir satır silmek kadar basit |
 
 **Yedek yol duruyor:** yerel oda + Radmin/Hamachi. EOS'a hiç bağlı değil,
 bugün çalışıyor. Host olurken makinenin bütün IPv4 adresleri ekranda yazıyor.
@@ -693,6 +1333,11 @@ düzenleme öncesi hâli. 2026-09-08'den beri **GitHub'da gizli bir depoda** da
 duruyor (bölüm 24) — yani disk giderse proje gitmiyor. Kayıt noktaları `git log`, son kayda dönüş
 `git checkout -- .`, belirli bir noktaya dönüş `git reset --hard <commit>`.
 Düzenleme sırasında ara ara `git add -A && git commit -m "..."` yapılmalı.
+
+> **Not (2026-09-20):** bu uyarı 2026-09-16'dan beri "son commit elle
+> düzenlemeleri içermiyor, geri dönüş komutları siler" diyordu. **Artık
+> geçerli değil:** her şey commit'lenip push edildi, iki komut da gerçek
+> geri dönüş komutu.
 
 ### 0.1 Harita büyütme: `Haritayı Genişlet (güney kanat)` (2026-09-13)
 
@@ -937,16 +1582,15 @@ normal kapı** (Ctrl+D ile `Kapi_5_7`'den) ve **1 yeni diriltme istasyonu**
   DEĞİŞTİRİLMEYECEK.** Hâlâ sentetik yer tutucu ama kullanıcı "rahatsız
   etmiyor, hatta oyuna uydu gibi" dedi — teknik borç 1'in bu yarısı artık
   "eksik" değil "kullanıcı onayladı, böyle kalsın" durumunda.
-- **`Menü Kur` çalıştırıldı ama YARIM kaldı.** İkinci kostüm önizleme
-  figürü (`Kacan_1`) doğru kuruldu. Ama menünün arkasındaki oda
-  (`MenuStageSetup.BuildRoom`) kurulmadı — `Zemin_0_0` sahnede yok. Kod
-  okununca sebep netleşti: `BuildRoom` SciFi Kit'ten zemin/duvar prefabı
-  yükleyemezse (`floorPrefab == null || wallPrefab == null`) sessizce
-  (yalnızca bir `Debug.LogWarning` ile) o kısmı atlayıp geri kalanına
-  (karakterler dahil) devam ediyor — tam olarak gözlenen bu. **Henüz
-  doğrulanmadı:** kullanıcı konsolda bu uyarıyı görüyor mu bakacak; görürse
-  çözüm `Menü Kur`'u bir daha çalıştırmak (araç her seferinde `MenuSahnesi`yi
-  komple silip yeniden kuruyor, tekrar basmak tamamen güvenli).
+- ~~**`Menü Kur` çalıştırıldı ama YARIM kaldı.**~~ **YANLIŞ ALARMDI, 2026-09-20'de
+  çürütüldü.** Burada "menünün arkasındaki oda kurulmadı — `Zemin_0_0` sahnede
+  yok" yazıyordu ve sebep olarak `BuildRoom`'un SciFi Kit prefabını
+  yükleyememesi gösteriliyordu. İkisi de yanlış: prefablar **tam beklenen
+  yolda** duruyor ve oda sahnede (228 zemin karosu, 6 duvar paneli). Bozuk
+  olan tek şey **doğrulama komutuydu** — oda prefab örneklerinden kuruluyor,
+  yani ad `m_Name`'de değil `m_Modifications`'ta. Doğrusu
+  `grep -c "value: Zemin_0_0" …` ve **1** dönüyor. Ayrıntı ve ders devir
+  notunun 3. maddesinde.
 
 ---
 
@@ -1360,7 +2004,8 @@ yeterince göremiyordu:
 | **Hâle** (nokta, 10 m) | Gövdede | Çevresini gösteriyor: yandaki duvar, ayağının dibi |
 | **Huzme** (spot, 13 m) | Kamerada | Baktığı yeri gösteriyor — fener gibi, bakışı takip ediyor |
 
-Huzme fenerden bilerek **kısa ve sönük** (fener 26 m / 2.6): canavar avlanan
+Huzme fenerden bilerek **kısa ve sönük** (fener 26 m / 1.95 — prefabta 2.6,
+2026-09-19'dan beri `Flashlight.IntensityScale` 0.75 ile kısık): canavar avlanan
 değil avlayan, koridorun sonunu görmesi kovalamacayı bitirir.
 
 **Huzme kapatılamıyor.** Fener kaçanın takası; canavarda o takasın karşılığı
@@ -2922,6 +3567,61 @@ o metot bir karar değil, bir tahmin.
 (`ServerRefreshHost`), yoksa lobi kimsenin başlatamadığı bir ölü odaya
 dönerdi. Bot asla sahip olamaz — bağlantısı yok, düğmeye basamaz.
 
+### Oyuncuyu atma/yasaklama (kick/ban) — 2026-09-14
+
+Oda sahibi artık kadrodaki her satırda (kendi satırı ve bot satırları hariç)
+**AT** ve **YASAKLA** düğmesi görüyor. İkisi de `RoundManager.ServerKick`
+üzerinden gidiyor, yetkiyi `ServerIsHost` doğruluyor — yukarıdaki "arayüz
+tahmin eder, sunucu karar verir" kuralının aynısı.
+
+**Fark tek şey: `ban` bağlantı adresini yasaklı listeye (`bannedAddresses`,
+bu barındırma OTURUMU boyunca, sunucu kapanınca sıfırlanıyor) ekliyor,
+`kick` eklemiyor** — atılan tekrar kod/kodla girebilir, yasaklanan giremez.
+İkisi de aynı yoldan devam ediyor: `NetworkConnectionToClient.Disconnect()`.
+`RoundParticipant.OnStopServer` normal bir ayrılmayla AYNI temizlik
+zincirinden geçtiği için (`ServerUnregister` — bölüm 11.1) ayrıca hiçbir şey
+temizlemek gerekmedi.
+
+**Yasaklama adresi ÖLÇÜLDÜ, tahmin edilmedi.** `NetworkConnection.address`
+transport'un `ServerGetClientAddress`'inden geliyor; `EpicOnlineTransport/
+Server.cs` doğrudan okunup doğrulandı — **EOS'ta bu gerçekte `ProductUserId`
+string'i**, yani bölüm 13'ün kısa kod/oda listesi için zaten güvendiği
+KALICI cihaz kimliğinin aynısı. Yerel ağda (KCP) düz IP. İkisi de
+"aynı oturumda tekrar giremesin" için yeterince kalıcı; hesap bazlı,
+sunucu kapandıktan sonra da hatırlayan bir ban ayrı (ve şimdilik gereksiz)
+bir iş olurdu.
+
+**Düğmeler HERKESE görünüyor, yalnızca oda sahibi için tıklanabiliyor** —
+`readyButton`/`monsterButton`/`startButton`'ın izlediği "gizleme değil
+griye alma" kuralının aynısı (bölüm 13'ün üstündeki "Yetki" başlığı).
+Ama kendi satırında ve bot satırlarında **hiç gösterilmiyor**, griye
+alınmıyor — bu farklı bir kural: eksik olan orada yetki değil, satırın bu
+eyleme uygunluğu (kendini atmak anlamsız, botun zaten ayrı bir kaldırma
+yolu var, bölüm 7'nin sunucu penceresi [5]).
+
+**Atılan/yasaklanan oyuncu artık YANLIŞ mesaj görmüyor.** `LobbyNetwork.
+HandleDisconnected`'ın varsayılanı "Bağlantı koptu — oda sahibi çıkmış
+olabilir" idi; bu, kovulan biri için tam tersini söyleyen bir mesaj olurdu.
+`ServerKick` bağlantıyı kesmeden 0.25 sn önce hedefe bir `TargetRpc`
+yolluyor (`RoundParticipant.TargetNotifyKicked`, statik bir bayrağa
+yazıyor); `LobbyNetwork` bunu okuyup doğru mesajı ("Oda sahibi seni odadan
+çıkardı" / "...bu oturum için yasakladı") seçiyor. Bekleme payı bilinçli:
+hemen `Disconnect()` çağırsaydık Mirror'ın henüz göndermediği bir mesaj
+bağlantıyla birlikte kaybolabilirdi.
+
+**Bilinen sınır: yalnızca LOBİ panelinden çalışıyor, TAB/skor tablosundan
+değil.** Tur ortasında biri sorun çıkarırsa host onu ancak tur bitip lobiye
+dönünce atabiliyor — o an zaten mümkün, sunucu tarafı buna hiç bakmıyor
+(`ServerKick` fazdan bağımsız). TAB paneline de eklemek istenirse
+`ScoreboardPanel`'in kendi satır yapısına aynı düğmeler taşınabilir; bu
+turda bilinçli olarak kapsam dışı bırakıldı.
+
+**Henüz OYNANARAK doğrulanmadı** — iki derleme de (`Assembly-CSharp`,
+`Assembly-CSharp-Editor`) sıfır hatayla derlendi ama Unity'de hiç
+çalıştırılmadı. `Menü Kur`'u tekrar çalıştırmadan AT/YASAKLA düğmeleri
+sahnede görünmez — yeni `SlotView` alanları var olan `LobbyPanel`
+örneğinde boş kalır.
+
 ### Kadro ayrı bir mesajla gönderilmiyor
 
 Lobi listesi `RoundParticipant.All`'dan okunuyor: katılımcılar zaten spawn
@@ -3109,7 +3809,7 @@ yazıldı.** Üçü de aynı canvas'a dokunuyor, o yüzden birlikte planlanmış
 | Parça | Durum |
 |---|---|
 | **Görsel dil** (madde 6) | **BİTTİ ve sahnede.** Renk ailesi, çerçeveli kutu, düğme durumları, başlık. Dokuz ekran birden |
-| **Arka plan** (madde 9) | **BİTTİ, odası SAHNEDE YOK.** Kaçan ve canavar menünün arkasında duruyor; arkalarındaki oda ve yeni ışık değerleri `Menü Kur` bekliyor |
+| **Arka plan** (madde 9) | **BİTTİ ve sahnede** (2026-09-20). Kaçan ve canavar menünün arkasında duruyor; arkalarındaki oda (228 zemin karosu, 6 duvar paneli) ve yeni ışık değerleri de girdi |
 | **Karakter seçimi** (madde 8) | **BİTTİ, sahneye girmeyi bekliyor.** İki kostüm, lobiden seçim, canlı önizleme, fareyle döndürme |
 | **Korku efekti kaydırıcısı** (madde 6) | **BİTTİ ve sahnede.** Seçenekler ekranında |
 
@@ -5628,22 +6328,27 @@ Built-in RP'de `OnRenderImage` + `Graphics.Blit` zaten tam ekran efekt
 
 | | Atmosfer (uzak) | Dehşet (dipte) |
 |---|---|---|
-| Vinyet | 0.45 | 0.78 |
-| Kontrast | **1.0 (nötr)** | 1.15 |
+| Vinyet | 0.45 | 0.60 |
+| Kontrast | **1.0 (nötr)** | 1.08 |
 | Bloom | 0.20 (eşik 0.32, yarıçap 0.012) | aynı |
-| Gren | 0.040 | 0.095 |
-| Renk ayrışması | 0.005 | 0.012 |
-| Renk kaybı | 0.30 | 0.70 |
-| Pikselleme | — | **3 piksellik blok** |
+| Gren | 0.040 | 0.075 |
+| Renk ayrışması | 0.005 | 0.009 |
+| Renk kaybı | 0.30 | 0.55 |
+| Pikselleme | — | **2 piksellik blok** — retro açıkken KAPALI |
 
-Dehşet **22 m'de sıfır, 5 m'de tam**. Artışı hızlı (0.9/sn), düşüşü yavaş
-(0.30/sn): canavar gittikten sonra gerilim üstünde biraz kalıyor. Tavanda
-vinyet ~1.15 Hz nabızla atıyor — kalp atışı sesi geldiğinde (kalan iş 1) ikisi
-aynı şeyi söyleyecek.
+> Tablonun dehşet sütunu 2026-09-13'te kısıldı ("Sıradaki adımlar"
+> listesindeki madde 8) ama tablo eski sayılarla kalmıştı; 2026-09-19'da
+> koddaki değerlerle eşitlendi. Retro görünüm de ayrıca aşağıda.
 
-**Pikselleme dehşetle birlikte geliyor** (`dreadPixelate` = 3). Canavar
+Dehşet **16 m'de sıfır, 5 m'de tam** (22'den 16'ya 2026-09-13'te indi).
+Artışı hızlı (0.9/sn), düşüşü yavaş (0.30/sn): canavar gittikten sonra
+gerilim üstünde biraz kalıyor. Tavanda vinyet ~1.15 Hz nabızla atıyor — kalp
+atışı sesiyle aynı şeyi söylüyor.
+
+**Pikselleme dehşetle birlikte geliyor** (`dreadPixelate` = 2). Canavar
 uzaktayken görüntü tam çözünürlükte; yaklaştıkça bloklaşıyor. Hep açık
 olsaydı oyunu ucuzlatırdı — böyle bir "gerçeklik bozuluyor" anı oluyor.
+**Retro görünüm açıkken bu katman kapalı** (aşağıdaki retro başlığı).
 
 **Vinyet ve renk ayrışması pikselleşmiyor:** ikisinin geometrisi orijinal
 UV'den okunuyor, yalnızca görüntü örneklemesi bloklara oturuyor. Aksi hâlde
@@ -5936,6 +6641,241 @@ yazılmalı.
 `ScreenEffects.Master` (statik, varsayılan 1) hepsini birden kısıyor; ayarlar
 ekranına bir kaydırıcı eklendiğinde bağlanacak yer orası.
 
+### Retro PSP görünümü (2026-09-19)
+
+Kullanıcı: "oyunum istediğim gibi görünmüyor, eski PSP oyunları gibi biraz
+pikselli olsun." İki parçalı bir cevap, ikisi de aynı efekt geçişinde:
+
+| Parça | Ne yapıyor | Nerede |
+|---|---|---|
+| **Düşük çözünürlük** | Görüntü 1080p'de **960×540**'a iniyor ("İnce" kademe — kullanıcı dört turda seçti, aşağıda), sonuç NOKTA süzgeciyle büyütülüyor — her oyun pikseli keskin kenarlı 2×2'lik bir kare | `ScreenEffects.OnRenderImage` |
+| **Eski konsol rengi** | Her kanal 64 basamağa iniyor (PSP'nin gerçek 16-bit rengi 32; ilk sürüm oydu), basamaklar arası 4×4 Bayer deseniyle titreşiyor: sisli gradyanlar pürüzsüz değil, eski konsollardaki gibi ızgara desenli bantlarla sönüyor | `EkranEfekti.shader`, en son adım |
+
+**Efektler küçük görüntüde hesaplanıyor.** Geçiş artık düşük çözünürlüklü bir
+ara dokuya (`RenderTexture.GetTemporary`) çiziliyor, ekrana ondan sonra
+büyütülüyor. Yani gren ve renk deseni de büyük piksellerle AYNI boyda. Yan
+kazanç: pahalı geçiş (12 örnekli bloom dahil) 1080p'de dörtte bir piksel
+sayısında çalışıyor, yani efekt **eskisinden ucuz**.
+
+**Çözünürlük ekranın TAM SAYI bölümü** (`ScreenEffects.RetroHeightFor`):
+İnce'nin hedefi 540 satır ama 1440p'de 480 seçiliyor, çünkü 1440/480 = 3.
+540 olsaydı büyütme 2.67× olur, satırların kimi 2 kimi 3 piksel kalın çıkar
+ve kamera dönerken ızgara kayıyormuş gibi titrerdi. Örnekler: 1080 → 540
+(2×), 1200 → 600 (2×), 1440 → 480 (3×), 4K → 540 (4×). Menüdeki karakter
+sahnesi (`MenuStage`) aynı hesabı kullanıyor.
+
+**Kat 2'nin altında pikselleme KAPALI.** 810 satırın altındaki ekranlarda
+(720, 768 ve 800 — eski dizüstüler, Steam Deck) 540 satır iki kata oturmuyor
+ve iki seçenek de kötü: 2× o ekranda 360-400 satır, yani kullanıcının "çok
+pikselli" bulduğu seviye; kesirli büyütme ise satırların kimini 1 kimini 2
+piksel yapıyor ve kamera dönerken ızgara titriyor. O ekranların pikselleri
+zaten fiziksel olarak iri; renk azaltma yine açık kalıyor. **Editörün küçük
+Game penceresi de bu yüzden pikselleşmiyor — gerçek görünümü görmek için
+Game penceresi "Play Maximized" ya da oyun tam ekran olmalı.** F10 etiketi
+küçük pencerede bunu kendisi söylüyor.
+
+> **Burada bir "küçük pencere yolu" vardı ve kaldırıldı.** Kat 2'nin altında
+> hedef satır sayısı kesirli büyütmeyle yine de kullanılıyordu, editörün
+> ~500 satırlık penceresinde pikselleme kaybolmasın diye. O zaman varsayılan
+> Hafif'ti (360 satır) ve not şunu söylüyordu: "tam ekranda bu yol hiç
+> çalışmıyor — 720 satır ve üstünde kat hep ≥ 2". İnce varsayılan olunca aynı
+> yol 720/768/800 satırlık GERÇEK tam ekranlarda çalışacak ve oyunculara
+> düzensiz pikseller gösterecekti.
+>
+> Ders: **"şu yol hiç çalışmaz" garantisi bir sayıya dayanıyorsa, sayı
+> değişince garanti de gider.** Bölüm 14'ün "bir sayının gerekçesi düştüğünde
+> sayıyı da gözden geçir" dersinin ters yönü: burada sayı değişti ve ona
+> dayanan GARANTİ sessizce çürüdü. Varsayılanı değiştirirken ona yaslanan
+> her cümleyi aramak gerekiyor.
+
+**Her büyük piksel, kapladığı bloğun ORTALAMASI** (`SampleSource`, dört
+çift doğrusal örnek; 2× küçültmede bloktaki 4 kaynak pikselin tam ortalaması).
+Tek nokta örneği gerçek bir düşük çözünürlüklü çizimin aynısı olurdu ama
+bölüm 1'in hızlarında ince ayrıntılar (duvar derzleri, ızgaralar) her karede
+görünüp kaybolup kaynıyordu. Ortalama pikselleri iri ve net bırakıyor,
+kaynamayı sakinleştiriyor.
+
+**Renk azaltma GAMMA uzayında.** Proje **Linear** renk uzayında
+(`m_ActiveColorSpace: 1`), shader'daki değerler doğrusal. Doğrusal uzayda eşit
+basamaklar karanlık tonları birkaç kaba basamağa yığardı — bu oyunda ekranın
+çoğu tam orası. Değer gamma'ya çevrilip basamaklanıyor, sonra geri çevriliyor.
+
+> **Unity'nin hızlı gamma dönüşümü KULLANILMADI.** `GammaToLinearSpace`
+> (UnityCG) bir polinom yaklaşımı ve siyaha yakın tonlarda gerçek değerin
+> yarısına kadar sapıyor: gamma 0.032 → doğrusal 0.0011 veriyor, doğrusu
+> 0.0025. Renk azaltma tam o basamaklarda çalışıyor ve yaklaşık dönüşüm
+> karanlık basamakları sessizce kısardı. `LinearToGammaSpaceExact` /
+> `GammaToLinearSpaceExact` kanal kanal çağrılıyor.
+
+**Karanlık kuralı korunuyor — ölçüldü.** Sıralı titreşim ortalamayı korur;
+aynı formülle hesaplandı, 32 seviyede ortalama çıkış:
+
+| Doğrusal giriş | Ortalama çıkış | Fark |
+|---|---|---|
+| 0.006 (ortam ışığı) | 0.00615 | %2.5 |
+| 0.05 (loş koridor) | 0.05028 | %0.6 |
+| 0.28 (lamba altı) | 0.28118 | %0.4 |
+
+64 seviyede (varsayılan) sapma daha da küçük: ortam ışığında %1.2. Yani bölüm
+5'in "fenersiz görülmemeli" ölçütü delinmiyor.
+
+**Korku kaydırıcısına BAĞLI DEĞİL.** `Master` 0'a çekilince eskiden geçiş
+tamamen atlanıyordu; artık retro açıksa geçiş yine çalışıyor, yalnızca
+vinyet/gren/renk kaybı/bloom sıfırlanıyor. Retro görünüm oyunun sanat yönü,
+"gözümü yoruyor" diye kısılan bir efekt değil.
+
+**Retro açıkken iki ayar değişiyor, ikisi de kullanıcının eski geri
+bildiriminden:**
+
+- **Dehşet pikselleşmesi KAPALI.** 2026-09-13'te 1080p'de 3 piksellik
+  bloklar (≈640×360) "kovalamacada görüşü fazla bozuyor" diye 2'ye
+  indirildi. Retro taban 960×540; üstüne blokları ikiye katlamak
+  kovalamacayı 480×270'te — kullanıcının retro kademelerinde de "çok
+  pikselli" bulduğu PSP seviyesinde — oynatmak olurdu. Dehşeti vinyet, renk
+  kaybı, gren ve parazit taşımaya devam ediyor.
+- **Gren yarıya iniyor** (`retroGrainScale` = 0.5). Gren artık 2×2'lik
+  bloklar hâlinde kıpırdıyor; aynı genlik ince grenden daha çok göze batıyor
+  ve kullanıcı bir kez "ekranda pixelimsi şeyler var, göz bozuyor" demişti.
+
+**Menü oyunla AYNI piksel boyunda** (`MenuStage`, dördüncü turdan beri).
+Karakter sahnesinin dokusu 1280×720 ve 2× kenar yumuşatmalıydı; retro açıkken
+oyunla aynı satır sayısıyla, nokta süzgeçli ve yumuşatmasız kuruluyor —
+1080p'de 2×2'lik piksel. Arada bir tur menü oyunun İKİ katı satırla çizildi:
+oyun 3×3/4×4 iken kullanıcı "ana menüdeki karakterler fazla pikselli"
+demişti. Kullanıcı oyun için de 2×2'yi seçince o gerekçe düştü — 2×2 en ince
+düzgün seviye, bir altı pikselleme yok demek; iki kat kuralı menüyü
+büsbütün düz bırakırdı ve o kod hiç çalışmayan bir yola dönüşürdü. 1080p'de
+menü önceki turla birebir aynı (orada da 2×2'ydi). Boy çalışma anında
+seçiliyor: sahnedeki serileştirilmiş 1280×720 koddaki varsayılanı
+değiştirmekle güncellenmezdi (bölüm 16'nın tuzağı).
+
+**Arayüz KESKİN kalıyor, bilerek.** Canvas'lar Screen Space Overlay ve
+kameradan SONRA çiziliyor, yani efekt onlara hiç dokunmuyor: yazılar,
+nişangah, terminal ekranları okunaklı.
+
+#### Kademeler ve F10
+
+| Kademe | 1080p'de | Renk seviyesi |
+|---|---|---|
+| **İnce** (varsayılan) | 960×540 — her piksel 2×2 | 64 |
+| Kapalı | ekranın kendisi | yok — eski görünümün birebir aynısı |
+
+Denenip **reddedilen** kademeler — geri gelmeleri `RetroPresets`'e tek satır:
+
+| Kademe | 1080p'de | Renk | Ne oldu |
+|---|---|---|---|
+| Kaba | 320×180 | 32 | PS1'e yakın; kullanıcı 480×270'i bile fazla bulunca ikinci turda çıktı |
+| PSP | 480×270 (hedef 272) | 32 | İlk varsayılan: "güzel ama uzaktaki şeyleri çok pikselliyor" |
+| Hafif | 640×360 | 64 | İkinci varsayılan: dördüncü turda "çok pikselli, güzel olmuyor" |
+
+#### Aynı gün, ikinci tur: üç geri bildirim
+
+Kullanıcı PSP kademesini gördü: "güzel olmuş, istediğim gibi" — ve üç şey
+istedi:
+
+| Şikâyet | Sebep | Düzeltme |
+|---|---|---|
+| "Uzaktaki şeyleri çok pikselliyor" | İki ayrı sebep: uzaktaki nesne ekranda zaten küçük, 480×270'te birkaç piksele iniyordu; ve uzak = sisli karanlık gradyan, 32 seviyelik renk deseni en çok ORADA görünüyordu | Varsayılan **Hafif** (360 satır, 64 seviye) — ikisine birden dokunuyor, görünüm yine retro. PS1'e yakın "Kaba" (320×180) kademesi listeden çıkarıldı |
+| "El fenerinin ışığı çok parlak, bloom mu ne fazla gibi" | Fener prefabta 2.6. Bloom eşikli: fenerin aydınlattığı duvarlar eşiği (0.32) çok aşıyor ve hale büyüyor | **Fener kısıldı, bloom'a dokunulmadı** (`Flashlight.IntensityScale` = 0.75 → 1.95). Fener kısılınca onun halesi kendiliğinden küçülüyor; bloom'u kısmak kullanıcının 2026-09-13'te ayarlattığı lamba halelerini de kısardı |
+| "Ana menüdeki karakterler fazla pikselli" | Menü oyunla aynı piksel boyunu kullanıyordu | Menü oyunun iki katı satırla çizildi (dördüncü turda oyunla yeniden eşitlendi, yukarıdaki menü paragrafı) |
+
+**Ekran görüntüsünden çıkan yan bulgu:** kullanıcının Game penceresi ~500
+satırdı. PSP kademesi orada 248 satırdı (2×); Hafif'in 360'ı tam sayı katla
+1'e yuvarlanıp görünümü tamamen kapatacaktı — "küçük pencere yolu" bu yüzden
+eklendi, dördüncü turda kaldırıldı (yukarıdaki kutu).
+
+**F10** Play sırasında kademeyi değiştiriyor — bugün yalnızca iki kademe
+kaldığı için retro açık/kapalı (F9'la aynı desen; `#if UNITY_EDITOR ||
+DEVELOPMENT_BUILD`, gönderilen build'de yok). Varsayılan, `ScreenEffects.
+RetroPresets` dizisinin **ilk satırı**.
+
+**İlk basıştan sonra sol alt köşede bir etiket var** (`ScreenEffects.
+UpdateRetroLabel`): "Görünüm 2/2: Kapalı", altında o pencerede gerçekte
+çizilen çözünürlük ve piksel boyu. İlk sürüm kademeyi yalnızca konsola
+yazıyordu ve kullanıcı "sırayla değişiyor, hangisi hangisi anlamıyorum" dedi —
+oynarken konsola bakılmıyor. Etiket geldikten sonra kullanıcı dört kademeyi
+bir turda karşılaştırıp seçti (dördüncü tur). Kararlar:
+
+- **Hiç basılmadıysa etiket yok.** Host çoğu zaman editörden açılıyor; gerçek
+  bir oyun sırasında köşede duran bir test yazısı istenmez. Basıldıktan sonra
+  o Play oturumu boyunca kalıyor (statik bayrak, domain reload her Play'de
+  sıfırlıyor).
+- **Kademenin 1080p değerini değil, pencerenin gerçek durumunu yazıyor.**
+  Kullanıcının ~500 satırlık Game penceresinde İnce (540 satır) pencereden
+  büyük kalıyor ve hiç pikselleşmiyor — Kapalı'dan ayırt edilemiyordu (o
+  zaman Hafif de kesirli büyütülüyordu). Karışıklığın öbür yarısı buydu;
+  etiket o durumda "pencere küçük" diyor.
+- **Kendi Canvas'ı, kameranın çocuğu** (`TutorialHud` yöntemi, sıra 90):
+  oyuncu objesiyle birlikte yok oluyor. Overlay olduğu için retro efekt ona
+  dokunmuyor. Menü açıkken `GameHud.Visible` ile gizleniyor.
+- **`Localization`'a eklenmedi, bilerek:** gönderilen build'e girmiyor —
+  çevrimdışı derlemede ikisi de sınandı: editör DLL'inde var, `UNITY_EDITOR`
+  tanımı olmayan derlemede hiç yok. Kademe adları koddakilerin aynısı, yani
+  kullanıcının "şunu beğendim" dediği ad doğrudan `RetroPresets`'teki satır.
+
+> Ders: **görüntüyü değiştiren bir test tuşu, neye değiştirdiğini de
+> görüntüde söylemeli.** Oynarken konsola bakılmıyor; 2026-09-16
+> oturumunun "kullanıcıya sormadan önce Editor.log'a bak" dersinin öbür yüzü
+> — log geliştiricinin aracı, oynayanın değil.
+
+Kademe statik (`retroPresetIndex`): oyuncu her turda yeniden doğuyor ve
+bileşene yazılan bir değer orada kaybolurdu — `Master` ile aynı gerekçe.
+
+#### Dördüncü tur, aynı gün: kullanıcı İnce'yi seçti
+
+Etiketle dört kademeyi büyütülmüş pencerede gezen kullanıcı: **"2x2 İnce en
+iyisi gibi, diğerleri çok pikselliyor, güzel olmuyor bana."** Dört tur boyunca
+her geri bildirim aynı yönü gösterdi — daha az pikselleme — ve 2×2, tam sayı
+büyütmeyle yapılabilecek EN İNCE seviye. Yapılanlar:
+
+| Değişiklik | Neden |
+|---|---|
+| İnce varsayılan, listede yalnızca İnce ve Kapalı | Reddedilen iki kademe (Hafif, PSP) F10 turunda kalsaydı her karşılaştırma reddedilmiş görünümlerden geçerdi. Sayıları yukarıdaki tabloda |
+| "Küçük pencere yolu" kaldırıldı | İnce'yle 720/768/800 satırlık gerçek tam ekranlarda düzensiz piksel üretecekti (yukarıdaki kutu) |
+| Menü oyunla eşitlendi (iki kat kuralı gitti) | 2×2 zaten en ince; iki kat kuralı menüyü hiç pikselleştirmez ve kodu ölü bir yola çevirirdi. 1080p'de menü değişmedi (2×2) |
+
+`RetroHeightFor`'un `lineScale` aşırı yüklemesi ve `MenuStage.RetroLineScale`
+tek kullanıcılarıyla birlikte silindi.
+
+#### Bilinçli olarak YAPILMAYANLAR
+
+- **PS1 tarzı köşe titremesi (vertex wobble) ve kaymalı dokular.** PSP'de
+  yoktu (PSP'nin köşeleri kayan noktalı, dokuları perspektif doğruydu) —
+  onlar PS1'in izleri. Ayrıca her materyalin shader'ını değiştirmek demek:
+  haritanın bütün SciFi Kit materyalleri ve pişmiş lightmap'le çalışan
+  Standard shader'ın yerine özel bir shader, yani bölüm 3'ün ışık düzenini
+  baştan kurmak.
+- **Arayüzü pikselleştirmek.** Okunaklılığı düşürürdü; PSP'nin kendi
+  yazıları da o çözünürlüğe göre çizilmiş özel fontlardı.
+- **Oyuncu ayarı.** Retro görünüm şimdilik bir sanat kararı, seçeneklerde
+  değil. İstenirse korku kaydırıcısının yanına bir satır:
+  `retroPresetIndex`'i `PlayerProfile`'a yazmak + `Menü Kur`.
+
+#### Doğrulama
+
+- C# derlemesi Unity'nin Roslyn'iyle sıfır hatayla geçti, yeni semboller
+  DLL'de doğrulandı.
+- **Shader çevrimdışı derlendi** — Unity'nin kendi `D3DCompiler_47.dll`'i
+  Python/ctypes ile çağrıldı, `UnityCG.cginc` dahil edilerek, hem Linear hem
+  Gamma renk uzayı için: sıfır hata, sıfır uyarı. (İlk denemede "başlatılmamış
+  değişken" uyarısı çıktı — erken `return`'lü bir fonksiyon; iki dallı hâle
+  getirildi.) Tarif hafıza notlarında.
+- **Dördüncü tur da derlendi:** Runtime (hem editör tanımlarıyla hem
+  `UNITY_EDITOR` olmadan — yayınlanan build'in benzeri) ve Editor derlemesi
+  sıfır hata; Hafif/PSP yazıları ve `RetroLineScale` DLL'den gitti, F10
+  etiketi yalnızca editör derlemesinde var; shader iki renk uzayında yeniden
+  derlendi.
+- **Oynanarak görülen:** İnce'nin kendisi, F10'la (kullanıcı seçti).
+  **Görülmeyen:** varsayılan olarak açılması, menünün 2×2 hâli ve F10
+  etiketi. Araç çalıştırmak gerekmiyor — efekt yerel kameraya çalışma anında
+  takılıyor.
+
+> **Ders: `_ScreenParams` KAMERANIN boyunu verir, `Graphics.Blit` hedefinin
+> değil.** Efekt ilk kez tam çözünürlükten farklı bir hedefe çiziliyor;
+> piksel hesabı yapan her satır (`_Pixelate`, gren, bloom en boy oranı)
+> `_ScreenParams` kullansaydı düşük çözünürlükte sessizce yanlış ölçekte
+> çalışırdı — hata vermeden. Hepsi açıkça verilen `_RetroSize`'a geçirildi.
+
 ### Bilinen sınırlar
 
 - ~~**Ayarlar ekranında açma/kapama yok.**~~ **ÇÖZÜLDÜ** (2026-09-12):
@@ -5943,3 +6883,5 @@ ekranına bir kaydırıcı eklendiğinde bağlanacak yer orası.
   Kaydırıcı `Menü Kur` çalıştırılınca sahneye giriyor.
 - **Kare başına bir blit.** Ölçülebilir bir maliyet değil ama zayıf bir GPU'da
   4K'da fark edilebilir; ayar geldiğinde kapatılabilir olması bu yüzden önemli.
+  Retro açıkken iki blit oluyor (küçült + büyüt) ama pahalı olan küçük dokuda
+  çalıştığı için toplam maliyet DÜŞTÜ.

@@ -1,5 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+using TMPro;
+using UnityEngine.UI;
+#endif
 
 /// <summary>
 /// Oyuncunun kamerasına binen korku kaplaması: vinyet, gren, renk ayrışması,
@@ -36,6 +40,18 @@ using UnityEngine;
 /// shader Resources'tan yükleniyor. Yani ne prefab değişikliği ne editör
 /// aracı gerekiyor — Terminal.GetOrCreateStateLight ve MonsterAura ile aynı
 /// gerekçe (bölüm 11.2).
+///
+/// ### Retro PSP görünümü (2026-09-19)
+///
+/// Kullanıcı oyunun "eski PSP oyunları gibi, biraz pikselli" görünmesini
+/// istedi. Görüntü yarı çözünürlüğe iniyor (1080p'de 960×540, yani her oyun
+/// pikseli 2×2 — daha kaba kademeler denendi ve fazla pikselli bulundu), bütün
+/// efektler orada hesaplanıyor ve sonuç nokta süzgeciyle ekrana büyütülüyor;
+/// üstüne eski konsolların rengi gibi basamaklı, titreşimli bir renk azaltma
+/// biniyor. Ayrıntılar CLAUDE.md bölüm 25'te.
+///
+/// **Korku kaydırıcısına BAĞLI DEĞİL.** `Master` 0'a çekilse de retro görünüm
+/// kalıyor: o oyunun sanat yönü, "gözümü yoruyor" diye kısılan bir efekt değil.
 /// </summary>
 [RequireComponent(typeof(Camera))]
 [DisallowMultipleComponent]
@@ -56,6 +72,107 @@ public class ScreenEffects : MonoBehaviour
     /// gelirdi.
     /// </summary>
     public static float Master = 1f;
+
+    /// <summary>
+    /// Retro görünümün bir kademesi: hedeflenen satır sayısı ve kanal başına
+    /// renk seviyesi. `Lines` 0 = pikselleme yok, `ColorLevels` 2'nin altı =
+    /// renk azaltma yok.
+    /// </summary>
+    private readonly struct RetroPreset
+    {
+        public readonly string Name;
+        public readonly int Lines;
+        public readonly int ColorLevels;
+
+        public RetroPreset(string name, int lines, int colorLevels)
+        {
+            Name = name;
+            Lines = lines;
+            ColorLevels = colorLevels;
+        }
+    }
+
+    /// <summary>
+    /// F10 bu sırayla geziyor; ilki varsayılan.
+    ///
+    /// | Kademe | 1080p'de | Renk |
+    /// |---|---|---|
+    /// | İnce | 960×540 — her piksel 2×2 | 64 seviye |
+    /// | Kapalı | ekranın kendisi | dokunulmuyor — eski görünüm |
+    ///
+    /// **Kullanıcı F10'la karşılaştırıp İnce'yi seçti (2026-09-19):** "2×2
+    /// İnce en iyisi, diğerleri çok pikselli, güzel olmuyor." Listede ondan
+    /// kaba üç kademe vardı ve üçü de bu yüzden çıktı: PSP'nin kendi 480×270'i
+    /// (32 seviye, ilk varsayılan — "uzaktaki şeyleri çok pikselliyor"), Hafif
+    /// 640×360 (ikinci varsayılan) ve PS1'e yakın Kaba 320×180. Reddedilmiş
+    /// bir görünümü F10 turunda tutmak, her karşılaştırmada ondan yeniden
+    /// geçmek demekti. Sayıları CLAUDE.md bölüm 25'te; geri gelmeleri tek
+    /// satır.
+    ///
+    /// Kapalı karşılaştırma için kalıyor: F10 artık retro açık/kapalı.
+    ///
+    /// **Satır sayısı bir HEDEF, kesin değer değil.** Gerçek çözünürlük
+    /// ekranın TAM SAYI bölümü seçiliyor (`RetroHeightFor`): İnce 1440p'de 540
+    /// değil 480, çünkü 1440/480 = 3 ve her oyun pikseli tam 3×3 ekran pikseli
+    /// oluyor. 540 olsaydı büyütme 2.67 olur, satırların kimi 2 kimi 3 piksel
+    /// kalın çıkar ve kamera dönerken ızgara kayıyormuş gibi titrerdi.
+    /// </summary>
+    private static readonly RetroPreset[] RetroPresets =
+    {
+        new RetroPreset("İnce", 540, 64),
+        new RetroPreset("Kapalı", 0, 0),
+    };
+
+    /// <summary>
+    /// Seçili kademe. Statik, çünkü oyuncu her turda prefabtan yeniden doğuyor
+    /// ve bileşene yazılan bir değer orada kaybolurdu (`Master` ile aynı
+    /// gerekçe). Menünün arkasındaki karakter sahnesi de buradan okuyor.
+    /// </summary>
+    private static int retroPresetIndex;
+
+    private static RetroPreset CurrentRetro => RetroPresets[retroPresetIndex];
+
+    /// <summary>
+    /// Verilen ekran yüksekliğinde retro görünümün çizileceği yükseklik; 0 =
+    /// pikselleme yok. Tam sayı katına oturtuluyor, yani her oyun pikseli
+    /// ekranda aynı boyda: İnce'de 1080 → 540 (2×), 1200 → 600 (2×), 1440 →
+    /// 480 (3×), 2160 → 540 (4×). Oyun ve menüdeki karakter sahnesi
+    /// (`MenuStage`) aynı hesabı kullanıyor — iki yerde ayrı yazılsaydı biri
+    /// değişince öbürü unutulurdu.
+    ///
+    /// **Kat 2'nin altında pikselleme KAPALI.** 720, 768 ve 800 satırlık
+    /// ekranlarda (eski dizüstüler, Steam Deck) İnce'nin 540 satırı iki kata
+    /// oturmuyor ve iki seçenek de kötü: 2× o ekranda 360-400 satır demek,
+    /// yani kullanıcının "çok pikselli" bulduğu seviye; kesirli büyütme ise
+    /// satırların kimini 1 kimini 2 piksel yapıyor ve kamera dönerken ızgara
+    /// titriyor. O ekranların pikselleri zaten fiziksel olarak iri; renk
+    /// azaltma yine açık kalıyor.
+    ///
+    /// Burada bir süre bir "küçük pencere yolu" vardı: kat 2'nin altında hedef
+    /// satır sayısı kesirli büyütmeyle yine de kullanılıyordu ki editörün
+    /// küçük Game penceresinde pikselleme kaybolmasın. Varsayılan Hafif
+    /// (360 satır) iken o yol yalnızca pencerelerde çalışıyordu — "720 satır
+    /// ve üstünde kat hep 2 ya da fazla". İnce varsayılan olunca aynı yol
+    /// 720/768/800 satırlık GERÇEK tam ekranlarda çalışacaktı; kaldırıldı.
+    /// Küçük pencerenin durumunu artık F10 etiketi söylüyor.
+    /// </summary>
+    public static int RetroHeightFor(int screenHeight)
+    {
+        int lines = CurrentRetro.Lines;
+        if (lines <= 0 || screenHeight <= 0)
+            return 0;
+
+        int factor = Mathf.RoundToInt((float)screenHeight / lines);
+        return factor < 2 ? 0 : screenHeight / factor;
+    }
+
+    [Header("Retro görünüm")]
+    [Tooltip("Retro açıkken grenin çarpanı. Gren artık büyük piksel başına " +
+        "hesaplanıyor, yani 1080p'de 2×2'lik bloklar hâlinde kıpırdıyor — aynı " +
+        "genlik ince grenden daha çok göze batıyor. Kullanıcı bir kez 'ekranda " +
+        "pixelimsi şeyler var, göz bozuyor' demişti (bölüm 25), o yüzden " +
+        "görünür boy büyüyünce genlik yarıya iniyor.")]
+    [SerializeField] private float retroGrainScale = 0.5f;
 
     [Header("Atmosfer — canavar uzaktayken")]
     [SerializeField] private float calmVignette = 0.45f;
@@ -155,8 +272,41 @@ public class ScreenEffects : MonoBehaviour
         "görülemiyordu.")]
     [SerializeField] private KeyCode debugDreadKey = KeyCode.F9;
 
+    [Tooltip("Retro görünümü açıp kapatır (İnce ↔ Kapalı) — karşılaştırmak " +
+        "için. İlk basıştan sonra sol alt köşede hangisinin açık olduğu " +
+        "yazıyor. Listenin başındaki kademe varsayılan. Gönderilen build'de " +
+        "bu tuş yok.")]
+    [SerializeField] private KeyCode debugRetroKey = KeyCode.F10;
+
     /// <summary>-1 = zorlama yok.</summary>
     private float forcedDread = -1f;
+
+    /// <summary>
+    /// Bu Play oturumunda F10'a basıldı mı. Basıldıysa sol alt köşede hangi
+    /// kademenin açık olduğu yazıyor ve oturum boyunca orada kalıyor.
+    ///
+    /// **Neden gerekti (2026-09-19):** F10 kademeyi yalnızca konsola yazıyordu
+    /// ve kullanıcı "sırayla değişiyor ama hangisi hangisi anlamıyorum" dedi —
+    /// oyunu oynarken konsola bakılmıyor. Görüntüyü değiştiren bir tuş, neye
+    /// değiştirdiğini de görüntüde söylemeli.
+    ///
+    /// **Hiç basılmadıysa etiket yok:** host çoğu zaman editörden açılıyor ve
+    /// gerçek bir oyun sırasında köşede sürekli duran bir test yazısı
+    /// istenmez. Statik, çünkü oyuncu objesi değişince (odadan çıkıp yeniden
+    /// kurmak, tutorial'dan dönmek) etiket kaybolmasın; domain reload açık
+    /// olduğu için her Play'de kendiliğinden sıfırlanıyor.
+    /// </summary>
+    private static bool retroLabelWanted;
+
+    private CanvasGroup retroLabelGroup;
+    private TextMeshProUGUI retroLabel;
+    private Camera retroLabelCamera;
+
+    // Yazı yalnızca bunlardan biri değişince yeniden kuruluyor: her karede
+    // yeni bir string çöp üretirdi (bölüm 2).
+    private int retroLabelPreset = -1;
+    private int retroLabelWidth = -1;
+    private int retroLabelHeight = -1;
 #endif
 
     [Tooltip("Dehşet tavanındaki yatay bant kayması (UV birimi). Parazit " +
@@ -182,6 +332,9 @@ public class ScreenEffects : MonoBehaviour
     private static readonly int BloomId = Shader.PropertyToID("_Bloom");
     private static readonly int BloomThresholdId = Shader.PropertyToID("_BloomThreshold");
     private static readonly int BloomRadiusId = Shader.PropertyToID("_BloomRadius");
+    private static readonly int RetroSizeId = Shader.PropertyToID("_RetroSize");
+    private static readonly int RetroBlockId = Shader.PropertyToID("_RetroBlock");
+    private static readonly int ColorLevelsId = Shader.PropertyToID("_ColorLevels");
 
     private Material material;
     private RoundParticipant owner;
@@ -222,8 +375,9 @@ public class ScreenEffects : MonoBehaviour
         // Teşhis logu. "Efekti hiç göremiyorum" şikâyeti geldiğinde ilk soru
         // "çalışıyor mu" oluyor ve tahminle aranması bir tur kaybettirdi.
         // Bir satır, oyun başında bir kez.
-        Debug.Log($"Ekran efekti AÇIK — kamera '{name}', shader '{shader.name}'. " +
-            "F9 dehşeti zorluyor (kapalı/yarı/tam).", this);
+        Debug.Log($"Ekran efekti AÇIK — kamera '{name}', shader '{shader.name}', " +
+            $"retro kademe '{CurrentRetro.Name}'. F9 dehşeti zorluyor (kapalı/yarı/tam), " +
+            "F10 retro kademeyi değiştiriyor.", this);
     }
 
     private void OnDisable()
@@ -238,6 +392,25 @@ public class ScreenEffects : MonoBehaviour
     private void Update()
     {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // Dehşet zorlamasının erken çıkışından ÖNCE: F9 açıkken de F10
+        // çalışmalı, ikisi birlikte denenebilsin.
+        if (Input.GetKeyDown(debugRetroKey))
+        {
+            retroPresetIndex = (retroPresetIndex + 1) % RetroPresets.Length;
+            retroLabelWanted = true;
+
+            int height = RetroHeightFor(Screen.height);
+            Debug.Log(height > 0
+                ? $"Retro kademe: {CurrentRetro.Name} — ekran {Screen.height} satır, " +
+                  $"oyun {height} satır ({(float)Screen.height / height:0.##}× büyütme), " +
+                  $"{CurrentRetro.ColorLevels} renk seviyesi."
+                : $"Retro kademe: {CurrentRetro.Name} — pikselleme yok " +
+                  $"(ekran {Screen.height} satır), renk seviyesi " +
+                  $"{(CurrentRetro.ColorLevels > 1 ? CurrentRetro.ColorLevels.ToString() : "dokunulmuyor")}.", this);
+        }
+
+        UpdateRetroLabel();
+
         if (Input.GetKeyDown(debugDreadKey))
             forcedDread = forcedDread < 0f ? 0.5f : forcedDread < 0.9f ? 1f : -1f;
 
@@ -252,6 +425,150 @@ public class ScreenEffects : MonoBehaviour
         float rate = target > dread ? dreadRise : dreadFall;
         dread = Mathf.MoveTowards(dread, target, Time.deltaTime * rate);
     }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>
+    /// Sol alt köşedeki kademe etiketi: açık kademenin sırası, adı ve bu
+    /// pencerede GERÇEKTE hangi çözünürlükte çizildiği.
+    ///
+    /// **1080p değerini değil pencerenin kendisini yazıyor.** 810 satırın
+    /// altındaki bir pencerede — editörün Game penceresi ~500 satırdı — İnce
+    /// hiç pikselleşmiyor (`RetroHeightFor`), yani Kapalı'dan ayırt
+    /// edilemiyor. "Hangisi hangisi anlamıyorum" şikâyetinin öbür yarısı
+    /// buydu; etiket bunu açıkça söylüyor.
+    ///
+    /// Kendi Canvas'ını kuruyor (`TutorialHud` ile aynı yöntem) ve kameranın
+    /// çocuğu oluyor: oyuncu objesiyle birlikte yok oluyor, ayrıca temizlemek
+    /// gerekmiyor. Overlay çizildiği için retro efekt ona dokunmuyor, yazı
+    /// keskin kalıyor. Menü açıkken HUD'la aynı kuralla gizleniyor.
+    ///
+    /// Yazılar `Localization`'a eklenmedi, bilerek: etiket gönderilen build'e
+    /// girmiyor, yalnızca geliştiricinin gördüğü bir test göstergesi. Kademe
+    /// adları da koddakilerin aynısı — kullanıcı "şunu beğendim" derken
+    /// doğrudan `RetroPresets`'teki satırı söylüyor.
+    /// </summary>
+    private void UpdateRetroLabel()
+    {
+        if (!retroLabelWanted)
+            return;
+
+        if (retroLabel == null)
+            BuildRetroLabel();
+
+        GameHud.SetVisible(retroLabelGroup, GameHud.Visible);
+
+        int width = retroLabelCamera.pixelWidth;
+        int height = retroLabelCamera.pixelHeight;
+
+        if (retroPresetIndex == retroLabelPreset
+            && width == retroLabelWidth && height == retroLabelHeight)
+            return;
+
+        retroLabelPreset = retroPresetIndex;
+        retroLabelWidth = width;
+        retroLabelHeight = height;
+
+        retroLabel.SetText(RetroLabelText(width, height));
+    }
+
+    private static string RetroLabelText(int screenWidth, int screenHeight)
+    {
+        RetroPreset preset = CurrentRetro;
+        string title = $"<size=135%>Görünüm {retroPresetIndex + 1}/{RetroPresets.Length}:  " +
+            $"<b>{preset.Name}</b></size>";
+
+        string detail;
+        bool smallWindow = false;
+
+        if (preset.Lines <= 0)
+        {
+            detail = "retro yok — oyunun eski görünümü";
+        }
+        else
+        {
+            int height = RetroHeightFor(screenHeight);
+
+            if (height <= 0)
+            {
+                detail = "pencere bu kademe için küçük — burada pikselleme hiç görünmüyor";
+                smallWindow = true;
+            }
+            else
+            {
+                int width = Mathf.Max(1,
+                    Mathf.RoundToInt(screenWidth * (float)height / screenHeight));
+                int factor = Mathf.RoundToInt((float)screenHeight / height);
+                detail = $"oyun {width}x{height}  ·  her piksel {factor}x{factor}";
+            }
+        }
+
+        string hint = smallWindow
+            ? "gerçek görünüm için oyun ekranını büyüt  ·  F10: sonraki"
+            : "F10: sonraki";
+
+        return $"{title}\n{detail}\n<color=#9A9AA3>{hint}</color>";
+    }
+
+    private void BuildRetroLabel()
+    {
+        retroLabelCamera = GetComponent<Camera>();
+
+        GameObject root = new GameObject("RetroKademeEtiketi",
+            typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+        root.transform.SetParent(transform, false);
+
+        Canvas canvas = root.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        // Menünün (100) altında: menü açıkken zaten gizleniyor. Tutorial
+        // yazısının (20) ve diriltme ekranının (12) üstünde.
+        canvas.sortingOrder = 90;
+
+        CanvasScaler scaler = root.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.matchWidthOrHeight = 0.5f;
+
+        // Sol alt köşe boş: sağ üstte mikrofon göstergesi, üst ortada tur
+        // satırları, alt ortada tutorial yazısı var.
+        GameObject panel = new GameObject("Panel", typeof(RectTransform), typeof(Image),
+            typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        panel.transform.SetParent(root.transform, false);
+
+        RectTransform rect = panel.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.zero;
+        rect.pivot = Vector2.zero;
+        rect.anchoredPosition = new Vector2(24f, 24f);
+        rect.sizeDelta = new Vector2(430f, 0f);
+
+        Image background = panel.GetComponent<Image>();
+        background.color = new Color(0.02f, 0.02f, 0.03f, 0.82f);
+        background.raycastTarget = false;
+
+        // Genişlik sabit, yükseklik yazıya göre: uzun satır alta kayıyor.
+        VerticalLayoutGroup layout = panel.GetComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(16, 16, 12, 12);
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        panel.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        GameObject labelObject = new GameObject("Yazi", typeof(RectTransform), typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(panel.transform, false);
+
+        retroLabel = labelObject.GetComponent<TextMeshProUGUI>();
+        retroLabel.font = TMP_Settings.defaultFontAsset;
+        retroLabel.fontSize = 21f;
+        retroLabel.alignment = TextAlignmentOptions.TopLeft;
+        retroLabel.color = new Color(0.92f, 0.92f, 0.95f, 1f);
+        retroLabel.enableWordWrapping = true;
+        retroLabel.raycastTarget = false;
+
+        retroLabelGroup = panel.AddComponent<CanvasGroup>();
+    }
+#endif
 
     /// <summary>
     /// Yerel oyuncunun dehşeti. Hesap `DreadAt`'te duruyor, çünkü fener
@@ -305,8 +622,15 @@ public class ScreenEffects : MonoBehaviour
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
         float master = Mathf.Clamp01(Master);
+        RetroPreset retro = CurrentRetro;
+        int retroHeight = RetroHeightFor(source.height);
+        bool pixelated = retroHeight > 0 && retroHeight < source.height;
 
-        if (material == null || master <= 0.001f)
+        // Korku efektleri kapalı VE retro görünüm yoksa yapılacak iş yok. Retro
+        // görünüm `Master`'a bağlı değil: kaydırıcıyı sıfıra çeken oyuncu
+        // yine retro görünümü görüyor, yalnızca vinyet/gren/renk kaybı gidiyor.
+        if (material == null
+            || (master <= 0.001f && !pixelated && retro.ColorLevels < 2))
         {
             Graphics.Blit(source, destination);
             return;
@@ -323,7 +647,8 @@ public class ScreenEffects : MonoBehaviour
         material.SetFloat(VignetteId, (Mathf.Lerp(calmVignette, dreadVignette, level) + pulse) * master);
         material.SetFloat(VignetteStartId, vignetteStart);
         material.SetFloat(VignetteEndId, vignetteEnd);
-        material.SetFloat(GrainId, Mathf.Lerp(calmGrain, dreadGrain, level) * master);
+        material.SetFloat(GrainId, Mathf.Lerp(calmGrain, dreadGrain, level) * master
+            * (pixelated ? retroGrainScale : 1f));
         material.SetFloat(GrainFloorId, grainFloor);
         material.SetFloat(GrainSeedId, Random.value * 1000f);
         material.SetFloat(AberrationId, Mathf.Lerp(calmAberration, dreadAberration, level) * master);
@@ -342,8 +667,65 @@ public class ScreenEffects : MonoBehaviour
         material.SetFloat(GlitchId, glitchLevel * glitchLevel * glitchStrength * master);
 
         // 1 ve altı shader'da "kapalı" demek, yani dehşet 0'ken pikselleme yok.
-        material.SetFloat(PixelateId, dreadPixelate > 1f ? Mathf.Lerp(1f, dreadPixelate, level) : 0f);
+        //
+        // **Retro açıkken dehşet pikselleşmesi KAPALI.** Kullanıcı 1080p'de
+        // 3 piksellik blokları (≈640×360) "kovalamacada görüşü fazla bozuyor"
+        // diye bulmuş ve 2'ye indirtmişti (2026-09-13). Retro taban 960×540
+        // (İnce); üstüne blokları ikiye katlamak kovalamacayı 480×270'te —
+        // kullanıcının retro kademelerinde de "çok pikselli" bulduğu PSP
+        // seviyesinde — oynatmak olurdu, tam da en çok görmen gereken anda.
+        // Dehşeti vinyet, renk kaybı, gren ve parazit taşımaya devam ediyor.
+        bool dreadPixels = !pixelated && master > 0.001f && dreadPixelate > 1f;
+        material.SetFloat(PixelateId, dreadPixels ? Mathf.Lerp(1f, dreadPixelate, level) : 0f);
 
-        Graphics.Blit(source, destination, material);
+        material.SetFloat(ColorLevelsId, retro.ColorLevels);
+
+        if (!pixelated)
+        {
+            material.SetVector(RetroSizeId, new Vector4(source.width, source.height,
+                1f / source.width, 1f / source.height));
+            material.SetFloat(RetroBlockId, 0f);
+
+            Graphics.Blit(source, destination, material);
+            return;
+        }
+
+        // **Düşük çözünürlüklü ara hedef.** Genişlik yükseklikle AYNI oranda
+        // küçülüyor, yani pikseller kare kalıyor ve en boy oranı korunuyor
+        // (1920×1080 → 960×540).
+        //
+        // Kaynağın tanımı kopyalanıyor ki biçim (HDR ya da sRGB) aynı kalsın;
+        // MSAA ve derinlik bu ara adımda anlamsız.
+        int retroWidth = Mathf.Max(1,
+            Mathf.RoundToInt(source.width * (float)retroHeight / source.height));
+
+        RenderTextureDescriptor descriptor = source.descriptor;
+        descriptor.width = retroWidth;
+        descriptor.height = retroHeight;
+        descriptor.depthBufferBits = 0;
+        descriptor.msaaSamples = 1;
+        descriptor.useMipMap = false;
+        descriptor.autoGenerateMips = false;
+
+        // `GetTemporary` Unity'nin kendi havuzundan veriyor: her karede aynı
+        // boy istendiği için aynı doku geri geliyor, çöp üretmiyor (bölüm 2).
+        RenderTexture low = RenderTexture.GetTemporary(descriptor);
+
+        // NOKTA süzgeci: büyütürken pikseller kenarları keskin, dolu kareler
+        // olarak kalıyor. Çift doğrusal süzgeç onları bulanık bir lekeye
+        // çevirirdi ve "pikselli" değil "düşük kaliteli" görünürdü.
+        low.filterMode = FilterMode.Point;
+
+        material.SetVector(RetroSizeId, new Vector4(retroWidth, retroHeight,
+            1f / retroWidth, 1f / retroHeight));
+        material.SetFloat(RetroBlockId, 1f);
+
+        // Bütün efektler küçük hedefte, büyük piksel başına BİR kez
+        // hesaplanıyor — gren ve renk deseni de piksellerle aynı boyda. Yan
+        // kazanç: pahalı geçiş artık dörtte bir piksel sayısında çalışıyor.
+        Graphics.Blit(source, low, material);
+        Graphics.Blit(low, destination);
+
+        RenderTexture.ReleaseTemporary(low);
     }
 }

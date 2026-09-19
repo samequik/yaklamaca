@@ -144,18 +144,18 @@ public static class KeyBindings
     {
         switch (action)
         {
-            case GameAction.Forward: return "İleri";
-            case GameAction.Back: return "Geri";
-            case GameAction.Left: return "Sola";
-            case GameAction.Right: return "Sağa";
-            case GameAction.Jump: return "Zıpla";
-            case GameAction.Sprint: return "Koş";
-            case GameAction.Crouch: return "Eğil";
-            case GameAction.Interact: return "Etkileşim";
-            case GameAction.Flashlight: return "Fener";
-            case GameAction.Attack: return "Saldırı (canavar)";
-            case GameAction.PushToTalk: return "Bas-konuş";
-            case GameAction.Scoreboard: return "Oyuncu paneli";
+            case GameAction.Forward: return Localization.Get("İleri");
+            case GameAction.Back: return Localization.Get("Geri");
+            case GameAction.Left: return Localization.Get("Sola");
+            case GameAction.Right: return Localization.Get("Sağa");
+            case GameAction.Jump: return Localization.Get("Zıpla");
+            case GameAction.Sprint: return Localization.Get("Koş");
+            case GameAction.Crouch: return Localization.Get("Eğil");
+            case GameAction.Interact: return Localization.Get("Etkileşim");
+            case GameAction.Flashlight: return Localization.Get("Fener");
+            case GameAction.Attack: return Localization.Get("Saldırı (canavar)");
+            case GameAction.PushToTalk: return Localization.Get("Bas-konuş");
+            case GameAction.Scoreboard: return Localization.Get("Oyuncu paneli");
             default: return action.ToString();
         }
     }
@@ -170,29 +170,29 @@ public static class KeyBindings
         {
             case KeyCode.None: return "—";
 
-            case KeyCode.Mouse0: return "SOL FARE";
-            case KeyCode.Mouse1: return "SAĞ FARE";
-            case KeyCode.Mouse2: return "ORTA FARE";
-            case KeyCode.Mouse3: return "FARE 4";
-            case KeyCode.Mouse4: return "FARE 5";
+            case KeyCode.Mouse0: return Localization.Get("SOL FARE");
+            case KeyCode.Mouse1: return Localization.Get("SAĞ FARE");
+            case KeyCode.Mouse2: return Localization.Get("ORTA FARE");
+            case KeyCode.Mouse3: return Localization.Get("FARE 4");
+            case KeyCode.Mouse4: return Localization.Get("FARE 5");
 
-            case KeyCode.Space: return "BOŞLUK";
-            case KeyCode.LeftShift: return "SOL SHIFT";
-            case KeyCode.RightShift: return "SAĞ SHIFT";
-            case KeyCode.LeftControl: return "SOL CTRL";
-            case KeyCode.RightControl: return "SAĞ CTRL";
-            case KeyCode.LeftAlt: return "SOL ALT";
-            case KeyCode.RightAlt: return "SAĞ ALT";
+            case KeyCode.Space: return Localization.Get("BOŞLUK");
+            case KeyCode.LeftShift: return Localization.Get("SOL SHIFT");
+            case KeyCode.RightShift: return Localization.Get("SAĞ SHIFT");
+            case KeyCode.LeftControl: return Localization.Get("SOL CTRL");
+            case KeyCode.RightControl: return Localization.Get("SAĞ CTRL");
+            case KeyCode.LeftAlt: return Localization.Get("SOL ALT");
+            case KeyCode.RightAlt: return Localization.Get("SAĞ ALT");
             case KeyCode.Return: return "ENTER";
             case KeyCode.KeypadEnter: return "NUM ENTER";
             case KeyCode.Tab: return "TAB";
             case KeyCode.CapsLock: return "CAPS LOCK";
             case KeyCode.Backspace: return "BACKSPACE";
 
-            case KeyCode.UpArrow: return "YUKARI OK";
-            case KeyCode.DownArrow: return "AŞAĞI OK";
-            case KeyCode.LeftArrow: return "SOL OK";
-            case KeyCode.RightArrow: return "SAĞ OK";
+            case KeyCode.UpArrow: return Localization.Get("YUKARI OK");
+            case KeyCode.DownArrow: return Localization.Get("AŞAĞI OK");
+            case KeyCode.LeftArrow: return Localization.Get("SOL OK");
+            case KeyCode.RightArrow: return Localization.Get("SAĞ OK");
         }
 
         string name = key.ToString();

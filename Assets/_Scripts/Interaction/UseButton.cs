@@ -141,7 +141,7 @@ public class UseButton : MonoBehaviour, IInteractable
 
     // Hedeflerden biri meşgulse (kapı açılıyor/kapanıyor) yazı hiç çıkmaz.
     // Boş prompt "şu an kullanılamaz" demek, bkz. IInteractable.
-    public string GetPrompt() => CanUse() ? prompt : null;
+    public string GetPrompt() => CanUse() ? Localization.Get(prompt) : null;
 
     private bool CanUse()
     {

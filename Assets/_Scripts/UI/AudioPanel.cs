@@ -107,7 +107,7 @@ public class AudioPanel : MonoBehaviour
         }
 
         if (volumeLabel != null)
-            volumeLabel.SetText("Ses: {0:0}%", volumeSlider.value * 100f);
+            volumeLabel.SetText(Localization.Get("Ses: {0:0}%"), volumeSlider.value * 100f);
     }
 
     // ---------- Sesli sohbet ----------
@@ -197,35 +197,39 @@ public class AudioPanel : MonoBehaviour
     {
         if (voiceEnabledLabel != null)
         {
-            voiceEnabledLabel.SetText(VoiceSettings.Enabled
+            voiceEnabledLabel.SetText(Localization.Get(VoiceSettings.Enabled
                 ? "Sesli sohbet: AÇIK"
-                : "Sesli sohbet: KAPALI");
+                : "Sesli sohbet: KAPALI"));
         }
 
         if (voiceModeLabel != null)
         {
             voiceModeLabel.SetText(VoiceSettings.Mode == VoiceMode.PushToTalk
-                ? $"Konuşma: BAS-KONUŞ ({KeyBindings.Describe(KeyBindings.Get(GameAction.PushToTalk))})"
-                : "Konuşma: OTOMATİK");
+                ? Localization.Format("Konuşma: BAS-KONUŞ ({0})",
+                    KeyBindings.Describe(KeyBindings.Get(GameAction.PushToTalk)))
+                : Localization.Get("Konuşma: OTOMATİK"));
         }
 
         if (voiceDeviceLabel != null)
-            voiceDeviceLabel.SetText($"Mikrofon: {ShortDeviceName(VoiceSettings.ResolveDevice())}");
+        {
+            voiceDeviceLabel.SetText(Localization.Format("Mikrofon: {0}",
+                ShortDeviceName(VoiceSettings.ResolveDevice())));
+        }
 
         if (micGainLabel != null)
-            micGainLabel.SetText("Mikrofon kazancı: {0:0.0}x", VoiceSettings.InputGain);
+            micGainLabel.SetText(Localization.Get("Mikrofon kazancı: {0:0.0}x"), VoiceSettings.InputGain);
 
         if (thresholdLabel != null)
         {
             // Eşiğin sayısı tek başına bir şey anlatmıyor; oyuncu sağ üstteki
             // çubuğa bakarak ayarlıyor.
             thresholdLabel.SetText(VoiceSettings.Mode == VoiceMode.Automatic
-                ? $"Konuşma eşiği: {VoiceSettings.Threshold:0.000}   (sağ üstteki çizgi)"
-                : "Konuşma eşiği: yalnızca otomatik modda");
+                ? Localization.Format("Konuşma eşiği: {0:0.000}   (sağ üstteki çizgi)", VoiceSettings.Threshold)
+                : Localization.Get("Konuşma eşiği: yalnızca otomatik modda"));
         }
 
         if (voiceVolumeLabel != null)
-            voiceVolumeLabel.SetText("Konuşma sesi: {0:0}%", VoiceSettings.OutputVolume * 100f);
+            voiceVolumeLabel.SetText(Localization.Get("Konuşma sesi: {0:0}%"), VoiceSettings.OutputVolume * 100f);
     }
 
     /// <summary>
@@ -238,7 +242,7 @@ public class AudioPanel : MonoBehaviour
     private static string ShortDeviceName(string device)
     {
         if (string.IsNullOrEmpty(device))
-            return "YOK";
+            return Localization.Get("YOK");
 
         int parenthesis = device.IndexOf('(');
         string trimmed = parenthesis > 1 ? device.Substring(0, parenthesis).Trim() : device;

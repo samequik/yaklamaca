@@ -142,8 +142,8 @@ public class ScoreboardPanel : MonoBehaviour
             // Metin araya girişle kuruluyor: TMP'nin SetText(string, ...)
             // aşırı yüklemeleri yalnızca SAYI alıyor, string almıyor.
             string key = KeyBindings.Describe(KeyBindings.Get(GameAction.Scoreboard));
-            hintLabel.SetText($"{key} ile kapat  ·  yürümeye devam edebilirsin  ·  " +
-                "ses ayarı yalnızca seni etkiler");
+            hintLabel.SetText(Localization.Format(
+                "{0} ile kapat  ·  yürümeye devam edebilirsin  ·  ses ayarı yalnızca seni etkiler", key));
         }
 
         if (rows == null)
@@ -175,7 +175,7 @@ public class ScoreboardPanel : MonoBehaviour
         if (row.nameLabel != null)
         {
             row.nameLabel.SetText(local
-                ? $"{participant.DisplayName}  (sen)"
+                ? Localization.Format("{0}  (sen)", participant.DisplayName)
                 : participant.DisplayName);
 
             // Konuşan satır renkleniyor: kimin sesi geldiğini görmek, sesi
@@ -214,7 +214,7 @@ public class ScoreboardPanel : MonoBehaviour
             if (showNote)
             {
                 row.noteLabel.color = mutedTextColor;
-                row.noteLabel.SetText(local ? "kendi sesini duymuyorsun" : "sesi yok");
+                row.noteLabel.SetText(Localization.Get(local ? "kendi sesini duymuyorsun" : "sesi yok"));
             }
         }
 
@@ -231,7 +231,7 @@ public class ScoreboardPanel : MonoBehaviour
         if (row.muteLabel == null)
             return;
 
-        row.muteLabel.SetText(playback.Muted ? "AÇ" : "SUSTUR");
+        row.muteLabel.SetText(Localization.Get(playback.Muted ? "AÇ" : "SUSTUR"));
         row.muteLabel.color = normalTextColor;
     }
 

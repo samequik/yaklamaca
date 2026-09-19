@@ -658,7 +658,7 @@ public class Terminal : NetworkBehaviour, IInteractable
     [TargetRpc]
     private void TargetTerminalAlarm(NetworkConnectionToClient target, Vector3 position)
     {
-        AlarmMessage = "TERMİNAL ALARMI";
+        AlarmMessage = Localization.Get("TERMİNAL ALARMI");
         AlarmPosition = position;
         AlarmTime = Time.time;
     }
@@ -863,7 +863,7 @@ public class Terminal : NetworkBehaviour, IInteractable
         int percent = Mathf.RoundToInt(progress * 100f);
 
         if (IsCompleted)
-            return $"Terminal tamamlandı  (%100)";
+            return Localization.Get("Terminal tamamlandı  (%100)");
 
         // Canavar terminale bakınca yüzdesini görüyor (bkz. CLAUDE.md 11.4).
         // Hangi terminalin ne kadar dolduğunu bilmek, devriye rotasını
@@ -871,25 +871,25 @@ public class Terminal : NetworkBehaviour, IInteractable
         if (LocalPlayerIsMonster())
         {
             if (locked)
-                return $"Kilitli  (%{percent})";
+                return Localization.Format("Kilitli  (%{0})", percent);
 
-            return IsUsedByLocalPlayer
-                ? $"Kilitleniyor…  (%{percent})"
-                : $"Kilitle  (%{percent})";
+            return Localization.Format(IsUsedByLocalPlayer
+                ? "Kilitleniyor…  (%{0})"
+                : "Kilitle  (%{0})", percent);
         }
 
         // Kilitliyken ne yapılacağını da yazıyoruz: "KİLİTLİ" tek başına
         // "buraya dokunma" gibi okunuyordu.
         if (locked)
-            return $"Kilidi aç  (%{percent})";
+            return Localization.Format("Kilidi aç  (%{0})", percent);
 
         if (IsUsedByLocalPlayer)
-            return $"Bırak  (%{percent})";
+            return Localization.Format("Bırak  (%{0})", percent);
 
         if (IsBusy)
-            return $"Meşgul  (%{percent})";
+            return Localization.Format("Meşgul  (%{0})", percent);
 
-        return $"Terminali çalıştır  (%{percent})";
+        return Localization.Format("Terminali çalıştır  (%{0})", percent);
     }
 
     public void Interact(GameObject user)
@@ -1002,10 +1002,10 @@ public class Terminal : NetworkBehaviour, IInteractable
         {
             float left = Mathf.Max(0f, (float)(monsterLockEndTime - NetworkTime.time));
 
-            state.Header = "KİLİTLEME";
+            state.Header = Localization.Get("KİLİTLEME");
             state.Big = $"{left:0.0}";
             state.BigSize = 34f;
-            state.Caption = "hareket edemezsin";
+            state.Caption = Localization.Get("hareket edemezsin");
             state.ShowBar = true;
             state.Bar = monsterLockDuration > 0f
                 ? Mathf.Clamp01(1f - left / monsterLockDuration)
@@ -1016,24 +1016,25 @@ public class Terminal : NetworkBehaviour, IInteractable
 
         if (locked)
         {
-            state.Header = "SİSTEM KİLİTLİ";
+            state.Header = Localization.Get("SİSTEM KİLİTLİ");
             state.Big = BuildUnlockText();
             state.BigSize = 26f;
-            state.Caption = $"ilerleme %{Mathf.RoundToInt(progress * 100f)} — donduruldu    ·    sırayla gir";
+            state.Caption = Localization.Format(
+                "ilerleme %{0} — donduruldu    ·    sırayla gir", Mathf.RoundToInt(progress * 100f));
 
             return state;
         }
 
         if (NetworkTime.time < fillReadyTime)
         {
-            state.Header = "BAĞLANTI";
-            state.Big = "BAĞLANIYOR…";
+            state.Header = Localization.Get("BAĞLANTI");
+            state.Big = Localization.Get("BAĞLANIYOR…");
             state.BigSize = 24f;
 
             return state;
         }
 
-        state.Header = "VERİ AKTARIMI";
+        state.Header = Localization.Get("VERİ AKTARIMI");
         state.Big = $"%{Mathf.RoundToInt(progress * 100f)}";
         state.BigSize = 34f;
         state.ShowBar = true;
@@ -1041,7 +1042,7 @@ public class Terminal : NetworkBehaviour, IInteractable
 
         if (prompt == 0)
         {
-            state.Caption = "aktarım sürüyor";
+            state.Caption = Localization.Get("aktarım sürüyor");
             return state;
         }
 

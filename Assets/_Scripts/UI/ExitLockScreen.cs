@@ -77,7 +77,7 @@ public class ExitLockScreen : MonoBehaviour
             return;
 
         captionLabel.color = captionColor;
-        captionLabel.SetText($"{entered} / {length}      yanlış tuş başa sarar");
+        captionLabel.SetText(Localization.Format("{0} / {1}      yanlış tuş başa sarar", entered, length));
     }
 
     private void ApplyCell(Cell cell, ExitLock lockPanel, int index, int entered, bool used)

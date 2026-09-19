@@ -37,3 +37,12 @@ sysinfo.txt
 # Kazara kök dizine düşmüş derleme çıktısı (Assets dışında, Unity görmüyor).
 # Assets içindeki .dll'ler GEREKLİ, o yüzden *.dll diye genel bir kural YOK.
 /AtmosphereSetup.dll
+
+# unity-chan! paketi commit'e hiç girmiyor (kullanıcı talimatı). Şimdiye kadar
+# bu yalnızca "asla git add etme" disiplinine dayanıyordu — hiçbir yerde
+# gerçek bir kural yoktu, yani her `git add -A` ya da her şeyi otomatik
+# sahneleyen bir arayüz (ör. bir Git GUI'nin "Create PR" düğmesi) onu
+# sessizce commit'e sokabilirdi. 2026-09-14: bu araç kaydedildikten sonra
+# fark edildi.
+/Assets/unity-chan!/
+/Assets/unity-chan!.meta

@@ -161,7 +161,7 @@ public class RelayLobby : EOSLobby
     {
         if (!ServiceReady)
         {
-            onFailed?.Invoke("EOS hazır değil.");
+            onFailed?.Invoke(Localization.Get("EOS hazır değil."));
             return false;
         }
 
@@ -189,7 +189,7 @@ public class RelayLobby : EOSLobby
             return;
 
         string code = LobbyCode.NewRoomCode();
-        Pending pending = BeginRequest(onFailed, "Oda kurulamadı: EOS cevap vermedi.");
+        Pending pending = BeginRequest(onFailed, Localization.Get("Oda kurulamadı: EOS cevap vermedi."));
 
         CreateLobbySuccess success = null;
         CreateLobbyFailure failure = null;
@@ -246,7 +246,7 @@ public class RelayLobby : EOSLobby
             return;
 
         string display = code != null ? code.Trim().ToUpperInvariant() : string.Empty;
-        Pending pending = BeginRequest(onFailed, "Oda aranırken EOS cevap vermedi.");
+        Pending pending = BeginRequest(onFailed, Localization.Get("Oda aranırken EOS cevap vermedi."));
 
         FindLobbiesSuccess found = null;
         FindLobbiesFailure searchFailed = null;
@@ -256,7 +256,7 @@ public class RelayLobby : EOSLobby
             if (lobbies == null || lobbies.Count == 0)
             {
                 if (Claim(pending))
-                    onFailed?.Invoke($"{display} kodlu oda bulunamadı. Oda hâlâ açık mı?");
+                    onFailed?.Invoke(Localization.Format("{0} kodlu oda bulunamadı. Oda hâlâ açık mı?", display));
 
                 return;
             }
@@ -323,7 +323,7 @@ public class RelayLobby : EOSLobby
 
             if (string.IsNullOrEmpty(address))
             {
-                onFailed?.Invoke("Odaya girildi ama host adresi okunamadı.");
+                onFailed?.Invoke(Localization.Get("Odaya girildi ama host adresi okunamadı."));
                 return;
             }
 
@@ -388,7 +388,7 @@ public class RelayLobby : EOSLobby
         if (!EnsureReady(onFailed))
             return;
 
-        Pending pending = BeginRequest(onFailed, "Oda listesi alınamadı: EOS cevap vermedi.");
+        Pending pending = BeginRequest(onFailed, Localization.Get("Oda listesi alınamadı: EOS cevap vermedi."));
 
         FindLobbiesSuccess found = null;
         FindLobbiesFailure searchFailed = null;

@@ -190,7 +190,10 @@ public static class RevivalSetup
         if (!solid) Object.DestroyImmediate(go.GetComponent<Collider>());
         return go;
     }
-    private static void BuildStation(Transform parent, Vector3 position, string name, int number)
+    // internal + kökü döndürüyor: Tutorial Sahnesi Kur aynı kabini kendi
+    // girintisine koyup çeviriyor. Ana haritadaki çağrı dönüş değerini
+    // kullanmıyor, davranışı değişmedi.
+    internal static GameObject BuildStation(Transform parent, Vector3 position, string name, int number)
     {
         var root = new GameObject(name); root.transform.SetParent(parent); root.transform.position = position;
         // Açık ön yüz: giriş/çıkışı engelleyen kapı veya eşik yok.
@@ -230,5 +233,6 @@ public static class RevivalSetup
         var text = sign.AddComponent<TextMeshPro>(); text.font = TMP_Settings.defaultFontAsset;
         text.text = "DİRİLTME " + number; text.fontSize = 2.2f; text.alignment = TextAlignmentOptions.Center;
         text.rectTransform.sizeDelta = new Vector2(1.4f, 0.25f); text.color = new Color(0.4f, 1, 0.85f);
+        return root;
     }
 }

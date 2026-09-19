@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
@@ -41,6 +42,12 @@ public class RoundManager : NetworkBehaviour
     [Tooltip("Kaçanlar bu yarıçapta bir halkaya diziliyor (metre). Hepsini " +
         "aynı noktaya koymak karakterleri birbirini itmeye zorluyor.")]
     [SerializeField] private float runnerSpawnSpread = 1.6f;
+
+    [Tooltip("Tur başında botlar da doğum noktasına diziliyor mu. Varsayılan " +
+        "AÇIK: ana haritada test botları oyuncunun yanında başlıyor. Tutorial " +
+        "sahnesi KAPATIYOR: ölü eğitim botu kendi yerinde (diriltme kabininin " +
+        "önünde) kalmalı, oyuncuyla aynı noktaya konmamalı.")]
+    [SerializeField] private bool placeBotsAtRoundStart = true;
 
     [Tooltip("Canavar ile kaçanlar arasında beklenen en az mesafe (metre). " +
         "Altına düşülürse konsola uyarı yazılıyor — sessiz kalırsa sorun " +
@@ -93,6 +100,22 @@ public class RoundManager : NetworkBehaviour
     // Sunucuda tutulan gerçek liste. İstemcilerde boş kalır — istemcinin
     // katılımcıları taraması gerekmiyor, kendi durumunu SyncVar'dan öğreniyor.
     private readonly List<RoundParticipant> participants = new List<RoundParticipant>();
+
+    /// <summary>
+    /// Bu barındırma OTURUMU boyunca yasaklı bağlantı adresleri (bkz.
+    /// ServerKick). EOS'ta `NetworkConnection.address`, transport'un
+    /// `ServerGetClientAddress`'inden geliyor ve EOS için bu gerçekte
+    /// ProductUserId string'i — bölüm 13'ün kısa kod/oda listesi için zaten
+    /// güvendiği KALICI cihaz kimliğinin AYNISI (bkz. `Server.cs`
+    /// `ServerGetClientAddress`, doğrudan okunup doğrulandı). Yerel ağda
+    /// (KCP) düz IP.
+    ///
+    /// Sunucu kapanınca sıfırlanıyor, bilerek: istenen "aynı OTURUMDA tekrar
+    /// giremesin" (CLAUDE.md'nin kendi sözü) tam olarak bu — hesap bazlı,
+    /// oturumlar arası kalıcı bir ban ayrı ve bu proje için şimdilik gereksiz
+    /// bir iş olurdu (kalıcı kimlik doğrulaması, disk üzerinde bir liste vb.).
+    /// </summary>
+    private readonly HashSet<string> bannedAddresses = new HashSet<string>();
 
     [SyncVar] private RoundPhase phase = RoundPhase.Waiting;
     [SyncVar] private RoundResult result = RoundResult.None;
@@ -266,9 +289,14 @@ public class RoundManager : NetworkBehaviour
     /// Test: turu, sunucudaki yerel oyuncu kaçan olacak şekilde başlatır.
     /// Tek gerçek oyuncuyla oynarken canavar hep o seçilir (bot canavar
     /// olamıyor) ve elenemez; izleyici modunu tek başına denemenin yolu bu.
+    ///
+    /// **Public**, çünkü sunucu penceresindeki [2] tuşunun dışında artık
+    /// `TutorialBootstrap` de kullanıyor: tek kişilik tutorial sahnesinde
+    /// canavar diye biri yok, `forcedRunner` olmadan `PickMonster` tek
+    /// adayı (oyuncunun kendisi) canavar seçebilirdi.
     /// </summary>
     [Server]
-    private void StartRoundAsRunner()
+    public void StartRoundAsRunner()
     {
         forcedRunner = LocalParticipant();
         StartRound();
@@ -366,6 +394,19 @@ public class RoundManager : NetworkBehaviour
     {
         if (participant == null || participants.Contains(participant))
             return;
+
+        // Yasaklı biri tekrar bağlanmaya çalıştı. Mirror bağlantıyı zaten
+        // kabul etmiş ve oyuncu objesi spawn olmuş oluyor — burası ondan
+        // sonraki ilk ortak nokta (bkz. RoundParticipant.OnStartServer), yani
+        // ret için ayrı bir NetworkManager alt sınıfı gerekmiyor. Kayda hiç
+        // girmiyor, bağlantısı anında kesiliyor.
+        if (!participant.IsBot && participant.connectionToClient != null
+            && bannedAddresses.Contains(participant.connectionToClient.address))
+        {
+            Debug.Log($"{participant.DisplayName}: bu oturumda yasaklı, bağlantı kesildi.");
+            participant.connectionToClient.Disconnect();
+            return;
+        }
 
         participants.Add(participant);
         ServerRefreshHost();
@@ -568,6 +609,70 @@ public class RoundManager : NetworkBehaviour
         StartRound();
     }
 
+    /// <summary>
+    /// Oda sahibi bir oyuncuyu odadan çıkarıyor. `ban` true ise bağlantı
+    /// adresi bu barındırma OTURUMU boyunca yasaklanıyor (bkz.
+    /// `bannedAddresses`) — sunucu kapanana kadar geçerli, kalıcı/hesap
+    /// bazlı değil.
+    ///
+    /// Kendini atmak ve botu bu yoldan atmak anlamsız: bot zaten bağlantısı
+    /// olmayan bir katılımcı, kaldırmanın kendi yolu var (bölüm 7, sunucu
+    /// penceresi [5]).
+    ///
+    /// Standart Mirror yolu: bağlantıyı kesmek. `RoundParticipant.
+    /// OnStopServer` normal bir ayrılmayla AYNI temizlik zincirinden geçiyor
+    /// (ServerUnregister — aliveRunnerCount, gereken terminal sayısı,
+    /// canavarsa tur iptali, bölüm 11.1), burada ayrıca hiçbir şey
+    /// temizlemeye gerek yok.
+    /// </summary>
+    [Server]
+    public void ServerKick(RoundParticipant caller, uint targetNetId, bool ban)
+    {
+        if (!ServerIsHost(caller))
+        {
+            Debug.LogWarning($"{caller?.DisplayName}: oyuncu atma yetkisi yok.");
+            return;
+        }
+
+        RoundParticipant target = null;
+        for (int i = 0; i < participants.Count; i++)
+        {
+            if (participants[i] != null && participants[i].netId == targetNetId)
+            {
+                target = participants[i];
+                break;
+            }
+        }
+
+        if (target == null || target == caller || target.IsBot)
+            return;
+
+        NetworkConnectionToClient connection = target.connectionToClient;
+        if (connection == null)
+            return;
+
+        if (ban && !string.IsNullOrEmpty(connection.address))
+            bannedAddresses.Add(connection.address);
+
+        Debug.Log($"{caller.DisplayName}: {target.DisplayName} {(ban ? "yasaklandı" : "atıldı")}.");
+
+        // Atılan oyuncuya SEBEBİNİ bildiriyoruz, sonra bağlantıyı kesiyoruz —
+        // ikisi ters sırada olsaydı kovulan kişi "oda sahibi çıkmış olabilir"
+        // gibi YANLIŞ bir mesaj görürdü (LobbyNetwork.HandleDisconnected'ın
+        // varsayılanı budur). Aradaki kısa bekleme, TargetRpc'nin gerçekten
+        // gönderilmesine (Mirror bir sonraki ağ turunda yolluyor) bağlantıyı
+        // kapatmadan önce fırsat veriyor — hemen Disconnect() çağırsaydık
+        // mesaj hiç ulaşmayabilirdi.
+        target.ServerNotifyKicked(ban);
+        StartCoroutine(DisconnectAfterNotify(connection));
+    }
+
+    private static IEnumerator DisconnectAfterNotify(NetworkConnectionToClient connection)
+    {
+        yield return new WaitForSeconds(0.25f);
+        connection?.Disconnect();
+    }
+
     // ---------- Tur akışı ----------
 
     [Server]
@@ -760,6 +865,13 @@ public class RoundManager : NetworkBehaviour
         {
             RoundParticipant participant = participants[i];
             if (participant == null)
+                continue;
+
+            // Tutorial'da oyuncuyu HAVAYA fırlatan şey tam buydu: 3.2 m'lik tek
+            // şeritli koridorda halkadaki yer duvara çarpıyor (RunnerSlot), ölü
+            // eğitim botu da oyuncuyla AYNI noktaya konuyor ve iki
+            // CharacterController birbirini zeminin altına itiyordu.
+            if (participant.IsBot && !placeBotsAtRoundStart)
                 continue;
 
             if (participant.Role == RoundRole.Monster)

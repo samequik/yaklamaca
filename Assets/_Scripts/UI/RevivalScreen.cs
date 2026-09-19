@@ -202,18 +202,19 @@ public class RevivalScreen : MonoBehaviour
         barBack.color = dim * 0.5f;
         barFill.color = accent;
 
-        title.text = "DİRİLTME — " + (station.Body != null ? station.Body.VictimName : "KAÇAN");
+        title.text = Localization.Format("DİRİLTME — {0}",
+            station.Body != null ? station.Body.VictimName : Localization.Get("KAÇAN"));
         // Kural kişi bazlı (her kabin her kişiyi bir kez), yani "kalan hak"
         // diye bir sayı yok. Onun yerine kabinin bu turdaki geçmişi
         // yazıyor — makinenin kullanıldığını gösteren dürüst bir bilgi.
-        charges.text = "BU KABİN: " + station.RevivedCount + " DİRİLTME";
+        charges.text = Localization.Format("BU KABİN: {0} DİRİLTME", station.RevivedCount);
 
         cellRow.SetActive(locked);
 
         if (locked)
         {
-            big.text = "SİSTEM KİLİTLİ";
-            caption.text = "Diziliyi gir — ilerleme sıfırlandı";
+            big.text = Localization.Get("SİSTEM KİLİTLİ");
+            caption.text = Localization.Get("Diziliyi gir — ilerleme sıfırlandı");
 
             for (int i = 0; i < UnlockSteps; i++)
             {
@@ -231,17 +232,17 @@ public class RevivalScreen : MonoBehaviour
         {
             double left = System.Math.Max(0d, station.Deadline - Mirror.NetworkTime.time);
             big.text = "[ " + Key(station.Prompt) + " ]";
-            caption.text = $"{left:0.0} saniye içinde bas";
+            caption.text = Localization.Format("{0:0.0} saniye içinde bas", left);
         }
         else
         {
             big.text = $"{station.Remaining:0.0}";
-            caption.text = "YAŞAM DESTEĞİ ÇALIŞIYOR";
+            caption.text = Localization.Get("YAŞAM DESTEĞİ ÇALIŞIYOR");
         }
 
         barFill.rectTransform.anchorMax = new Vector2(station.Progress, 1f);
         hint.text = KeyBindings.Describe(KeyBindings.Get(GameAction.Interact))
-            + " ile bırak — bırakınca ilerleme sıfırlanır";
+            + Localization.Get(" ile bırak — bırakınca ilerleme sıfırlanır");
     }
 
     private void OnDestroy()

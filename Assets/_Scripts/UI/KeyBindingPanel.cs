@@ -150,7 +150,7 @@ public class KeyBindingPanel : MonoBehaviour
             if (row.keyLabel != null)
             {
                 row.keyLabel.SetText(i == listeningIndex
-                    ? "bir tuşa bas…"
+                    ? Localization.Get("bir tuşa bas…")
                     : KeyBindings.Describe(KeyBindings.Get(row.action)));
             }
 
@@ -160,9 +160,9 @@ public class KeyBindingPanel : MonoBehaviour
 
         if (hintLabel != null)
         {
-            hintLabel.SetText(listeningIndex >= 0
+            hintLabel.SetText(Localization.Get(listeningIndex >= 0
                 ? "Yeni tuşa bas. Vazgeçmek için Esc."
-                : "Değiştirmek istediğin tuşa tıkla. Tuş başkasındaysa ikisi yer değiştirir.");
+                : "Değiştirmek istediğin tuşa tıkla. Tuş başkasındaysa ikisi yer değiştirir."));
         }
     }
 }

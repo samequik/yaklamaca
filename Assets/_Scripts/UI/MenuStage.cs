@@ -170,10 +170,40 @@ public class MenuStage : MonoBehaviour
             basesCaptured = true;
         }
 
-        texture = new RenderTexture(textureWidth, textureHeight, 24)
+        // **Retro görünüm (bölüm 25): menü oyunla AYNI piksel boyunda.** Bir
+        // süre menü oyunun iki katı satırla, yani daha ince piksellerle
+        // çiziliyordu: oyun 3×3 ve 4×4 iken kullanıcı "ana menüdeki
+        // karakterler fazla pikselli" demişti. Sonra oyun için de 2×2'yi seçti
+        // ("İnce en iyisi, diğerleri çok pikselli") ve o gerekçe düştü: 2×2
+        // en ince düzgün seviye, bir altı pikselleme yok demek. Menü 1080p'de
+        // yine 2×2 — önceki turdaki görüntünün aynısı.
+        //
+        // Hesap `ScreenEffects`'te (tek kaynak), genişlik dokunun kendi 16:9
+        // oranından — `RawImage` onu ekrana zaten o oranda geriyor.
+        //
+        // Boy serileştirilmiş alanlarda DEĞİŞTİRİLMEDİ, burada çalışma anında
+        // seçiliyor: sahnede duran 1280×720 değerleri koddaki varsayılanı
+        // değiştirmekle güncellenmezdi (bölüm 16'daki tuzak). Retro dokusu
+        // normal dokudan büyük olmamalı; İnce'de retro yüksekliği her ekranda
+        // 405 ile 675 satır arasında, yani 720'lik şart hep tutuyor.
+        int width = textureWidth;
+        int height = textureHeight;
+        int retroHeight = ScreenEffects.RetroHeightFor(Screen.height);
+        bool retro = retroHeight > 0 && retroHeight <= textureHeight;
+
+        if (retro)
+        {
+            height = retroHeight;
+            width = Mathf.Max(1, Mathf.RoundToInt(retroHeight * (float)textureWidth / textureHeight));
+        }
+
+        texture = new RenderTexture(width, height, 24)
         {
             name = "MenuSahnesiDokusu",
-            antiAliasing = 2,
+            // Kenar yumuşatma retro'da KAPALI: iri piksellerin kenarını
+            // bulandırırdı. Nokta süzgeci de pikselleri büyütürken kare tutuyor.
+            antiAliasing = retro ? 1 : 2,
+            filterMode = retro ? FilterMode.Point : FilterMode.Bilinear,
             hideFlags = HideFlags.HideAndDontSave,
         };
 

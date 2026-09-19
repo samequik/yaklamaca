@@ -53,6 +53,12 @@ public class SpectatorController : MonoBehaviour
     [Tooltip("Hedef listesinin kaç saniyede bir yenileneceği. Her karede sahne taramak israf.")]
     [SerializeField] private float targetRefreshInterval = 0.5f;
 
+    [Tooltip("İzlenen kişinin dikey konumu bu sürede (sn) yumuşayarak izleniyor. " +
+        "Zıplama gibi hızlı bir sıçramada kamera aynı anda zıplamıyor — eğilme " +
+        "gibi yavaş, kalıcı değişiklikler yine takip ediliyor, sadece gecikmeli " +
+        "(oynanış geri bildirimi, 2026-09-14).")]
+    [SerializeField] private float pivotHeightSmoothTime = 0.35f;
+
     private readonly List<RoundParticipant> targets = new List<RoundParticipant>();
     private RoundParticipant self;
     private IMovementInputSource inputSource;
@@ -66,6 +72,11 @@ public class SpectatorController : MonoBehaviour
     private float orbitPitch;
     private float orbitDistance;
     private float defaultOrbitPitch;
+
+    // Pivotun dikey konumu SmoothDamp ile süzülüyor (bkz. FollowTarget).
+    private const float PivotHeightOffset = 1f;
+    private float smoothedPivotY;
+    private float pivotYVelocity;
 
     // İzleme başlamadan önceki kamera duruşu; bittiğinde geri konuyor.
     private Vector3 restLocalPosition;
@@ -172,6 +183,11 @@ public class SpectatorController : MonoBehaviour
     {
         orbitYaw = target.transform.eulerAngles.y;
         orbitPitch = defaultOrbitPitch;
+
+        // Yükseklik de ANINDA oturmalı — yoksa önceki hedeften yeni hedefe
+        // doğru yavaşça süzülen bir kamera ortaya çıkardı.
+        smoothedPivotY = target.transform.position.y + PivotHeightOffset;
+        pivotYVelocity = 0f;
     }
 
     private void UpdateOrbit()
@@ -237,7 +253,20 @@ public class SpectatorController : MonoBehaviour
 
     private void FollowTarget(RoundParticipant target)
     {
-        Vector3 pivot = target.transform.position + Vector3.up * 1f;
+        // Dikey konum SmoothDamp ile süzülüyor. Hedef zıplayınca pivot ANINDA
+        // onunla yükselseydi kamera da zıplıyormuş gibi görünüyordu (oynanış
+        // geri bildirimi, 2026-09-14) — üstelik varsayılan açı/mesafede
+        // hedeflenen kamera noktası tavana (3 m, bölüm 3) zaten yakın duruyor;
+        // zıplamayla oraya taşan pivot aşağıdaki ışını tavana çarptırıp
+        // kamerayı içeri fırlatıyordu ("duvara çarpıyor" şikâyeti buydu).
+        // Eğilme gibi yavaş/kalıcı bir değişiklik hâlâ takip ediliyor, yalnızca
+        // zıplama gibi hızlı sıçramalar süzülüyor.
+        float targetPivotY = target.transform.position.y + PivotHeightOffset;
+        smoothedPivotY = Mathf.SmoothDamp(
+            smoothedPivotY, targetPivotY, ref pivotYVelocity, pivotHeightSmoothTime);
+
+        Vector3 pivot = new Vector3(
+            target.transform.position.x, smoothedPivotY, target.transform.position.z);
 
         // Yörünge hedefin dönüşünü değil farenin açısını kullanıyor. Eskiden
         // offset hedefin rotasyonuyla çarpılıyordu; kamera arkasına yapışıktı ve

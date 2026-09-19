@@ -317,18 +317,19 @@ public class ExitLock : NetworkBehaviour, IInteractable
             return null;
 
         if (solved)
-            return "Çıkış açık";
+            return Localization.Get("Çıkış açık");
 
         if (!manager.ExitOpen)
-            return $"Kilitli — önce terminaller ({manager.CompletedTerminals}/{manager.RequiredTerminals})";
+            return Localization.Format("Kilitli — önce terminaller ({0}/{1})",
+                manager.CompletedTerminals, manager.RequiredTerminals);
 
         if (IsUsedByLocalPlayer)
-            return $"Bırak  ({entered}/{SequenceLength})";
+            return Localization.Format("Bırak  ({0}/{1})", entered, SequenceLength);
 
         if (IsBusy)
-            return "Meşgul";
+            return Localization.Get("Meşgul");
 
-        return "Çıkışı aç";
+        return Localization.Get("Çıkışı aç");
     }
 
     public void Interact(GameObject user)

@@ -160,7 +160,7 @@ public static class ObjectiveSetup
         return placed;
     }
 
-    private static void CreateTerminal(Transform parent, GameObject body,
+    internal static void CreateTerminal(Transform parent, GameObject body,
         Vector3 wallPoint, Vector3 normal, int index)
     {
         GameObject terminal = new GameObject($"Terminal_{index}");
@@ -699,7 +699,7 @@ public static class ObjectiveSetup
     /// numara): kutu 0.25 x 3 x 3.2 ölçekli, o ölçek altındaki kit gövdesini
     /// eziyor. Çarpışma hacmi değişmiyor.
     /// </summary>
-    private static void DressExitDoor(GameObject door, Vector3 outDirection, float cellSize)
+    internal static void DressExitDoor(GameObject door, Vector3 outDirection, float cellSize)
     {
         GameObject prefab = LoadKit("Walls/Wall BayDoor");
         if (prefab == null)
@@ -747,7 +747,7 @@ public static class ObjectiveSetup
     /// oturuyor. Yüzler `Wall Plain` ile giydiriliyor ki koridorlardan farklı
     /// durmasın.
     /// </summary>
-    private static void BuildVestibule(Transform gate, Vector3 center, Vector3 outDirection,
+    internal static void BuildVestibule(Transform gate, Vector3 center, Vector3 outDirection,
         float cellSize, float wallHeight)
     {
         Vector3 cross = Vector3.Cross(Vector3.up, outDirection).normalized;
@@ -944,7 +944,7 @@ public static class ObjectiveSetup
     /// Standard shader kullanan bir gösterge, rengi ne olursa olsun siyah
     /// görünüyor. TrailMarkSystem de aynı sebeple Sprites/Default kullanıyor.
     /// </summary>
-    private static Material GetOrCreateUnlitMaterial(string name, Color color)
+    internal static Material GetOrCreateUnlitMaterial(string name, Color color)
     {
         const string folder = "Assets/_Art/Materials";
         string path = $"{folder}/{name}.mat";

@@ -27,6 +27,12 @@ public class SettingsPanel : MonoBehaviour
     [Tooltip("Ters bakış düğmesinin yazısı; durumu üstünde gösteriyor.")]
     [SerializeField] private TMP_Text invertLabel;
 
+    [Header("Dil")]
+    [Tooltip("Dil düğmesinin yazısı; her zaman SEÇİLİ dilin kendi adıyla yazıyor " +
+        "(\"Language: English\" / \"Dil: Türkçe\") — oyuncu henüz İngilizce " +
+        "bilmiyorsa bile bu satırı tanıyabilmeli.")]
+    [SerializeField] private TMP_Text languageLabel;
+
     [Header("Korku efektleri")]
     [Tooltip("Vinyet, gren, bloom, sarsıntı ve parazitin ortak şiddeti " +
         "(bölüm 25). Kaydırıcı, açma/kapama değil: gren ve sarsıntı bazı " +
@@ -67,6 +73,7 @@ public class SettingsPanel : MonoBehaviour
         ApplySensitivity();
         ApplyHorror();
         RefreshInvert();
+        RefreshLanguage();
     }
 
     /// <summary>
@@ -89,9 +96,33 @@ public class SettingsPanel : MonoBehaviour
         if (horrorLabel != null)
         {
             horrorLabel.SetText(value <= 0.001f
-                ? "Korku efektleri: KAPALI"
-                : $"Korku efektleri: %{Mathf.RoundToInt(value * 100f)}");
+                ? Localization.Get("Korku efektleri: KAPALI")
+                : Localization.Format("Korku efektleri: %{0}", Mathf.RoundToInt(value * 100f)));
         }
+    }
+
+    /// <summary>
+    /// Dil düğmesi. Yazı her zaman seçili dilin KENDİ adıyla yazıyor, ortak
+    /// bir şablondan değil — oyuncu henüz İngilizce okuyamıyorsa bile
+    /// "Dil: Türkçe" satırını tanıyıp tıklayabilmeli.
+    /// </summary>
+    public void ToggleLanguage()
+    {
+        Localization.Current = Localization.Current == GameLanguage.English
+            ? GameLanguage.Turkish
+            : GameLanguage.English;
+
+        RefreshLanguage();
+    }
+
+    private void RefreshLanguage()
+    {
+        if (languageLabel == null)
+            return;
+
+        languageLabel.SetText(Localization.Current == GameLanguage.English
+            ? "Language: English"
+            : "Dil: Türkçe");
     }
 
     /// <summary>
@@ -112,7 +143,10 @@ public class SettingsPanel : MonoBehaviour
     private void RefreshInvert()
     {
         if (invertLabel != null)
-            invertLabel.SetText(PlayerProfile.InvertLook ? "Ters bakış: AÇIK" : "Ters bakış: kapalı");
+        {
+            invertLabel.SetText(Localization.Get(
+                PlayerProfile.InvertLook ? "Ters bakış: AÇIK" : "Ters bakış: kapalı"));
+        }
     }
 
     private void ApplyName(string value)
@@ -147,7 +181,7 @@ public class SettingsPanel : MonoBehaviour
             source.MouseSensitivity = value;
 
         if (sensitivityLabel != null)
-            sensitivityLabel.SetText("Fare hassasiyeti: {0:1}", value);
+            sensitivityLabel.SetText(Localization.Get("Fare hassasiyeti: {0:1}"), value);
     }
 
 }

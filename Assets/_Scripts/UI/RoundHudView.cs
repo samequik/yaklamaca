@@ -104,8 +104,8 @@ public class RoundHudView : MonoBehaviour
         lastProgressKey = key;
 
         terminalLabel.SetText(manager.ExitOpen
-            ? "ÇIKIŞ AÇIK"
-            : $"TERMİNAL  {manager.CompletedTerminals} / {manager.RequiredTerminals}");
+            ? Localization.Get("ÇIKIŞ AÇIK")
+            : Localization.Format("TERMİNAL  {0} / {1}", manager.CompletedTerminals, manager.RequiredTerminals));
     }
 
     private void UpdateStatusLine(RoundManager manager)
@@ -141,26 +141,27 @@ public class RoundHudView : MonoBehaviour
                         ? "..."
                         : Spectator.CurrentTargetName;
 
-                    return $"ELENDİN   —   İzlenen: {watching}   [Sol tık] değiştir" +
-                        $"   —   Kalan kaçan: {manager.AliveRunnerCount}";
+                    return Localization.Format(
+                        "ELENDİN   —   İzlenen: {0}   [Sol tık] değiştir   —   Kalan kaçan: {1}",
+                        watching, manager.AliveRunnerCount);
                 }
 
                 string role = Local == null ? string.Empty
-                    : Local.Role == RoundRole.Monster ? "CANAVARSIN"
-                    : Local.IsAlive ? "KAÇIYORSUN" : "ELENDİN";
+                    : Local.Role == RoundRole.Monster ? Localization.Get("CANAVARSIN")
+                    : Local.IsAlive ? Localization.Get("KAÇIYORSUN") : Localization.Get("ELENDİN");
 
-                return $"{role}   —   Kalan kaçan: {manager.AliveRunnerCount}";
+                return Localization.Format("{0}   —   Kalan kaçan: {1}", role, manager.AliveRunnerCount);
 
             case RoundPhase.Ended:
                 switch (manager.Result)
                 {
-                    case RoundResult.MonsterWins: return "CANAVAR KAZANDI";
-                    case RoundResult.RunnersWin: return "KAÇANLAR KURTULDU";
-                    default: return "CANAVAR OYUNDAN AYRILDI — tur iptal";
+                    case RoundResult.MonsterWins: return Localization.Get("CANAVAR KAZANDI");
+                    case RoundResult.RunnersWin: return Localization.Get("KAÇANLAR KURTULDU");
+                    default: return Localization.Get("CANAVAR OYUNDAN AYRILDI — tur iptal");
                 }
 
             default:
-                return "LOBİ   —   oyuncular bekleniyor";
+                return Localization.Get("LOBİ   —   oyuncular bekleniyor");
         }
     }
 

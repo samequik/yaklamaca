@@ -175,7 +175,7 @@ public class Corpse : NetworkBehaviour, IInteractable
     {
         victimNetId = victim;
         var player = Resolve(victim);
-        victimName = player != null ? player.DisplayName : "Kaçan";
+        victimName = player != null ? player.DisplayName : Localization.Get("Kaçan");
         costume = player != null ? player.RunnerCostume : 0;
     }
     public override void OnStartServer() { BuildVisual(); ApplyAuthority(); sync.Publish(); }
@@ -475,7 +475,9 @@ public class Corpse : NetworkBehaviour, IInteractable
     public string GetPrompt()
     {
         var local = NetworkClient.localPlayer != null ? NetworkClient.localPlayer.GetComponent<RoundParticipant>() : null;
-        return LivingRunner(local) && !IsHeld && CarriedBy(local) == null ? victimName + " — cesedi taşı" : null;
+        return LivingRunner(local) && !IsHeld && CarriedBy(local) == null
+            ? victimName + Localization.Get(" — cesedi taşı")
+            : null;
     }
     public void Interact(GameObject user) => CmdPickUp();
     [Command(requiresAuthority = false)]

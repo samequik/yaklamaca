@@ -285,7 +285,7 @@ public class SlidingDoor : Triggerable, IInteractable
         if (!allowDirectUse)
             return null;
 
-        return isOpen ? closePrompt : openPrompt;
+        return Localization.Get(isOpen ? closePrompt : openPrompt);
     }
 
     public void Interact(GameObject user)

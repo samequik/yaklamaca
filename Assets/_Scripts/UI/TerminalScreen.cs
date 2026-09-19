@@ -88,7 +88,7 @@ public class TerminalScreen : MonoBehaviour
             // Tuş her karede okunuyor: oyuncu atamayı değiştirirse ekrandaki
             // yazı da değişmeli.
             string key = KeyBindings.Describe(KeyBindings.Get(GameAction.Interact));
-            exitLabel.SetText($"[{key}] bırak");
+            exitLabel.SetText(Localization.Format("[{0}] bırak", key));
             exitLabel.color = Fade(accent, 0.55f);
         }
 

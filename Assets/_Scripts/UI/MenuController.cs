@@ -93,6 +93,15 @@ public class MenuController : MonoBehaviour
 
     private void Start()
     {
+        // `startScreen` None ise (tutorial sahnesi) isim ekranına DÜŞÜLMÜYOR:
+        // o panel orada hiç kurulmuyor ve `Show` boş referansı sessizce
+        // atlıyor — ekranda hiçbir şey görünmeden oyun duraklamış olurdu.
+        if (startScreen == Screen.None)
+        {
+            Show(Screen.None);
+            return;
+        }
+
         // Adını hiç girmemiş oyuncuya önce isim ekranı; girenler doğrudan menüye.
         Show(PlayerProfile.HasName ? startScreen : Screen.NameEntry);
     }
@@ -176,6 +185,15 @@ public class MenuController : MonoBehaviour
 
     public void ShowMain() => Show(Screen.Main);
     public void ShowLobby() => Show(Screen.Lobby);
+
+    /// <summary>
+    /// Ana menüdeki "NASIL OYNANIR" düğmesi. Tutorial kendi sahnesinde
+    /// (`TutorialScene`) yaşıyor ve kendi kendine bir host açıp tek kişilik
+    /// bir tur başlatıyor (bkz. `TutorialBootstrap`) — burada lobi/ağ
+    /// katmanına dokunmaya gerek yok, yalnızca sahneyi değiştiriyoruz.
+    /// </summary>
+    public void StartTutorial() =>
+        UnityEngine.SceneManagement.SceneManager.LoadScene("TutorialScene");
 
     /// <summary>
     /// Seçenekler. Nereden açıldığı hatırlanıyor ki GERİ ve Esc oraya dönsün —

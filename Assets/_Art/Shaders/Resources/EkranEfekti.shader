@@ -11,6 +11,14 @@
 // **Gren SIFIR ORTALAMALI** (n - 0.5). Ortalama parlaklığı değiştirmiyor,
 // yani bölüm 5'in "fenersiz görülmemeli" ölçütünü delmiyor. Gürültü
 // geometriyle ilişkisiz olduğu için karanlıkta bir şey de ele vermiyor.
+//
+// **Retro PSP görünümü (2026-09-19).** Bu geçiş artık DÜŞÜK çözünürlüklü bir
+// hedefe çiziliyor (1080p'de 960×540) ve `ScreenEffects` sonucu nokta
+// süzgeciyle ekrana büyütüyor. Yani her efekt büyük piksel başına bir kez
+// hesaplanıyor: gren de, renk azaltma deseni de piksellerle aynı boyda.
+// `_RetroSize` o hedefin boyu — piksel hesabı yapan her satır `_ScreenParams`
+// yerine onu kullanıyor, çünkü `_ScreenParams` KAMERANIN boyunu veriyor,
+// üstüne çizdiğimiz küçük hedefi değil.
 Shader "Yakalamaca/EkranEfekti"
 {
     Properties
@@ -29,6 +37,10 @@ Shader "Yakalamaca/EkranEfekti"
             CGPROGRAM
             #pragma vertex vert_img
             #pragma fragment frag
+            // 3.0: renk azaltma ve blok ortalaması komut sayısını artırdı;
+            // 2.5'in (varsayılan) sınırına takılmasın. Hedef PC olduğu için
+            // dışarıda kalan bir platform yok.
+            #pragma target 3.0
             #include "UnityCG.cginc"
 
             sampler2D _MainTex;
@@ -48,10 +60,83 @@ Shader "Yakalamaca/EkranEfekti"
             float _Bloom;          // parlak yerlerin taşma gücü
             float _BloomThreshold; // bu parlaklığın üstü taşıyor
             float _BloomRadius;    // taşmanın yarıçapı (UV)
+            float4 _RetroSize;     // çizilen hedefin boyu: xy = piksel, zw = 1/xy
+            float _RetroBlock;     // 1 = her büyük piksel kaynağın ORTALAMASI
+            float _ColorLevels;    // kanal başına renk seviyesi; 2'nin altı = kapalı
 
             float Noise(float2 p)
             {
                 return frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453);
+            }
+
+            // Kaynağı okur. Retro açıkken tek bir nokta değil, büyük pikselin
+            // kapladığı bloğun ORTALAMASI alınıyor: dört çift doğrusal örnek,
+            // bloğun dört çeyreğinde. 2× küçültmede (1080p) bu, bloktaki 4
+            // kaynak pikselin tam ortalaması; 4× küçültmede 16'sının.
+            //
+            // **Neden tek nokta değil.** Tek nokta gerçek bir düşük
+            // çözünürlüklü çizimin aynısı olurdu ama hızlı harekette (bölüm 1'in Source
+            // hızları) ince ayrıntılar — duvar derzleri, ızgaralar — her
+            // karede görünüp kaybolup kaynıyordu. Ortalama, pikselleri iri ve
+            // net bırakıp o kaynamayı sakinleştiriyor.
+            //
+            // İki dal da AYNI değişkene yazıyor, erken `return` yok: erken
+            // dönüşlü sürüm derleyicide "başlatılmamış değişken" uyarısı
+            // veriyordu (zararsız ama Unity konsolunda her açılışta görünürdü).
+            float3 SampleSource(float2 uv)
+            {
+                float3 col;
+
+                if (_RetroBlock > 0.5)
+                {
+                    float2 q = _RetroSize.zw * 0.25;
+
+                    col = (tex2D(_MainTex, uv + float2(-q.x, -q.y)).rgb
+                         + tex2D(_MainTex, uv + float2( q.x, -q.y)).rgb
+                         + tex2D(_MainTex, uv + float2(-q.x,  q.y)).rgb
+                         + tex2D(_MainTex, uv + float2( q.x,  q.y)).rgb) * 0.25;
+                }
+                else
+                {
+                    col = tex2D(_MainTex, uv).rgb;
+                }
+
+                return col;
+            }
+
+            // 2×2 Bayer değeri (0-3), p her eksende 0 ya da 1. Tamsayı bit
+            // işlemi yok: shader modeli 2.5'te de derlensin diye aritmetik.
+            float Bayer2(float2 p)
+            {
+                return 2.0 * p.x + 3.0 * p.y - 4.0 * p.x * p.y;
+            }
+
+            // 4×4 Bayer eşiği (0-1 arası, ortalaması 0.5). Sıralı titreşim
+            // (ordered dithering): eski konsolların 16-bit renk modunda
+            // gradyanların üstünde gördüğün düzenli ızgara desenini üreten şey.
+            float Bayer4(float2 pixel)
+            {
+                float2 p = fmod(pixel, 4.0);
+                float value = 4.0 * Bayer2(fmod(p, 2.0)) + Bayer2(floor(p * 0.5));
+                return (value + 0.5) / 16.0;
+            }
+
+            // Doğrusal ↔ gamma, TAM formül. Unity'nin hızlı sürümleri
+            // (`GammaToLinearSpace`) en karanlık tonlarda gerçek değerin
+            // yarısına kadar sapıyor — renk azaltma tam orada, siyaha yakın
+            // basamaklarda çalışıyor ve bu oyunda ekranın çoğu o tonlarda.
+            // Yaklaşık dönüşüm karanlık basamakları sessizce kısar, ortalama
+            // parlaklığı korumayan bir titreşim çıkardı.
+            float3 ToGamma(float3 c)
+            {
+                return float3(LinearToGammaSpaceExact(c.r),
+                    LinearToGammaSpaceExact(c.g), LinearToGammaSpaceExact(c.b));
+            }
+
+            float3 ToLinear(float3 c)
+            {
+                return float3(GammaToLinearSpaceExact(c.r),
+                    GammaToLinearSpaceExact(c.g), GammaToLinearSpaceExact(c.b));
             }
 
             // Tek geçişli bloom: eşiğin üstündeki parlaklığı çevreye yayıyor.
@@ -97,10 +182,11 @@ Shader "Yakalamaca/EkranEfekti"
                 float dist = length(centered) * 1.41421356;
 
                 // Pikselleme: UV'yi bloklara oturtuyor. Kapalıyken (_Pixelate
-                // <= 1) hiçbir maliyeti yok.
+                // <= 1) hiçbir maliyeti yok. Blok boyu çizilen HEDEFİN
+                // pikseliyle ölçülüyor (`_RetroSize`), ekranınkiyle değil.
                 if (_Pixelate > 1.0)
                 {
-                    float2 blocks = max(_ScreenParams.xy / _Pixelate, float2(1.0, 1.0));
+                    float2 blocks = max(_RetroSize.xy / _Pixelate, float2(1.0, 1.0));
                     uv = (floor(uv * blocks) + 0.5) / blocks;
                 }
 
@@ -126,13 +212,13 @@ Shader "Yakalamaca/EkranEfekti"
                 if (_Aberration > 0.00001)
                 {
                     float2 shift = centered * _Aberration * dist;
-                    col.r = tex2D(_MainTex, uv + shift).r;
-                    col.g = tex2D(_MainTex, uv).g;
-                    col.b = tex2D(_MainTex, uv - shift).b;
+                    col.r = SampleSource(uv + shift).r;
+                    col.g = SampleSource(uv).g;
+                    col.b = SampleSource(uv - shift).b;
                 }
                 else
                 {
-                    col = tex2D(_MainTex, uv).rgb;
+                    col = SampleSource(uv);
                 }
 
                 // **Kontrast, karanlık bir oyunda en çok işe yarayan ayar.**
@@ -147,7 +233,7 @@ Shader "Yakalamaca/EkranEfekti"
                 // lambaları zaten yükseltmiş oluyor, hale onun üstüne biniyor
                 // ve renk kaybı ikisine birden uygulanıyor.
                 if (_Bloom > 0.0001)
-                    col += BloomSample(uv, _ScreenParams.x / max(_ScreenParams.y, 1.0)) * _Bloom;
+                    col += BloomSample(uv, _RetroSize.x / max(_RetroSize.y, 1.0)) * _Bloom;
 
                 float grey = dot(col, float3(0.299, 0.587, 0.114));
                 col = lerp(col, float3(grey, grey, grey), saturate(_Desaturate));
@@ -167,10 +253,46 @@ Shader "Yakalamaca/EkranEfekti"
                 float lum = dot(col, float3(0.299, 0.587, 0.114));
                 float grainMask = saturate(lum / max(_GrainFloor, 0.0001));
 
-                float n = Noise(uv * _ScreenParams.xy + _GrainSeed);
+                float n = Noise(uv * _RetroSize.xy + _GrainSeed);
                 col += (n - 0.5) * _Grain * grainMask;
 
-                return fixed4(max(col, 0.0), 1.0);
+                col = max(col, 0.0);
+
+                // **Renk azaltma — eski konsolların 16-bit rengi.** Her kanal
+                // `_ColorLevels` basamağa iniyor (bugün 64 = kanal başına 6
+                // bit; PSP'nin kendi 16-bit rengi 32, yani 5 bit) ve
+                // basamaklar arası 4×4 Bayer deseniyle titreştiriliyor. Sisli
+                // gradyanlar pürüzsüz değil, ince bir ızgara desenli
+                // bantlarla sönüyor — PSP görünümünün ikinci yarısı bu.
+                //
+                // **GAMMA uzayında yapılıyor.** Proje Linear renk uzayında ve
+                // shader'daki değerler doğrusal; doğrusal uzayda eşit
+                // basamaklar karanlık tonları birkaç kaba basamağa yığardı —
+                // bu karanlık oyunda ekranın çoğu tam orası. Gerçek donanım
+                // da basamakları ekrana giden (gamma) değerde tutuyordu.
+                //
+                // Sıralı titreşim ORTALAMAYI korur: karanlık bir bölge ne
+                // aydınlanıyor ne kararıyor, yani bölüm 5'in "fenersiz
+                // görülmemeli" ölçütü olduğu gibi kalıyor.
+                //
+                // Desen, çizilen hedefin pikseline oturuyor (`_RetroSize`):
+                // büyük piksellerle aynı boyda, ekranın ince pikselinde değil.
+                if (_ColorLevels > 1.5)
+                {
+                    float steps = _ColorLevels - 1.0;
+                    float threshold = Bayer4(floor(input.uv * _RetroSize.xy));
+
+                    col = saturate(col);
+#if !defined(UNITY_COLORSPACE_GAMMA)
+                    col = ToGamma(col);
+#endif
+                    col = floor(col * steps + threshold) / steps;
+#if !defined(UNITY_COLORSPACE_GAMMA)
+                    col = ToLinear(col);
+#endif
+                }
+
+                return fixed4(col, 1.0);
             }
             ENDCG
         }

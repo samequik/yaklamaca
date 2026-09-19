@@ -41,7 +41,31 @@ public class Flashlight : NetworkBehaviour
         "kendi volumeScale parametresi burada.")]
     [SerializeField] private float toggleVolume = 0.5f;
 
-    /// <summary>Prefabtaki şiddet; titreme buna göre ölçekleniyor. -1 = daha okunmadı.</summary>
+    /// <summary>
+    /// Prefabtaki şiddetin çarpanı. 2026-09-19: retro görünüm gelince
+    /// kullanıcı "el fenerinin ışığı çok parlak, bloom mu ne fazla gibi" dedi.
+    /// Prefabta 2.6 → sahada 1.95.
+    ///
+    /// **Bloom'a değil fenere dokunuldu, bilerek.** Bloom eşikli (bölüm 25):
+    /// yalnızca 0.32'nin üstündeki parlaklık taşıyor. Fener kısılınca onun
+    /// aydınlattığı duvarlar eşiği daha az aşıyor, yani fenerin halesi de
+    /// kendiliğinden küçülüyor — ama lambaların halesi (kullanıcının
+    /// 2026-09-13'te ayarlattığı) hiç değişmiyor. Bloom'u kısmak ikisini
+    /// birden kısardı.
+    ///
+    /// **Sabit, serileştirilmiş alan değil.** Prefabtaki değeri değiştirmek
+    /// `Ağ Kurulumu` zincirini gerektirirdi (bölüm 7); serileştirilmiş bir
+    /// alan da sonraki ayarlarda koddaki değişikliği yutardı (bölüm 16).
+    ///
+    /// Canavarın huzmesi (1.4, `MonsterAura`) hâlâ fenerden sönük: bölüm 5'in
+    /// "huzme fenerden kısa ve sönük" kuralı korunuyor.
+    /// </summary>
+    private const float IntensityScale = 0.75f;
+
+    /// <summary>
+    /// Sahadaki taban şiddet (prefab × `IntensityScale`); titreme buna göre
+    /// ölçekleniyor. -1 = daha okunmadı.
+    /// </summary>
     private float baseIntensity = -1f;
     private RoundParticipant participant;
     [SerializeField] private bool startOn = true;
@@ -177,8 +201,11 @@ public class Flashlight : NetworkBehaviour
         if (spotLight == null || !spotLight.enabled)
             return;
 
+        // Bir kez, ışığa henüz hiç yazılmamışken okunuyor: prefabın değeri.
+        // Sonraki karelerde `spotLight.intensity` zaten ölçeklenmiş ya da
+        // titremiş oluyor, tekrar okunsaydı çarpan üst üste binerdi.
         if (baseIntensity < 0f)
-            baseIntensity = spotLight.intensity;
+            baseIntensity = spotLight.intensity * IntensityScale;
 
         if (participant == null)
             participant = GetComponent<RoundParticipant>();

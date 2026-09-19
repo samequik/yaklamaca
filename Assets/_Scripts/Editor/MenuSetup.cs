@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Mirror;
 using TMPro;
 using UnityEditor;
@@ -61,6 +62,15 @@ public static class MenuSetup
     private static readonly Color ButtonColor = AccentColor;
     private static readonly Color TextColor = new Color(0.93f, 0.89f, 0.87f, 1f);
 
+    // Mini harita (2026-09-14): sol üst köşe, sabit boyut.
+    private const float MinimapSize = 150f;
+    private const float MinimapMargin = 16f;
+    private const float MinimapWallDotSize = 4f;
+    private const float MinimapPlayerDotSize = 9f;
+    private static readonly Color MinimapBackgroundColor = new Color(0.03f, 0.03f, 0.04f, 0.78f);
+    private static readonly Color MinimapWallColor = new Color(0.55f, 0.52f, 0.50f, 1f);
+    private static readonly Color MinimapRunnerColor = new Color(0.30f, 0.85f, 0.40f, 1f);
+
     [MenuItem("Yakalamaca/Menü Kur")]
     private static void Build()
     {
@@ -110,7 +120,8 @@ public static class MenuSetup
         GameObject lobby = BuildLobbyPanel(canvasObject.transform, controller, network);
         GameObject joinLobby = BuildJoinLobbyPanel(canvasObject.transform, controller, network);
         GameObject characters = BuildCharacterPanel(canvasObject.transform, controller);
-        GameObject pause = BuildPausePanel(canvasObject.transform, controller, network);
+        GameObject pause = BuildPausePanel(canvasObject.transform, controller,
+            network.Leave, "ODADAN AYRIL");
 
         // HUD parçaları: MenuController'ın panel listesine GİRMİYORLAR, çünkü
         // ekran değiştikçe açılıp kapanmamaları gerekiyor. Canvas'ın çocuğu
@@ -179,6 +190,86 @@ public static class MenuSetup
             GameObjectUtility.RemoveMonoBehavioursWithMissingScript(manager.gameObject);
     }
 
+    /// <summary>
+    /// Tutorial sahnesinin küçük menüsü: oyun içi HUD (nişangah, tur satırları,
+    /// **terminal ve çıkış kilidi ekranları**), duraklatma, seçenekler, ses ve
+    /// tuş atamaları. `Tutorial Sahnesi Kur` çağırıyor.
+    ///
+    /// **Neden gerekliydi.** Terminal ve çıkış kilidi ekranları `OyunHud`'ın
+    /// çocuğu olarak kuruluyor (bölüm 20) ve tutorial sahnesinde hiç menü
+    /// canvas'ı yoktu: koridordaki gerçek terminale bağlanıyordun ama ekran
+    /// çizilmiyordu — "terminal ekranları gözükmüyor" şikâyeti tam olarak buydu.
+    /// Aynı eksik Esc'yi de açıklıyor: duraklatma menüsünü `MenuController`
+    /// açıyor ve o da bu canvas'ta duruyor.
+    ///
+    /// **Neden `Build()` çağrılmıyor.** O yapıcı isim, ana menü, lobi, katılma
+    /// ve karakter ekranlarını da kuruyor, canvas'a bir `LobbyNetwork` takıyor
+    /// ve `MenuStageSetup` ile arka plan sahnesini üretiyor. Tutorial'da oda
+    /// diye bir şey yok; üstelik `LobbyNetwork.TickPhase` tur bitince lobiyi
+    /// açmaya çalışır ve `TutorialBootstrap`'ın çıkış akışıyla çakışırdı.
+    /// Buradaki parçalar `Build()`'in kendi yapıcılarının AYNISI — ikinci bir
+    /// menü kodu yazılmadı, yalnızca gereken altısı çağrıldı.
+    /// </summary>
+    internal static MenuController BuildTutorialMenu(TutorialBootstrap bootstrap)
+    {
+        // `EnsureEventSystem` KULLANILMIYOR: o metot sahne ayırmıyor
+        // (`FindObjectOfType` bütün açık sahnelere bakıyor) ve tutorial aracı
+        // çalışırken SampleScene de açık — oradaki EventSystem'i bulup bu
+        // sahneyi olaysız bırakırdı. EventSystem'i olmayan bir canvas'ta hiçbir
+        // düğme tıklanamaz ve hata da yazmaz.
+        GameObject eventSystem = new GameObject("EventSystem");
+        eventSystem.AddComponent<EventSystem>();
+        eventSystem.AddComponent<StandaloneInputModule>();
+
+        GameObject canvasObject = CreateCanvas();
+        MenuController controller = canvasObject.AddComponent<MenuController>();
+
+        // Karartma: `MenuController.ApplyBackdrop` bunu "menü açık ve tur
+        // oynanmıyor" kuralıyla yönetiyor, yani tutorial'da duraklatınca
+        // arkada koridor görünmeye devam ediyor. İçindeki `MenuStage` sahne
+        // kökünü bulamayınca kendini sessizce kapatıyor (`MenuStage.OnEnable`),
+        // o yüzden `MenuStageSetup` burada çalıştırılmıyor.
+        GameObject backdrop = CreateBackdrop(canvasObject.transform);
+
+        BuildGameHud(canvasObject.transform, withMinimap: false);
+
+        GameObject settings = BuildSettingsPanel(canvasObject.transform, controller);
+        GameObject audio = BuildAudioPanel(canvasObject.transform, controller);
+        GameObject controls = BuildControlsPanel(canvasObject.transform, controller);
+
+        // Çıkış düğmesi `TutorialBootstrap.ReturnToMenu`'ya bağlanıyor: Esc
+        // artık koridordan ANINDA çıkmıyor, normal oyunda olduğu gibi
+        // duraklatma menüsü açılıyor ve çıkmak bir seçenek oluyor.
+        GameObject pause = BuildPausePanel(canvasObject.transform, controller,
+            bootstrap != null ? (UnityEngine.Events.UnityAction)bootstrap.ReturnToMenu : null,
+            "TUTORIAL'DAN ÇIK");
+
+        BuildVoiceHud(canvasObject.transform);
+        BuildScoreboard(canvasObject.transform);
+
+        // Lobi/katılma/karakter/isim ekranları YOK; `WireController` boş
+        // referansa dayanıklı (`SetActive` null kontrolü yapıyor).
+        WireController(controller, null, null, settings, audio, controls, null, null, null,
+            pause, backdrop);
+
+        // Menü KAPALI başlıyor. Ana menüde `Main` açılıyor ama burada oyun
+        // sahne açılır açılmaz başlıyor: ekranı bir panel kaplarsa oyuncu
+        // koridoru hiç görmezdi.
+        SerializedObject serialized = new SerializedObject(controller);
+        serialized.FindProperty("startScreen").enumValueIndex = (int)MenuController.Screen.None;
+        serialized.ApplyModifiedProperties();
+
+        // Kurulumdan sonra hepsi açık kalırsa Scene penceresinde üst üste
+        // binmiş paneller görünüyor; hangisinin açılacağına `MenuController`
+        // çalışma anında karar veriyor.
+        settings.SetActive(false);
+        audio.SetActive(false);
+        controls.SetActive(false);
+        pause.SetActive(false);
+
+        return controller;
+    }
+
     // ---------- Ekranlar ----------
 
     /// <summary>İlk girişte bir kez çıkan isim ekranı.</summary>
@@ -190,7 +281,7 @@ public static class MenuSetup
         CreateTitle(column, "YAKALAMACA");
         CreateSpacer(column, 10f);
 
-        CreateLabel(column, "Seni nasıl çağıralım?");
+        Loc(CreateLabel(column, "Seni nasıl çağıralım?"), "Seni nasıl çağıralım?");
         TMP_InputField nameField = CreateInputField(column, PlayerProfile.DefaultName);
         nameField.characterValidation = TMP_InputField.CharacterValidation.None;
         nameField.characterLimit = PlayerProfile.MaxNameLength;
@@ -199,11 +290,12 @@ public static class MenuSetup
             $"Boş bırakırsan \"{PlayerProfile.DefaultName}\" olursun. Sonradan Seçenekler'den değiştirebilirsin.");
         hint.fontSize = 17f;
         hint.color = new Color(0.6f, 0.6f, 0.66f, 1f);
+        Loc(hint, $"Boş bırakırsan \"{PlayerProfile.DefaultName}\" olursun. Sonradan Seçenekler'den değiştirebilirsin.");
 
         NameEntryPanel entry = panel.AddComponent<NameEntryPanel>();
 
         CreateSpacer(column, 14f);
-        AddButton(column, "DEVAM", entry.Confirm, AccentColor);
+        Loc(AddButton(column, "DEVAM", entry.Confirm, AccentColor), "DEVAM");
 
         SerializedObject serialized = new SerializedObject(entry);
         serialized.FindProperty("menu").objectReferenceValue = controller;
@@ -228,17 +320,19 @@ public static class MenuSetup
         // LOBİ KUR bilerek DOLU DEĞİL: ana menüde "sıradaki adım" diye tek bir
         // doğru yok — oda kurmak da katılmak da eşit derecede geçerli bir
         // başlangıç. Birini vurgulamak öbürünü ikincil gösteriyordu.
-        AddButton(column, "LOBİ KUR", network.HostLobby);
-        AddButton(column, "LOBİYE KATIL", controller.ShowJoinLobby);
-        AddButton(column, "KARAKTER", controller.ShowCharacters);
-        AddButton(column, "SEÇENEKLER", controller.ShowSettings);
-        AddButton(column, "ÇIKIŞ", controller.QuitGame);
+        Loc(AddButton(column, "LOBİ KUR", network.HostLobby), "LOBİ KUR");
+        Loc(AddButton(column, "LOBİYE KATIL", controller.ShowJoinLobby), "LOBİYE KATIL");
+        Loc(AddButton(column, "KARAKTER", controller.ShowCharacters), "KARAKTER");
+        Loc(AddButton(column, "NASIL OYNANIR", controller.StartTutorial), "NASIL OYNANIR");
+        Loc(AddButton(column, "SEÇENEKLER", controller.ShowSettings), "SEÇENEKLER");
+        Loc(AddButton(column, "ÇIKIŞ", controller.QuitGame), "ÇIKIŞ");
 
         CreateSpacer(column, 14f);
         TMP_Text hint = CreateLabel(column,
             "Lobi kurunca 7 harflik bir kod çıkar. Arkadaşın o kodu girerek katılır.");
         hint.fontSize = 16f;
         hint.color = new Color(0.6f, 0.6f, 0.66f, 1f);
+        Loc(hint, "Lobi kurunca 7 harflik bir kod çıkar. Arkadaşın o kodu girerek katılır.");
 
         return panel;
     }
@@ -248,10 +342,10 @@ public static class MenuSetup
         GameObject panel = CreatePanel("Panel_Secenekler", parent);
         Transform column = CreateColumn(panel.transform);
 
-        CreateTitle(column, "SEÇENEKLER");
+        Loc(CreateTitle(column, "SEÇENEKLER"), "SEÇENEKLER");
         CreateSpacer(column, 12f);
 
-        CreateLabel(column, "Oyuncu adı");
+        Loc(CreateLabel(column, "Oyuncu adı"), "Oyuncu adı");
         TMP_InputField nameField = CreateInputField(column, PlayerProfile.DefaultName);
         nameField.characterValidation = TMP_InputField.CharacterValidation.None;
         nameField.characterLimit = PlayerProfile.MaxNameLength;
@@ -266,6 +360,13 @@ public static class MenuSetup
         Button invertButton = AddButton(column, "Ters bakış: kapalı", settings.ToggleInvertLook);
         TMP_Text invertLabel = invertButton.GetComponentInChildren<TextMeshProUGUI>();
 
+        // Dil: EN/TR arası. Kendi adını kendi dilinde yazıyor (bkz.
+        // SettingsPanel.RefreshLanguage) — oyuncu henüz İngilizce
+        // bilmiyorsa bile "Dil: Türkçe" satırını tanıyabilmeli.
+        CreateSpacer(column, 10f);
+        Button languageButton = AddButton(column, "Language: English", settings.ToggleLanguage);
+        TMP_Text languageLabel = languageButton.GetComponentInChildren<TextMeshProUGUI>();
+
         // Korku efektleri (bölüm 25). Kaydırıcı, açma/kapama değil: gren ve
         // sarsıntı bazı oyuncuların gözünü yoruyor ama tamamen kapatmak oyunun
         // görünümünü de alıp götürüyor.
@@ -276,18 +377,19 @@ public static class MenuSetup
         // Ses ve tuşlar birer ALT EKRAN. Hepsi burada dururken ekran alt alta
         // sığmıyordu; seçenekler artık kategori kapısı.
         CreateSpacer(column, 14f);
-        AddButton(column, "SES", controller.ShowAudio);
+        Loc(AddButton(column, "SES", controller.ShowAudio), "SES");
         CreateSpacer(column, 10f);
-        AddButton(column, "TUŞ ATAMALARI", controller.ShowControls);
+        Loc(AddButton(column, "TUŞ ATAMALARI", controller.ShowControls), "TUŞ ATAMALARI");
 
         CreateSpacer(column, 12f);
 
         // ShowMain değil: seçenekler tur ortasındaki duraklatmadan da
         // açılabiliyor ve oraya dönmesi gerekiyor.
-        AddButton(column, "GERİ", controller.CloseSettings);
+        Loc(AddButton(column, "GERİ", controller.CloseSettings), "GERİ");
 
         SerializedObject serialized = new SerializedObject(settings);
         serialized.FindProperty("invertLabel").objectReferenceValue = invertLabel;
+        serialized.FindProperty("languageLabel").objectReferenceValue = languageLabel;
         serialized.FindProperty("sensitivitySlider").objectReferenceValue = sensitivitySlider;
         serialized.FindProperty("sensitivityLabel").objectReferenceValue = sensitivityLabel;
         serialized.FindProperty("nameField").objectReferenceValue = nameField;
@@ -329,7 +431,14 @@ public static class MenuSetup
         return group;
     }
 
-    private static void BuildGameHud(Transform parent)
+    /// <summary>
+    /// `withMinimap` yalnızca TUTORIAL için kapatılıyor. `BuildMinimap` duvar
+    /// konumlarını sahneden okuyor (`Harita`, `Harita_Genisleme_Guney`) ve
+    /// `Tutorial Sahnesi Kur` çalışırken SampleScene de açık kalıyor: gerçek
+    /// haritanın yüzlerce duvarı tutorial canvas'ına çizilirdi. Tutorial'ın
+    /// kendi düz koridorunun mini haritası da öğretecek bir şey taşımıyor.
+    /// </summary>
+    private static void BuildGameHud(Transform parent, bool withMinimap = true)
     {
         GameObject root = new GameObject("OyunHud", typeof(RectTransform));
         root.transform.SetParent(parent, false);
@@ -340,6 +449,9 @@ public static class MenuSetup
 
         BuildCrosshair(root.transform);
         BuildRoundLines(root.transform);
+
+        if (withMinimap)
+            BuildMinimap(root.transform);
 
         // Ekranlar en sonda: nişangahın ÜSTÜNDE çizilsinler. Zaten ikisi de
         // `PlayerInteractor.InputCaptured` sırasında açılıyor ve o anda
@@ -430,6 +542,167 @@ public static class MenuSetup
     }
 
     /// <summary>
+    /// Sol üst köşede sabit yönlü (Pac-Man tarzı, izlenen bakışla DÖNMEYEN)
+    /// kuş bakışı mini harita. Yalnızca KENDİ konumun gösteriliyor —
+    /// terminal/takım arkadaşı/ceset/canavar yeri YOK, bilerek (bkz.
+    /// `MiniMapView`'in sınıf yorumu — 2026-09-14'te tartışılan çok-rollü
+    /// fikrin en sade hâli).
+    ///
+    /// Gerçek bir üstten kamera + RenderTexture KURULMUYOR, bilerek: harita
+    /// tavanlı (bölüm 3, 3 m) — üstten bakan bir kamera tavanı görürdü.
+    /// Onun yerine duvar bloklarının GERÇEK dünya konumları sahneden
+    /// ÖLÇÜLÜP düz 2B kareler olarak çiziliyor; render maliyeti yok, tavan
+    /// sorunu hiç yok.
+    ///
+    /// Duvar araması `MazeExpansionSetup`'ın "Duvar_3_0 isim çakışması"
+    /// dersine uyuyor: `GameObject.Find` ile GLOBAL değil, bilinen bir köke
+    /// (`Harita`, `Harita_Genisleme_Guney`) kapsanmış `Transform.Find`
+    /// zinciriyle. Harita büyürse (yeni bir kanat gelirse) `Menü Kur`
+    /// yeniden çalıştırılınca sınırlar kendiliğinden güncellenir.
+    /// </summary>
+    private static void BuildMinimap(Transform parent)
+    {
+        List<Vector3> wallPositions = new List<Vector3>();
+        CollectWallPositions("Harita", wallPositions);
+        CollectWallPositions("Harita_Genisleme_Guney", wallPositions);
+
+        GameObject panel = new GameObject("MiniHarita", typeof(RectTransform), typeof(Image));
+        panel.transform.SetParent(parent, false);
+
+        RectTransform panelRect = panel.GetComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0f, 1f);
+        panelRect.anchorMax = new Vector2(0f, 1f);
+        panelRect.pivot = new Vector2(0f, 1f);
+        panelRect.anchoredPosition = new Vector2(MinimapMargin, -MinimapMargin);
+        panelRect.sizeDelta = new Vector2(MinimapSize, MinimapSize);
+
+        Image background = panel.GetComponent<Image>();
+        background.color = MinimapBackgroundColor;
+        background.raycastTarget = false;
+
+        AddFrame(panel.transform, AccentDim, 1.5f, 8f);
+
+        GameObject drawAreaObject = new GameObject("CizimAlani", typeof(RectTransform));
+        drawAreaObject.transform.SetParent(panel.transform, false);
+
+        RectTransform drawArea = drawAreaObject.GetComponent<RectTransform>();
+        drawArea.anchorMin = new Vector2(0.5f, 0.5f);
+        drawArea.anchorMax = new Vector2(0.5f, 0.5f);
+        drawArea.pivot = new Vector2(0.5f, 0.5f);
+        drawArea.anchoredPosition = Vector2.zero;
+        drawArea.sizeDelta = new Vector2(MinimapSize - 16f, MinimapSize - 16f);
+
+        ComputeWallBounds(wallPositions, out Vector2 worldMin, out Vector2 worldMax);
+
+        foreach (Vector3 wallPosition in wallPositions)
+            CreateMinimapWallDot(drawArea, wallPosition, worldMin, worldMax);
+
+        RectTransform selfDot = CreateMinimapSelfDot(drawArea, out Image selfDotImage);
+
+        MiniMapView view = panel.AddComponent<MiniMapView>();
+        SerializedObject serialized = new SerializedObject(view);
+        serialized.FindProperty("worldMin").vector2Value = worldMin;
+        serialized.FindProperty("worldMax").vector2Value = worldMax;
+        serialized.FindProperty("drawArea").objectReferenceValue = drawArea;
+        serialized.FindProperty("selfDot").objectReferenceValue = selfDot;
+        serialized.FindProperty("selfDotImage").objectReferenceValue = selfDotImage;
+        serialized.ApplyModifiedProperties();
+
+        if (wallPositions.Count == 0)
+        {
+            Debug.LogWarning("Mini Harita: hiç duvar bulunamadı — 'Harita' ya da " +
+                "'Harita_Genisleme_Guney' altında 'Duvarlar' grubu yok. Harita henüz " +
+                "kurulmadıysa önce Labirent Harita Kur, sonra Menü Kur'u tekrar çalıştır.");
+        }
+    }
+
+    /// <summary>
+    /// `rootName` altındaki `Duvarlar` grubunun çocuklarını tarar. Kapsam
+    /// bilinen bir köke bağlı — `GameObject.Find("Duvar_...")` gibi GLOBAL
+    /// bir arama yapmıyoruz, çünkü kanadın kendi duvarları da aynı adlandırma
+    /// şemasını (`Duvar_X_Z`) paylaşıyor (bölüm 0.1'in isim çakışması dersi).
+    /// Burada risk yok: ikisinden de TÜM duvarları istiyoruz, ama yine de
+    /// doğru köke kapsamak alışkanlığı bozmuyoruz.
+    /// </summary>
+    private static void CollectWallPositions(string rootName, List<Vector3> positions)
+    {
+        GameObject root = GameObject.Find(rootName);
+        if (root == null)
+            return;
+
+        Transform walls = root.transform.Find("Duvarlar");
+        if (walls == null)
+            return;
+
+        foreach (Transform wall in walls)
+        {
+            if (wall.name.StartsWith("Duvar_"))
+                positions.Add(wall.position);
+        }
+    }
+
+    /// <summary>Bütün duvarları kapsayan sınır kutusu, yarım hücre payla.</summary>
+    private static void ComputeWallBounds(List<Vector3> positions, out Vector2 min, out Vector2 max)
+    {
+        if (positions.Count == 0)
+        {
+            min = new Vector2(-10f, -10f);
+            max = new Vector2(10f, 10f);
+            return;
+        }
+
+        float minX = float.MaxValue, maxX = float.MinValue;
+        float minZ = float.MaxValue, maxZ = float.MinValue;
+
+        foreach (Vector3 position in positions)
+        {
+            minX = Mathf.Min(minX, position.x);
+            maxX = Mathf.Max(maxX, position.x);
+            minZ = Mathf.Min(minZ, position.z);
+            maxZ = Mathf.Max(maxZ, position.z);
+        }
+
+        float pad = MazeMapBuilder.CellSize * 0.5f;
+        min = new Vector2(minX - pad, minZ - pad);
+        max = new Vector2(maxX + pad, maxZ + pad);
+    }
+
+    private static void CreateMinimapWallDot(RectTransform drawArea, Vector3 worldPosition,
+        Vector2 worldMin, Vector2 worldMax)
+    {
+        GameObject dot = new GameObject("Duvar", typeof(RectTransform), typeof(Image));
+        dot.transform.SetParent(drawArea, false);
+
+        Image image = dot.GetComponent<Image>();
+        image.color = MinimapWallColor;
+        image.raycastTarget = false;
+
+        RectTransform rect = dot.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(MinimapWallDotSize, MinimapWallDotSize);
+        rect.anchoredPosition = MiniMapView.WorldToMapPoint(worldPosition, worldMin, worldMax, drawArea.rect.size);
+    }
+
+    private static RectTransform CreateMinimapSelfDot(RectTransform drawArea, out Image selfDotImage)
+    {
+        GameObject dot = new GameObject("KendiKonumum", typeof(RectTransform), typeof(Image));
+        dot.transform.SetParent(drawArea, false);
+
+        selfDotImage = dot.GetComponent<Image>();
+        selfDotImage.color = MinimapRunnerColor;
+        selfDotImage.raycastTarget = false;
+
+        RectTransform rect = dot.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(MinimapPlayerDotSize, MinimapPlayerDotSize);
+        rect.anchoredPosition = Vector2.zero;
+
+        return rect;
+    }
+
+    /// <summary>
     /// Terminal ekranı: koyu gövde, ince çerçeve, ortada büyük yazı ve çubuk.
     ///
     /// Tek panel beş terminale hizmet ediyor — hareket kilitli olduğu için aynı
@@ -515,6 +788,7 @@ public static class MenuSetup
 
         title.SetText("Ç I K I Ş   K İ L İ D İ");
         title.color = accent;
+        Loc(title, "Ç I K I Ş   K İ L İ D İ");
 
         const int count = ExitLock.SequenceLength;
         ExitLockScreen.Cell[] cells = new ExitLockScreen.Cell[count];
@@ -789,7 +1063,7 @@ public static class MenuSetup
         GameObject panel = CreatePanel("Panel_Ses", parent);
         Transform column = CreateColumn(panel.transform, 560f);
 
-        CreateTitle(column, "SES");
+        Loc(CreateTitle(column, "SES"), "SES");
         CreateSpacer(column, 10f);
 
         AudioPanel audio = panel.AddComponent<AudioPanel>();
@@ -798,7 +1072,7 @@ public static class MenuSetup
         Slider volumeSlider = CreateSlider(column);
 
         CreateSpacer(column, 14f);
-        CreateLabel(column, "SESLİ SOHBET").color = AccentColor;
+        Loc(CreateLabel(column, "SESLİ SOHBET"), "SESLİ SOHBET").color = AccentColor;
 
         Button enabledButton = AddButton(column, "Sesli sohbet: AÇIK", audio.ToggleVoiceEnabled);
         TMP_Text enabledLabel = enabledButton.GetComponentInChildren<TextMeshProUGUI>();
@@ -825,7 +1099,7 @@ public static class MenuSetup
         Slider voiceVolumeSlider = CreateSlider(column);
 
         CreateSpacer(column, 12f);
-        AddButton(column, "GERİ", controller.CloseAudio);
+        Loc(AddButton(column, "GERİ", controller.CloseAudio), "GERİ");
 
         SerializedObject serialized = new SerializedObject(audio);
         serialized.FindProperty("volumeSlider").objectReferenceValue = volumeSlider;
@@ -988,7 +1262,7 @@ public static class MenuSetup
 
         Transform column = CreateColumn(box.transform, 760f, framed: false);
 
-        CreateTitle(column, "OYUNCULAR").fontSize = 38f;
+        Loc(CreateTitle(column, "OYUNCULAR"), "OYUNCULAR").fontSize = 38f;
         CreateSpacer(column, 8f);
 
         CanvasGroup group = AddVisibilityGroup(panel, false);
@@ -1105,7 +1379,7 @@ public static class MenuSetup
         GameObject panel = CreatePanel("Panel_Tuslar", parent);
         Transform column = CreateColumn(panel.transform, 620f);
 
-        CreateTitle(column, "TUŞ ATAMALARI").fontSize = 40f;
+        Loc(CreateTitle(column, "TUŞ ATAMALARI"), "TUŞ ATAMALARI").fontSize = 40f;
         CreateSpacer(column, 8f);
 
         KeyBindingPanel bindings = panel.AddComponent<KeyBindingPanel>();
@@ -1122,8 +1396,8 @@ public static class MenuSetup
         hint.color = new Color(0.6f, 0.6f, 0.66f, 1f);
 
         CreateSpacer(column, 8f);
-        AddButton(column, "VARSAYILANA DÖN", bindings.ResetToDefaults);
-        AddButton(column, "GERİ", bindings.Close);
+        Loc(AddButton(column, "VARSAYILANA DÖN", bindings.ResetToDefaults), "VARSAYILANA DÖN");
+        Loc(AddButton(column, "GERİ", bindings.Close), "GERİ");
 
         SerializedObject serialized = new SerializedObject(bindings);
         serialized.FindProperty("menu").objectReferenceValue = controller;
@@ -1227,7 +1501,7 @@ public static class MenuSetup
         GameObject panel = CreatePanel("Panel_Lobi", parent);
         Transform column = CreateColumn(panel.transform, 720f);
 
-        CreateTitle(column, "LOBİ").fontSize = 46f;
+        Loc(CreateTitle(column, "LOBİ"), "LOBİ").fontSize = 46f;
 
         LobbyPanel lobby = panel.AddComponent<LobbyPanel>();
         LobbyRoster roster = panel.AddComponent<LobbyRoster>();
@@ -1249,6 +1523,7 @@ public static class MenuSetup
         codeLabel.overflowMode = TextOverflowModes.Ellipsis;
 
         Button copyButton = AddRowButton(codeRow, "KOPYALA", lobby.CopyCode, 0.25f);
+        Loc(copyButton, "KOPYALA");
 
         // Düğmeye taban genişlik: esnek pay tek başına yetmiyor, uzun metin
         // satırın tamamını isteyince düğme dikey bir şeride dönüşüyordu.
@@ -1270,7 +1545,7 @@ public static class MenuSetup
         // Karakter seçimi lobiden de açılıyor: oyuncu odaya girdikten sonra
         // kostüm değiştirmek isterse ana menüye dönmek bağlantıyı koparmak
         // olurdu. Seçim anında kadroya yansıyor (RoundParticipant.PushCostume).
-        AddButton(column, "KARAKTER", controller.ShowCharacters);
+        Loc(AddButton(column, "KARAKTER", controller.ShowCharacters), "KARAKTER");
 
         Button readyButton = AddButton(column, "HAZIRIM", lobby.ToggleReady);
         TMP_Text readyLabel = readyButton.GetComponentInChildren<TextMeshProUGUI>();
@@ -1284,7 +1559,7 @@ public static class MenuSetup
         statusLabel.color = new Color(0.66f, 0.66f, 0.72f, 1f);
 
         CreateSpacer(column, 6f);
-        AddButton(column, "AYRIL", lobby.Leave);
+        Loc(AddButton(column, "AYRIL", lobby.Leave), "AYRIL");
 
         SerializedObject serialized = new SerializedObject(lobby);
         serialized.FindProperty("network").objectReferenceValue = network;
@@ -1307,6 +1582,10 @@ public static class MenuSetup
             element.FindPropertyRelative("background").objectReferenceValue = slots[i].background;
             element.FindPropertyRelative("nameLabel").objectReferenceValue = slots[i].nameLabel;
             element.FindPropertyRelative("statusLabel").objectReferenceValue = slots[i].statusLabel;
+            element.FindPropertyRelative("kickButton").objectReferenceValue = slots[i].kickButton;
+            element.FindPropertyRelative("kickLabel").objectReferenceValue = slots[i].kickLabel;
+            element.FindPropertyRelative("banButton").objectReferenceValue = slots[i].banButton;
+            element.FindPropertyRelative("banLabel").objectReferenceValue = slots[i].banLabel;
         }
 
         serialized.ApplyModifiedProperties();
@@ -1314,7 +1593,14 @@ public static class MenuSetup
         return panel;
     }
 
-    /// <summary>Kadro satırı: solda isim, sağda durum (HAZIR / bekliyor / CANAVAR).</summary>
+    /// <summary>
+    /// Kadro satırı: isim, durum (HAZIR / bekliyor / CANAVAR), AT ve YASAKLA.
+    ///
+    /// Son ikisinin hedefi (hangi oyuncu) ancak ÇALIŞMA ANINDA, o an bu
+    /// satırda kim olduğuna göre belli oluyor — burada yalnızca DÜĞMENİN
+    /// kendisi kuruluyor, tıklama eylemi `LobbyPanel.ApplyKickControls`'a
+    /// bırakılıyor (bkz. CreateAnchoredButton).
+    /// </summary>
     private static LobbyPanel.SlotView CreateSlotRow(Transform parent)
     {
         GameObject row = new GameObject("Satir_Oyuncu", typeof(RectTransform), typeof(Image));
@@ -1322,10 +1608,18 @@ public static class MenuSetup
         row.GetComponent<Image>().color = new Color(0.10f, 0.10f, 0.13f, 1f);
 
         TMP_Text nameLabel = CreateAnchoredText(row.transform, "Ad", "— boş —", 22f,
-            TextAlignmentOptions.Left, new Vector2(0f, 0f), new Vector2(0.68f, 1f), 16f);
+            TextAlignmentOptions.Left, new Vector2(0f, 0f), new Vector2(0.42f, 1f), 16f);
 
-        TMP_Text statusLabel = CreateAnchoredText(row.transform, "Durum", string.Empty, 18f,
-            TextAlignmentOptions.Right, new Vector2(0.68f, 0f), new Vector2(1f, 1f), 16f);
+        TMP_Text statusLabel = CreateAnchoredText(row.transform, "Durum", string.Empty, 17f,
+            TextAlignmentOptions.Right, new Vector2(0.42f, 0f), new Vector2(0.60f, 1f), 10f);
+
+        Button kickButton = CreateAnchoredButton(row.transform, "Buton_At", "AT",
+            new Vector2(0.60f, 0f), new Vector2(0.80f, 1f), 4f, primary: false);
+        Loc(kickButton, "AT");
+
+        Button banButton = CreateAnchoredButton(row.transform, "Buton_Yasakla", "YASAKLA",
+            new Vector2(0.80f, 0f), new Vector2(1f, 1f), 4f, primary: true);
+        Loc(banButton, "YASAKLA");
 
         SetPreferredHeight(row, 40f);
 
@@ -1333,7 +1627,11 @@ public static class MenuSetup
         {
             background = row.GetComponent<Image>(),
             nameLabel = nameLabel,
-            statusLabel = statusLabel
+            statusLabel = statusLabel,
+            kickButton = kickButton,
+            kickLabel = kickButton.GetComponentInChildren<TextMeshProUGUI>(),
+            banButton = banButton,
+            banLabel = banButton.GetComponentInChildren<TextMeshProUGUI>()
         };
     }
 
@@ -1343,10 +1641,10 @@ public static class MenuSetup
         GameObject panel = CreatePanel("Panel_LobiyeKatil", parent);
         Transform column = CreateColumn(panel.transform);
 
-        CreateTitle(column, "LOBİYE KATIL");
+        Loc(CreateTitle(column, "LOBİYE KATIL"), "LOBİYE KATIL");
         CreateSpacer(column, 12f);
 
-        CreateLabel(column, "Arkadaşının verdiği kodu gir");
+        Loc(CreateLabel(column, "Arkadaşının verdiği kodu gir"), "Arkadaşının verdiği kodu gir");
         TMP_InputField codeField = CreateInputField(column, "KOD YA DA IP ADRESİ");
 
         // Alan dört biçimi birden almak zorunda ve en uzunu sınırı belirliyor:
@@ -1368,7 +1666,7 @@ public static class MenuSetup
         JoinLobbyPanel join = panel.AddComponent<JoinLobbyPanel>();
 
         CreateSpacer(column, 14f);
-        AddButton(column, "KATIL", join.Join, AccentColor);
+        Loc(AddButton(column, "KATIL", join.Join, AccentColor), "KATIL");
 
         CreateSpacer(column, 8f);
         TMP_Text statusLabel = CreateLabel(column, string.Empty);
@@ -1382,6 +1680,7 @@ public static class MenuSetup
         TMP_Text listHeader = CreateLabel(column, "AÇIK ODALAR");
         listHeader.fontSize = 20f;
         listHeader.color = AccentColor;
+        Loc(listHeader, "AÇIK ODALAR");
 
         Button refreshButton = AddButton(column, "ODALARI YENİLE", join.RefreshRooms);
         TMP_Text refreshLabel = refreshButton.GetComponentInChildren<TextMeshProUGUI>();
@@ -1391,7 +1690,7 @@ public static class MenuSetup
             roomRows[i] = CreateRoomRow(column, join, i);
 
         CreateSpacer(column, 10f);
-        AddButton(column, "GERİ", controller.ShowMain);
+        Loc(AddButton(column, "GERİ", controller.ShowMain), "GERİ");
 
         SerializedObject serialized = new SerializedObject(join);
         serialized.FindProperty("network").objectReferenceValue = network;
@@ -1490,7 +1789,7 @@ public static class MenuSetup
 
         CharacterSelectPanel select = panel.AddComponent<CharacterSelectPanel>();
 
-        CreateTitle(column, "KARAKTER").fontSize = 42f;
+        Loc(CreateTitle(column, "KARAKTER"), "KARAKTER").fontSize = 42f;
         CreateSpacer(column, 10f);
 
         Button roleButton = AddButton(column, "KAÇAN KOSTÜMÜ", select.ToggleRole);
@@ -1515,7 +1814,7 @@ public static class MenuSetup
 
         // ShowMain değil: ekran hem ana menüden hem lobiden açılıyor ve
         // lobiden girip ana menüye düşmek odayı ekrandan kaybetmek olurdu.
-        AddButton(column, "GERİ", controller.CloseCharacters);
+        Loc(AddButton(column, "GERİ", controller.CloseCharacters), "GERİ");
 
         SerializedObject serialized = new SerializedObject(select);
         serialized.FindProperty("roleLabel").objectReferenceValue = roleLabel;
@@ -1529,22 +1828,37 @@ public static class MenuSetup
         return panel;
     }
 
+    /// <summary>
+    /// Duraklatma ekranı.
+    ///
+    /// **Ayrılma düğmesinin ne yapacağı ÇAĞIRANDAN geliyor**, çünkü aynı ekran
+    /// iki sahnede kullanılıyor: ana oyunda odadan ayrılmak
+    /// (`LobbyNetwork.Leave`), tutorial'da koridoru bırakıp ana menüye dönmek
+    /// (`TutorialBootstrap.ReturnToMenu`). Oyuncu için ikisi de "buradan çık";
+    /// iki ayrı duraklatma ekranı kurmak aynı paneli iki yerde tutmak olurdu.
+    /// </summary>
     private static GameObject BuildPausePanel(Transform parent, MenuController controller,
-        LobbyNetwork network)
+        UnityEngine.Events.UnityAction leaveAction, string leaveLabel)
     {
         GameObject panel = CreatePanel("Panel_Duraklat", parent);
         Transform column = CreateColumn(panel.transform);
 
-        CreateTitle(column, "DURAKLATILDI");
+        Loc(CreateTitle(column, "DURAKLATILDI"), "DURAKLATILDI");
         CreateSpacer(column, 18f);
 
-        AddButton(column, "DEVAM ET", controller.CloseMenu, AccentColor);
-        AddButton(column, "SEÇENEKLER", controller.ShowSettings);
+        Loc(AddButton(column, "DEVAM ET", controller.CloseMenu, AccentColor), "DEVAM ET");
+        Loc(AddButton(column, "SEÇENEKLER", controller.ShowSettings), "SEÇENEKLER");
 
         // Ana menüye dönmek artık bağlantıyı da koparıyor. Eskiden yalnızca
         // ekran değiştiriyordu; ağ oyununda bu, oyuncunun turda kalmaya devam
         // ettiği ama ekranını göremediği bir hayalet duruma yol açardı.
-        AddButton(column, "ODADAN AYRIL", network.Leave);
+        //
+        // Eylem yoksa düğme HİÇ kurulmuyor: `AddButton` kalıcı dinleyiciyi
+        // `UnityEventTools` ile ekliyor ve null bir eylem orada istisna atardı.
+        // Basılabilir görünüp hiçbir şey yapmayan bir düğme de "bozuk" diye
+        // okunurdu (bölüm 19'un gri kaydırıcı dersi).
+        if (leaveAction != null)
+            Loc(AddButton(column, leaveLabel, leaveAction), leaveLabel);
 
         return panel;
     }
@@ -1816,6 +2130,36 @@ public static class MenuSetup
         return button;
     }
 
+    /// <summary>
+    /// Baked bir yazıya dil anahtarı bağlar (bkz. LocalizedText). Yalnızca
+    /// ÇALIŞMA ANINDA hiç değişmeyen başlık/düğme yazılarına eklenmeli —
+    /// bir Panel scripti kendi Refresh()'inde zaten üstüne yazan bir yazıya
+    /// eklenirse ikisi çakışır, hangisinin kazandığı çalıştırma sırasına
+    /// bağlı kalırdı. Bu yüzden her çağrı çağıran tarafta BİLEREK tek tek
+    /// seçildi, CreateLabel/AddButton'a otomatik eklenmedi.
+    /// </summary>
+    /// <summary>
+    /// `TMP_Text`'i geri döndürüyor, bilerek: çağıranların çoğu
+    /// `CreateTitle(...)`'ın döndürdüğü referansa `.fontSize`/`.color` gibi
+    /// bir özellik daha yazıyor (`Loc(CreateTitle(...), "...").fontSize = X`).
+    /// `void` dönseydi bu zincirleme derlenmezdi.
+    /// </summary>
+    private static TMP_Text Loc(TMP_Text label, string key)
+    {
+        if (label == null)
+            return label;
+
+        LocalizedText localized = label.gameObject.AddComponent<LocalizedText>();
+        localized.key = key;
+        return label;
+    }
+
+    private static Button Loc(Button button, string key)
+    {
+        Loc(button != null ? button.GetComponentInChildren<TMP_Text>(true) : null, key);
+        return button;
+    }
+
     private static Slider CreateSlider(Transform parent)
     {
         GameObject sliderObject = new GameObject("Kaydirici", typeof(RectTransform), typeof(Slider));
@@ -1950,6 +2294,66 @@ public static class MenuSetup
         element.flexibleWidth = widthWeight;
 
         button.GetComponentInChildren<TextMeshProUGUI>().fontSize = 18f;
+        return button;
+    }
+
+    /// <summary>
+    /// Kadro satırındaki AT/YASAKLA gibi küçük düğmeler için. `AddButton`'ın
+    /// aksine satırın kendi oranına (`anchorMin`/`anchorMax`) oturuyor ve
+    /// sabit yükseklik ZORLAMIYOR — satır zaten tek bir 40 piksellik
+    /// yüksekliğe sahip, `SetPreferredHeight`'ın 52'si oraya sığmazdı.
+    ///
+    /// Tıklama eylemini KENDİSİ bağlamıyor, bilerek: bu düğmelerin hedefi
+    /// (hangi oyuncu) ancak ÇALIŞMA ANINDA, o an bu satırda kim olduğuna göre
+    /// belli oluyor — `AddButton`'ın `UnityEventTools.AddPersistentListener`
+    /// ile kurduğu kalıcı (editör zamanı, sabit bir metoda bağlı) dinleyici
+    /// bunun için uygun değil. `LobbyPanel.ApplyKickControls` her tazelemede
+    /// kendi `onClick.AddListener`'ını takıyor.
+    ///
+    /// Renk/durum mantığı `AddButton`'la BİREBİR aynı (bkz. oradaki yorum):
+    /// gövde gerçek rengi taşıyor, `ColorBlock` yalnızca parlaklık veriyor.
+    /// `primary` burada "daha ciddi eylem" anlamına geliyor (YASAKLA), tıpkı
+    /// `AddButton`'da "sıradaki adım" anlamına geldiği gibi (bölüm 18'in
+    /// "dolu düğme = vurgu" deseni).
+    /// </summary>
+    private static Button CreateAnchoredButton(Transform parent, string name, string text,
+        Vector2 anchorMin, Vector2 anchorMax, float padding, bool primary)
+    {
+        GameObject buttonObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        buttonObject.transform.SetParent(parent, false);
+
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = anchorMin;
+        rect.anchorMax = anchorMax;
+        rect.offsetMin = new Vector2(padding, 5f);
+        rect.offsetMax = new Vector2(-padding, -5f);
+
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = primary ? AccentColor : AccentDim;
+
+        GameObject labelObject = new GameObject("Yazi", typeof(RectTransform), typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(buttonObject.transform, false);
+        Stretch(labelObject.GetComponent<RectTransform>());
+
+        TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.text = text;
+        label.fontSize = 14f;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        label.color = primary ? new Color(0.08f, 0.04f, 0.03f, 1f) : AccentLight;
+
+        Button button = buttonObject.GetComponent<Button>();
+        button.targetGraphic = image;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = primary ? new Color(0.92f, 0.92f, 0.92f) : new Color(0.85f, 0.80f, 0.80f);
+        colors.highlightedColor = Color.white;
+        colors.pressedColor = primary ? new Color(0.68f, 0.68f, 0.68f) : new Color(0.60f, 0.55f, 0.55f);
+        colors.selectedColor = colors.normalColor;
+        colors.disabledColor = new Color(0.10f, 0.10f, 0.11f, 0.55f);
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
         return button;
     }
 

@@ -156,35 +156,51 @@ public static class TestBotSetup
             "Botu kaldırmak: Yakalamaca > Test Botu Kaldır (ya da objeyi sil).");
     }
 
+    // Eski prototip grubu da temizlenmeli. Yalnızca aktif sahnenin kökleri:
+    // kapalı botları bulur, başka açık sahnelerin eğitim botlarına dokunmaz.
+    private static bool IsTestBotRoot(GameObject root)
+        => root.name == BotName || root.name == DeadBotName || root.name == "TestKacanlar";
+
     [MenuItem("Yakalamaca/Test Botu Kaldır", true)]
     private static bool CanRemove()
-        => !EditorApplication.isPlayingOrWillChangePlaymode
-            && (GameObject.Find(BotName) != null || GameObject.Find(DeadBotName) != null);
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            return false;
 
-    /// <summary>İkisini birden kaldırıyor: canlı bot ve ölü ceset botu.</summary>
+        Scene scene = SceneManager.GetActiveScene();
+        if (!scene.IsValid() || !scene.isLoaded)
+            return false;
+
+        foreach (GameObject root in scene.GetRootGameObjects())
+            if (IsTestBotRoot(root))
+                return true;
+
+        return false;
+    }
+
+    /// <summary>Canlı/ölü test botlarını ve eski TestKacanlar grubunu kaldırır.</summary>
     [MenuItem("Yakalamaca/Test Botu Kaldır")]
     private static void Remove()
     {
+        if (!CanRemove())
+            return;
+
+        Scene scene = SceneManager.GetActiveScene();
         int removed = 0;
 
-        foreach (string name in new[] { BotName, DeadBotName })
+        foreach (GameObject root in scene.GetRootGameObjects())
         {
-            GameObject existing = GameObject.Find(name);
-
-            if (existing == null)
+            if (!IsTestBotRoot(root))
                 continue;
 
-            Undo.DestroyObjectImmediate(existing);
+            Undo.DestroyObjectImmediate(root);
             removed++;
         }
 
-        if (removed == 0)
-            return;
+        EditorSceneManager.MarkSceneDirty(scene);
+        EditorSceneManager.SaveScene(scene);
 
-        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-        EditorSceneManager.SaveOpenScenes();
-
-        Debug.Log($"{removed} test botu kaldırıldı ve sahne kaydedildi.");
+        Debug.Log($"{removed} test botu/grubu (çocuklarıyla birlikte) kaldırıldı ve sahne kaydedildi.");
     }
 
     /// <summary>
