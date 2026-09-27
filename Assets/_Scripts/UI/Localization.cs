@@ -352,5 +352,41 @@ public static class Localization
         // karşılığı "ODADAN AYRIL" — aynı ekran, çağırana göre değişen düğme
         // (bkz. `MenuSetup.BuildPausePanel`).
         ["TUTORIAL'DAN ÇIK"] = "LEAVE TUTORIAL",
+
+        // ---------- 2026-09-26 denetiminde bulunan boşluklar ----------
+        //
+        // Üçü de arayüzde görünüyordu ama `Localization`'dan hiç geçmiyordu,
+        // yani İngilizce seçiliyken Türkçe kalıyorlardı. `Get` bilinmeyen
+        // anahtarı SESSİZCE geri döndürdüğü için hiçbir yerde hata yoktu.
+        ["KOD YA DA IP ADRESİ"] = "CODE OR IP ADDRESS",
+        ["Ceset taşınıyor — bırak · basılı tut: fırlat"] =
+            "Carrying a body — press to drop · hold to throw",
+        ["NetworkManager yok. Yakalamaca > Ağ Kurulumu (1. adım)."] =
+            "No NetworkManager in the scene. Run Yakalamaca > Ağ Kurulumu (step 1).",
+
+        // ---------- 2026-09-26: ikinci tur ----------
+        //
+        // `Kapıyı çalıştır` SAHNEDE serileşmiş bir değer (`UseButton.prompt`,
+        // 17 düğme) ve `GetPrompt` onu zaten `Localization.Get`'ten
+        // geçiriyordu — eksik olan tek şey tablo satırıydı. İlk denetim bunu
+        // kaçırdı çünkü yalnızca `.cs` dosyalarına bakıyordu.
+        ["Kapıyı çalıştır"] = "Operate the door",
+
+        // Diriltme kabininin tabelası. Numara kaldırıldı (bkz.
+        // `RevivalStation.BindSign`).
+        ["DİRİLTME"] = "REVIVAL",
+
+        // Karakter ekranı: artık "kostüm" demiyoruz. İki canavar gerçekten
+        // ayrı katil (vuruşları farklı), kaçanlar ise yalnızca görünüş.
+        ["KATİL"] = "KILLER",
+        ["Katili oda sahibi seçiyor. Bu, katil olursan hangisini oynayacağın."] =
+            "The room owner picks who plays the killer. This is which one you play if it's you.",
+        ["Kaçanlar yalnızca görünüş olarak farklı: hız, boy ve menzil aynı."] =
+            "Runners differ in looks only: speed, height and reach are the same.",
+
+        // Karakter ADLARI tabloya GİRMİYOR: dördü de özel isim, iki dilde de
+        // aynı yazılıyor. (`MUZ ADAM` bir süre burada çevriliyordu; ad 2026-09-26'da
+        // Türkçe'de de BANANA MAN oldu ve satır ÖLDÜ, o yüzden silindi —
+        // hiçbir şey yapmayan bir satır sonraki okuyanı yanıltıyor.)
     };
 }

@@ -134,10 +134,17 @@ public class CharacterSelectPanel : MonoBehaviour
         CharacterCatalog.Costume costume = list[index];
 
         if (roleLabel != null)
-            roleLabel.SetText(Localization.Get(monsterMode ? "CANAVAR KOSTÜMÜ" : "KAÇAN KOSTÜMÜ"));
+            roleLabel.SetText(Localization.Get(monsterMode ? "KATİL" : "KAÇAN"));
 
+        // Bugün karakter adlarının HEPSİ özel isim (Banana Man, Unity-chan,
+        // The Marionette, The Pig K.) ve tabloya hiçbiri girmiyor, yani `Get`
+        // şu an hepsini olduğu gibi döndürüyor.
+        //
+        // Çağrı yine de duruyor: ekrana giden her yazının bu yoldan geçmesi
+        // bu projenin kuralı ve ileride çevrilecek bir ad eklenirse sessizce
+        // Türkçe kalmasın. Kaldırmak, o hatayı gelecekteki birine bırakırdı.
         if (costumeLabel != null)
-            costumeLabel.SetText(costume.Name);
+            costumeLabel.SetText(Localization.Get(costume.Name));
 
         if (counterLabel != null)
             counterLabel.SetText("{0} / {1}", index + 1, list.Length);
@@ -164,8 +171,11 @@ public class CharacterSelectPanel : MonoBehaviour
 
         // Ekranın tek gerçek sınırı bu ve söylenmesi gerekiyor: oyuncu canavar
         // kostümünü seçip canavar olacağını sanmamalı.
+        // İki taraf AYNI ŞEYİ anlatmıyor, o yüzden iki ayrı cümle:
+        // katiller gerçekten farklı (vuruşları ayrı, ileride özellikleri de),
+        // kaçanlar ise yalnızca görünüş olarak farklı.
         statusLabel.SetText(Localization.Get(monsterMode
-            ? "Canavarı oda sahibi seçiyor. Bu yalnızca canavar olursan görünüşün."
-            : "Kostüm yalnızca görünüş: hız, boy ve menzil değişmiyor."));
+            ? "Katili oda sahibi seçiyor. Bu, katil olursan hangisini oynayacağın."
+            : "Kaçanlar yalnızca görünüş olarak farklı: hız, boy ve menzil aynı."));
     }
 }

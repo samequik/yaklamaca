@@ -32,6 +32,16 @@ public class SpectatorController : MonoBehaviour
     [Tooltip("Ölünce söndürülür — izlerken fener taşımak anlamsız.")]
     [SerializeField] private Flashlight flashlight;
 
+    [Tooltip("Ölüm penceresinde kameranın öldürene dönme hızı (1/saniye). " +
+        "8 ≈ 0.125 sn'lik zaman sabiti, yani ~0.4 sn'de oturuyor. Büyük = " +
+        "daha sert çevirir, küçük = daha yumuşak ama olayı kaçırabilir.")]
+    [SerializeField] private float deathAimSharpness = 8f;
+
+    [Tooltip("Öldürenin konumunun kaç metre ÜSTÜNE bakılacağı. Oyuncu " +
+        "konumu kapsülün MERKEZİ (bölüm 1), yani 0 göğüs hizası demek; " +
+        "küçük bir pay gövdeyi ve kurbanı birlikte kadraja alıyor.")]
+    [SerializeField] private float deathAimHeight = 0.35f;
+
     [Tooltip("Sıradaki hedefe geçiş. Elenmişken sol tık boşta — canavar olmadığın için bıçak yok.")]
     [SerializeField] private KeyCode nextTargetKey = KeyCode.Mouse0;
 
@@ -115,6 +125,66 @@ public class SpectatorController : MonoBehaviour
     /// sahnede ağ öncesinden kalan kapalı Player'ın üstünde de duruyor — orası
     /// NetworkIdentity'siz olduğu için Mirror hata yazardı.
     /// </summary>
+    /// <summary>
+    /// Ölüm penceresi boyunca (<see cref="RoundParticipant.InDeathView"/>)
+    /// kamerayı öldürene çevirir.
+    ///
+    /// ### Neden gerekti (2026-09-26)
+    ///
+    /// `deathViewDuration` (1.6 sn) 2026-09-21'den beri çalışıyordu ama
+    /// pencerenin İÇİ boş geçiyordu: ölen oyuncunun `PlayerController`'ı
+    /// kapanıyor (bakışı o taşıyor), yani görüntü DONUYOR — kafasını bile
+    /// çeviremiyor. Üstüne KUKLA'da ışınlanma yok (kurbanın yalnızca gövdesi
+    /// canavarın üstüne oturtuluyor, kamera öldüğü noktada kalıyor) ve kaçan
+    /// kaçarken öldüğü için genelde canavara SIRTI dönük oluyordu. Sonuç:
+    /// 1.6 saniye boş koridor, sonra izleyici. Kullanıcı bunu "ölür ölmez
+    /// izlemeye geçiyor" diye okudu.
+    ///
+    /// ### Domuzda zaten doğruydu — bu onu BOZMUYOR
+    ///
+    /// Fırlatan canavarda kurban savurmanın başında canavarın önüne
+    /// ışınlanıp `LookRotation(-forward)` ile ona döndürülüyor, yani kamera
+    /// hedefe zaten bakıyor. Süzgeç o durumda hiçbir şey yapmıyor (fark
+    /// sıfır), fazladan bir dönüş üretmiyor.
+    ///
+    /// ### Kamerayla kimse çekişmiyor
+    ///
+    /// `PlayerController` ve `CameraBob` ölümde kapatılıyor
+    /// (`RoundParticipant.disableWhenEliminated`), yani bu pencerede kamerayı
+    /// yazan başka kimse yok. Dirilince `PlayerController` `localRotation`'ı
+    /// koşulsuz geri yazıyor, o yüzden buradaki dünya-uzayı yazısı kalıcı
+    /// bir iz bırakmıyor.
+    ///
+    /// Öldüren yoksa (test tuşuyla kendini eleme, `killerNetId == 0`)
+    /// dokunulmuyor: bakılacak bir hedef yok ve donmuş görüntü eski
+    /// davranışın aynısı.
+    /// </summary>
+    private void TickDeathViewAim()
+    {
+        if (cameraTransform == null || self == null || !self.InDeathView)
+            return;
+
+        Transform killer = self.KillerTransform;
+
+        if (killer == null)
+            return;
+
+        Vector3 focus = killer.position + Vector3.up * deathAimHeight;
+        Vector3 delta = focus - cameraTransform.position;
+
+        // Kamera tam öldürenin içindeyse yön tanımsız — `LookRotation` sıfır
+        // vektörde uyarı basıyor.
+        if (delta.sqrMagnitude < 0.0001f)
+            return;
+
+        // Alçak geçiren süzgeç, `BatSway` ile aynı kalıp: kare hızından
+        // bağımsız ve sert bir sıçrama üretmiyor.
+        cameraTransform.rotation = Quaternion.Slerp(
+            cameraTransform.rotation,
+            Quaternion.LookRotation(delta, Vector3.up),
+            1f - Mathf.Exp(-deathAimSharpness * Time.deltaTime));
+    }
+
     private bool IsLocalPlayerObject =>
         NetworkClient.localPlayer != null &&
         NetworkClient.localPlayer.gameObject == gameObject;
@@ -128,10 +198,16 @@ public class SpectatorController : MonoBehaviour
 
         // Üç yoldan izleyici olunuyor: elenmek, kurtulmak ve tura geç katılmak.
         // Üçünün de sonucu aynı — sahada değilsin, hayattaki kaçanları izliyorsun.
+        //
+        // `InDeathView` yalnızca ELENMEYİ geciktiriyor: ölen oyuncu birkaç
+        // saniye kendi kamerasında kalıp nasıl öldüğünü görüyor. Kurtulmak ve
+        // geç katılmak o pencereyi hiç kurmuyor, yani onlar eskisi gibi anında
+        // izleyiciye geçiyor.
         bool shouldSpectate = manager != null
             && manager.Phase == RoundPhase.Playing
             && self != null
-            && (!self.IsAlive || self.IsEscaped || self.IsSpectating);
+            && (!self.IsAlive || self.IsEscaped || self.IsSpectating)
+            && !self.InDeathView;
 
         if (shouldSpectate != isSpectating)
         {
@@ -139,7 +215,15 @@ public class SpectatorController : MonoBehaviour
             OnSpectatingChanged();
         }
 
-        if (!isSpectating || cameraTransform == null)
+        if (!isSpectating)
+        {
+            // İzleyici henüz devralmadı. Ölüm penceresindeysek kamerayı
+            // öldürene çeviriyoruz — bu pencerenin tek işi o.
+            TickDeathViewAim();
+            return;
+        }
+
+        if (cameraTransform == null)
             return;
 
         if (Time.time >= nextRefreshTime)

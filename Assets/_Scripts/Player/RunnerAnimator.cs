@@ -94,6 +94,12 @@ public class RunnerAnimator : CharacterAnimatorBase
         "ki sıkışma animasyona hiç yansımasın.")]
     [SerializeField] private float settleTime = 0.12f;
 
+    [Tooltip("Havada kalmanın ÜST SINIRI (saniye). Bu süreyi aşan bayrak " +
+        "koşulsuz indiriliyor. Zıplama 0.73 sn sürüyor ve haritada " +
+        "düşülecek yüksek bir yer yok, yani meşru hiçbir durum bunu " +
+        "aşmıyor — bayrak burada takıldıysa bir HATA vardır.")]
+    [SerializeField] private float airborneTimeout = 1.5f;
+
     private bool airborne;
     private bool falling;
     private float airborneTime;
@@ -157,6 +163,32 @@ public class RunnerAnimator : CharacterAnimatorBase
         // havalanmak animasyonu tetiklemesin, ama yere değince poz hemen
         // düzelsin — gecikmeli iniş, zıplama pozunda kayan bir karakter demek.
         airborneTime = airborne ? airborneTime + Time.deltaTime : 0f;
+
+        // ---- İKİNCİ emniyet: üst sınır (2026-09-23) ----
+        //
+        // Yukarıdaki `settleTimer` emniyeti de kilitlenebiliyordu. Uzak
+        // oyuncunun dikey hızı ağdan gelen konumdan çıkıyor ve tampon
+        // boşalınca gelen "yetişme" kareleri her ~50 ms'de `settleSpeed`i
+        // aşan bir değer üretip sayacı sıfırlıyordu — yani 0.12 saniyelik
+        // sessizlik HİÇ oluşmuyordu ve bayrak sonsuza kadar kalkık
+        // kalıyordu. Kaçan koşarken havada pozunda donuyordu.
+        //
+        // Asıl sebep `CharacterAnimatorBase.UpdateSpeed`'te düzeltildi
+        // (fark artık geçen süreye bölünüyor). Bu sınır onun yerine geçmiyor,
+        // ARKASINDA duruyor: bu bayrak 2026-09-05'te de bir kez takılmıştı
+        // ve iki farklı sebepten takılan bir bayrağın üçüncü bir sebebi de
+        // olabilir. Meşru hiçbir uçuş 1.5 saniye sürmüyor.
+        if (airborne && airborneTime >= airborneTimeout)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            Debug.LogWarning($"{name}: havada bayrağı {airborneTimeout:0.0} sn " +
+                "takılı kaldı ve zorla indirildi. Dikey hız ölçümü bozuk " +
+                "olabilir — CharacterAnimatorBase.UpdateSpeed'e bak.", this);
+#endif
+            airborne = false;
+            falling = false;
+            airborneTime = 0f;
+        }
 
         animator.SetBool(AirborneParameter, airborne && airborneTime >= airborneGrace);
     }

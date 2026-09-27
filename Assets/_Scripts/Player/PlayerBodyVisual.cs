@@ -35,7 +35,7 @@ public class PlayerBodyVisual : MonoBehaviour
     /// bir tane kuruyor ve sıraları `CharacterCatalog.Runners` ile aynı.
     /// </summary>
     [System.Serializable]
-    public class RunnerBody
+    public class CostumeBody
     {
         [Tooltip("Gövdenin kökü. Kapatınca Animator da durur.")]
         public GameObject root;
@@ -77,11 +77,22 @@ public class PlayerBodyVisual : MonoBehaviour
     [Header("Kaçan — kostümler")]
     [Tooltip("Kostüm gövdeleri. Sıra CharacterCatalog.Runners ile AYNI olmalı; " +
         "`Kaçan Modelini Kur` ikisini birlikte kuruyor.")]
-    [SerializeField] private RunnerBody[] runnerBodies;
+    [SerializeField] private CostumeBody[] runnerBodies;
 
     [Tooltip("Kostüm değişince hangi animatörü süreceğini bilmesi gereken " +
         "bileşen. Oyuncunun kökünde duruyor, gövdenin içinde değil.")]
     [SerializeField] private RunnerAnimator runnerAnimator;
+
+    [Header("Canavar — kostümler")]
+    [Tooltip("Canavar kostüm gövdeleri. Sıra CharacterCatalog.Monsters ile " +
+        "AYNI olmalı; `Canavar Modelini Kur` ikisini birlikte kuruyor. " +
+        "BOŞSA yukarıdaki tekil monsterRoot'a düşülüyor — eski prefablar " +
+        "çalışmaya devam etsin diye.")]
+    [SerializeField] private CostumeBody[] monsterBodies;
+
+    [Tooltip("Canavar kostümü değişince yönlendirilecek animatör. Kaçandaki " +
+        "runnerAnimator'ın karşılığı.")]
+    [SerializeField] private MonsterAnimator monsterAnimator;
 
     [Header("Ölüm pozu")]
     [Tooltip("Kurbanın gövdesi ölüm klibi boyunca bu çarpanla ölçekleniyor. " +
@@ -113,6 +124,10 @@ public class PlayerBodyVisual : MonoBehaviour
     private Transform monsterNeckBone;
     private Vector3 monsterNeckRestScale = Vector3.one;
     private bool monsterNeckCached;
+
+    // Canavarın boynu da artık KOSTÜM BAŞINA: ikinci canavar (domuz katil)
+    // gelince tek bir önbellek yanlış modelin kemiğini tutmaya başladı.
+    private int monsterNeckCachedFor = -1;
 
     // Kaçanın boynu KOSTÜM BAŞINA çözülüyor: her modelin kendi iskeleti var.
     private Transform runnerNeckBone;
@@ -171,7 +186,12 @@ public class PlayerBodyVisual : MonoBehaviour
             runnerCostume = runner;
         }
 
-        monsterCostume = monster;
+        if (monsterCostume != monster)
+        {
+            ReleaseMonsterBones();
+            monsterCostume = monster;
+        }
+
         Refresh();
     }
 
@@ -182,7 +202,7 @@ public class PlayerBodyVisual : MonoBehaviour
     /// </summary>
     private void ReleaseRunnerBones()
     {
-        RunnerBody body = ActiveRunner();
+        CostumeBody body = ActiveRunner();
 
         if (body != null)
         {
@@ -196,14 +216,46 @@ public class PlayerBodyVisual : MonoBehaviour
         neckCachedFor = -1;
     }
 
-    /// <summary>Seçili kostümün gövdesi; dizi boşsa ya da indeks dışarıdaysa null.</summary>
-    private RunnerBody ActiveRunner()
+    /// <summary>
+    /// `ReleaseRunnerBones`'un canavar karşılığı. Kostüm değişirken eski
+    /// gövdenin sıfırlanmış kafa/boyun kemikleri eski hâline dönüyor.
+    /// </summary>
+    private void ReleaseMonsterBones()
     {
-        if (runnerBodies == null || runnerBodies.Length == 0)
+        CostumeBody body = ActiveMonster();
+
+        if (body != null)
+        {
+            HideBone(body.headBone, false, ref monsterHeadRestScale, ref monsterHeadCached);
+            HideBone(monsterNeckBone, false, ref monsterNeckRestScale, ref monsterNeckCached);
+        }
+
+        monsterHeadCached = false;
+        monsterNeckCached = false;
+        monsterNeckBone = null;
+        monsterNeckCachedFor = -1;
+    }
+
+    /// <summary>Seçili kostümün gövdesi; dizi boşsa ya da indeks dışarıdaysa null.</summary>
+    private CostumeBody ActiveRunner() => Pick(runnerBodies, runnerCostume);
+
+    /// <summary>
+    /// Seçili CANAVAR kostümünün gövdesi. Dizi boşsa null döner ve çağıranlar
+    /// tekil `monsterRoot`'a düşer — `Canavar Modelini Kur` hiç
+    /// çalıştırılmamış bir prefabta canavar görünmez olmasın diye.
+    /// </summary>
+    private CostumeBody ActiveMonster() => Pick(monsterBodies, monsterCostume);
+
+    /// <summary>
+    /// Kostüm indeksini gövdeye çeviren ortak seçici. Geçersiz indeks SIFIRA
+    /// düşüyor, kırpılmıyor — `CharacterCatalog.Sanitize` ile aynı kural.
+    /// </summary>
+    private static CostumeBody Pick(CostumeBody[] list, int index)
+    {
+        if (list == null || list.Length == 0)
             return null;
 
-        int index = runnerCostume >= 0 && runnerCostume < runnerBodies.Length ? runnerCostume : 0;
-        RunnerBody body = runnerBodies[index];
+        CostumeBody body = list[index >= 0 && index < list.Length ? index : 0];
 
         return body != null && body.root != null ? body : null;
     }
@@ -226,7 +278,13 @@ public class PlayerBodyVisual : MonoBehaviour
     /// geçmeli, o yüzden varsayılan offset 0 — araya mesafe koymak koreografiyi
     /// bozuyor.
     /// </summary>
-    public void ApplyDeathPose(Transform killer, float forwardOffset)
+    /// <param name="matchScale">
+    /// Kurbanın gövdesi canavarın ölçeğine çıkarılsın mı. Eşli yakalama
+    /// koreografisinde ŞART (iki klip iç içe geçiyor ve ölçek farkı onları
+    /// ayırıyor — bölüm 10), ama FIRLATAN canavarda koreografi yok: orada
+    /// kurbanı %18 büyütmek yalnızca görünür bir sıçrama üretir.
+    /// </param>
+    public void ApplyDeathPose(Transform killer, float forwardOffset, bool matchScale = true)
     {
         Transform body = ActiveBody();
         if (body == null || killer == null)
@@ -242,7 +300,7 @@ public class PlayerBodyVisual : MonoBehaviour
         // Ölçek eşitleme, konumdan ÖNCE: ölçek gövdenin kendi kökünde
         // uygulanıyor ve dünya konumunu kaydırmıyor, ama sırayı tersine
         // çevirmek okuyanı "acaba kaydırıyor mu" diye düşündürüyor.
-        if (deathScaleMatch > 0f && !Mathf.Approximately(deathScaleMatch, 1f))
+        if (matchScale && deathScaleMatch > 0f && !Mathf.Approximately(deathScaleMatch, 1f))
             body.localScale = posedLocalScale * deathScaleMatch;
 
         Vector3 forward = Vector3.ProjectOnPlane(killer.forward, Vector3.up);
@@ -272,9 +330,15 @@ public class PlayerBodyVisual : MonoBehaviour
     private Transform ActiveBody()
     {
         if (role == RoundRole.Monster)
-            return monsterRoot != null ? monsterRoot.transform : null;
+        {
+            CostumeBody monster = ActiveMonster();
 
-        RunnerBody body = ActiveRunner();
+            return monster != null
+                ? monster.root.transform
+                : (monsterRoot != null ? monsterRoot.transform : null);
+        }
+
+        CostumeBody body = ActiveRunner();
         return body != null ? body.root.transform : null;
     }
 
@@ -294,7 +358,7 @@ public class PlayerBodyVisual : MonoBehaviour
     {
         get
         {
-            RunnerBody body = ActiveRunner();
+            CostumeBody body = ActiveRunner();
 
             if (body != null)
                 return body.root.transform;
@@ -326,10 +390,62 @@ public class PlayerBodyVisual : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Canavarın gövdesini yürürken/koşarken çeviriyor — **yalnızca
+    /// başkalarının ekranında.**
+    ///
+    /// Domuz katilin yürüme ve koşma klipleri "sopayı tutarak" yazılmış ve
+    /// gövde gidiş yönüne göre yan duruyor. Açı bir süre klibin import
+    /// ayarına gömülüydü; o zaman canavarı OYNAYAN da kendi gövdesini yamuk
+    /// görüyordu. Burada `firstPerson` sorulabildiği için düzeltme yalnızca
+    /// dışarıdan bakana gidiyor.
+    ///
+    /// **Ağa hiçbir şey gitmiyor.** Gövde kökü zaten senkronlanmıyor
+    /// (bölüm 17) ve her istemci "bu gövde benim mi" sorusunu kendi
+    /// cevaplıyor — izlerin yalnızca canavara gönderilmesiyle aynı desen.
+    ///
+    /// `LateUpdate`, çünkü animatör pozu `Update`'ten sonra yazıyor; gövde
+    /// KÖKÜNÜN dönüşünü animatör yazmıyor ama sıralamayı garanti altına
+    /// almak bedava.
+    /// </summary>
+    private void LateUpdate()
+    {
+        if (role != RoundRole.Monster)
+            return;
+
+        CostumeBody body = ActiveMonster();
+
+        if (body == null || body.root == null)
+            return;
+
+        Transform root = body.root.transform;
+
+        // Ölüm pozu gövdeyi dünya uzayında konumlandırıyor; o sırada
+        // karışmıyoruz.
+        if (posedBody == root)
+            return;
+
+        float yaw = 0f;
+
+        if (!firstPerson)
+        {
+            float blend = monsterAnimator != null ? monsterAnimator.LocomotionBlend : 0f;
+            yaw = CharacterCatalog.Monster(monsterCostume).LocomotionYawOffset * blend;
+        }
+
+        root.localRotation = Quaternion.Euler(0f, yaw, 0f);
+    }
+
     private void Refresh()
     {
         bool monster = role == RoundRole.Monster;
-        RunnerBody runner = monster ? null : ActiveRunner();
+        CostumeBody runner = monster ? null : ActiveRunner();
+        CostumeBody monsterBody = monster ? ActiveMonster() : null;
+
+        // Kostüm dizisi boşsa (araç hiç çalıştırılmamış) tekil `monsterRoot`
+        // devreye giriyor. İkisi asla birlikte açılmıyor — `legacyMonster`
+        // yalnızca dizi bir gövde veremediğinde doğru.
+        bool legacyMonster = monster && monsterBody == null;
         bool capsule = !monster && runner == null;
 
         // Kullanılmayan model kökü tamamen kapalı: Animator ve SkinnedMesh
@@ -337,23 +453,18 @@ public class PlayerBodyVisual : MonoBehaviour
         // seçili olan değil — yoksa önceki kostüm açık kalır ve iki gövde üst
         // üste görünürdü.
         if (monsterRoot != null)
-            monsterRoot.SetActive(monster && onField);
+            monsterRoot.SetActive(legacyMonster && onField);
 
-        if (runnerBodies != null)
-        {
-            for (int i = 0; i < runnerBodies.Length; i++)
-            {
-                RunnerBody body = runnerBodies[i];
-
-                if (body != null && body.root != null)
-                    body.root.SetActive(body == runner && onField);
-            }
-        }
+        SetActiveOnly(monsterBodies, monsterBody, onField);
+        SetActiveOnly(runnerBodies, runner, onField);
 
         // Animatör seçili gövdeyi sürüyor. Kapalı bir animatöre yazmak sessizce
         // hiçbir şey yapmaz ve karakter T-pozunda donardı.
         if (runnerAnimator != null && runner != null && runner.animator != null)
             runnerAnimator.UseAnimator(runner.animator);
+
+        if (monsterAnimator != null && monsterBody != null && monsterBody.animator != null)
+            monsterAnimator.UseAnimator(monsterBody.animator);
 
         // Kapsül kendine gösterilmiyor: suratının önünde duran bir kapsül
         // kimseye bir şey anlatmıyor, sadece görüşü kapatıyor.
@@ -361,7 +472,10 @@ public class PlayerBodyVisual : MonoBehaviour
 
         // Modeller birinci şahısta da çiziliyor: aşağı bakınca kendi ellerini ve
         // bacaklarını görmek, hareketi hissettiren şey.
-        ApplyRenderers(monsterRenderers, monster && onField, showToSelf: true);
+        ApplyRenderers(monsterRenderers, legacyMonster && onField, showToSelf: true);
+
+        if (monsterBody != null)
+            ApplyRenderers(monsterBody.renderers, onField, showToSelf: true);
 
         if (runner != null)
             ApplyRenderers(runner.renderers, onField, showToSelf: true);
@@ -369,8 +483,17 @@ public class PlayerBodyVisual : MonoBehaviour
         // EN SONDA: kafa parçaları renderer listelerinde de var ve yukarıdaki
         // döngüler onları açıyor. Önce çalıştırırsak yaptığımız iş aynı karede
         // geri alınıyor — gözlerin kaybolmamasının sebebi buydu.
-        ApplyHead(headBone, headRenderers, monster && onField,
+        //
+        // Tekil ve dizi yol AYNI önbelleği paylaşıyor; birbirini ezmiyorlar
+        // çünkü `legacyMonster` ile `monsterBody != null` birbirini dışlıyor.
+        ApplyHead(headBone, headRenderers, legacyMonster && onField,
             ref monsterHeadRestScale, ref monsterHeadCached);
+
+        if (monsterBody != null)
+        {
+            ApplyHead(monsterBody.headBone, monsterBody.headRenderers, onField,
+                ref monsterHeadRestScale, ref monsterHeadCached);
+        }
 
         if (runner != null)
         {
@@ -379,7 +502,11 @@ public class PlayerBodyVisual : MonoBehaviour
         }
 
         // Boyun da gizleniyor — kafayı sıfırlamak tek başına yetmiyordu.
-        HideBone(ResolveNeck(monsterRoot, ref monsterNeckBone), monster && onField && firstPerson,
+        Transform monsterNeck = monsterBody != null
+            ? ResolveMonsterNeck(monsterBody)
+            : ResolveNeck(monsterRoot, ref monsterNeckBone);
+
+        HideBone(monsterNeck, monster && onField && firstPerson,
             ref monsterNeckRestScale, ref monsterNeckCached);
 
         if (runner != null)
@@ -390,10 +517,31 @@ public class PlayerBodyVisual : MonoBehaviour
     }
 
     /// <summary>
+    /// Dizideki YALNIZCA seçili gövdeyi açar, kalanını kapatır.
+    ///
+    /// Dizinin TAMAMI geziliyor, sadece seçili olan değil: yoksa kostüm
+    /// değiştirildiğinde önceki gövde açık kalır ve iki model üst üste
+    /// görünürdü.
+    /// </summary>
+    private static void SetActiveOnly(CostumeBody[] list, CostumeBody active, bool onField)
+    {
+        if (list == null)
+            return;
+
+        for (int i = 0; i < list.Length; i++)
+        {
+            CostumeBody body = list[i];
+
+            if (body != null && body.root != null)
+                body.root.SetActive(body == active && onField);
+        }
+    }
+
+    /// <summary>
     /// Seçili kostümün boyun kemiği. Önbellek KOSTÜME bağlı: her modelin kendi
     /// iskeleti var ve indeks değiştiğinde yeniden çözülmesi gerekiyor.
     /// </summary>
-    private Transform ResolveRunnerNeck(RunnerBody body)
+    private Transform ResolveRunnerNeck(CostumeBody body)
     {
         if (neckCachedFor != runnerCostume)
         {
@@ -402,6 +550,18 @@ public class PlayerBodyVisual : MonoBehaviour
         }
 
         return ResolveNeck(body.root, ref runnerNeckBone);
+    }
+
+    /// <summary>`ResolveRunnerNeck`'in canavar karşılığı.</summary>
+    private Transform ResolveMonsterNeck(CostumeBody body)
+    {
+        if (monsterNeckCachedFor != monsterCostume)
+        {
+            monsterNeckBone = null;
+            monsterNeckCachedFor = monsterCostume;
+        }
+
+        return ResolveNeck(body.root, ref monsterNeckBone);
     }
 
     /// <summary>

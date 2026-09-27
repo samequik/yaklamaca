@@ -959,7 +959,7 @@ public static class TutorialSetup
     private static void BuildRevivalStation(Transform root)
     {
         GameObject station = RevivalSetup.BuildStation(root,
-            CellWorld(CorridorX - 1, RevivalRow), "Diriltme_Egitim", 1);
+            CellWorld(CorridorX - 1, RevivalRow), "Diriltme_Egitim");
 
         station.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
 

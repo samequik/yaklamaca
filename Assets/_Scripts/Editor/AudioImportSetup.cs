@@ -56,6 +56,13 @@ public static class AudioImportSetup
         // isim (bölüm 8, teknik borç 1); değiştirmek kod tarafında hiçbir
         // şey kazandırmazdı.
         ("freesound_community-squeaky-jumpscare", "Bicak_Isabet"),
+
+        // 2026-09-24: DOMUZ KATİLİN kendi sesleri. Ortak `Bicak_*`'ın yerine
+        // GEÇMİYORLAR — KUKLA elle saldırıyor ve onda sopa sesi yanlış
+        // olurdu. Kostüm eşleşmesi `CharacterCatalog`'un
+        // `AttackSoundPrefix`'inden geliyor ("Sopa").
+        ("sopa sallama ve vurma sesi", "Sopa_Savurma"),
+        ("katil domuz jumpscare",      "Sopa_Isabet"),
     };
 
     /// <summary>
@@ -430,6 +437,14 @@ public static class AudioImportSetup
                 SerializedObject serializedAttack = new SerializedObject(attack);
                 AudioSetupUtility.AssignClip(serializedAttack.FindProperty("hitClip"), "Bicak_Isabet");
                 AudioSetupUtility.AssignClip(serializedAttack.FindProperty("swingClip"), "Bicak_Savurma");
+
+                // Sopa gövdeye inince çalan darbe sesi: cesedin yere düşme
+                // sesinin AYNI klibi. Ayrı bir dosya üretilmedi — kullanıcı
+                // açıkça "bizdeki yere düşme sesi" dedi ve iki olay da bir
+                // gövdenin bir şeye çarpması.
+                AudioSetupUtility.AssignClip(serializedAttack.FindProperty("impactClip"), "Ceset_Dusme");
+
+                WireCostumeAttackClips(serializedAttack);
                 serializedAttack.ApplyModifiedProperties();
                 changed = true;
             }
@@ -442,6 +457,49 @@ public static class AudioImportSetup
         finally
         {
             PrefabUtility.UnloadPrefabContents(contents);
+        }
+    }
+
+    /// <summary>
+    /// Kostüm başına savurma/isabet kliplerini `MonsterAttack`'e yazar.
+    ///
+    /// Hangi kostümün hangi sesi aldığını **katalog** söylüyor
+    /// (`CharacterCatalog.Costume.AttackSoundPrefix`), burada sabit bir
+    /// indeks yok: "1 numaralı kostüm domuz katildir" varsayımı, listeye
+    /// üçüncü bir canavar eklenince sessizce yanlış sese bağlanırdı.
+    ///
+    /// Öneksiz kostüm (bugün KUKLA) **bilerek boş bırakılıyor** — dizideki
+    /// boş eleman `MonsterAttack.CostumeClip`'te ortak klibe düşüyor. O
+    /// eleman için uyarı da yazılmıyor: eksik bir şey yok, tercih bu.
+    /// </summary>
+    private static void WireCostumeAttackClips(SerializedObject serializedAttack)
+    {
+        SerializedProperty swings = serializedAttack.FindProperty("costumeSwingClips");
+        SerializedProperty hits = serializedAttack.FindProperty("costumeHitClips");
+
+        if (swings == null || hits == null)
+            return;
+
+        CharacterCatalog.Costume[] monsters = CharacterCatalog.Monsters;
+
+        swings.arraySize = monsters.Length;
+        hits.arraySize = monsters.Length;
+
+        for (int i = 0; i < monsters.Length; i++)
+        {
+            SerializedProperty swing = swings.GetArrayElementAtIndex(i);
+            SerializedProperty hit = hits.GetArrayElementAtIndex(i);
+            string prefix = monsters[i].AttackSoundPrefix;
+
+            if (string.IsNullOrEmpty(prefix))
+            {
+                swing.objectReferenceValue = null;
+                hit.objectReferenceValue = null;
+                continue;
+            }
+
+            AudioSetupUtility.AssignClip(swing, $"{prefix}_Savurma");
+            AudioSetupUtility.AssignClip(hit, $"{prefix}_Isabet");
         }
     }
 

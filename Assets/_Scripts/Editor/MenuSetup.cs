@@ -62,11 +62,26 @@ public static class MenuSetup
     private static readonly Color ButtonColor = AccentColor;
     private static readonly Color TextColor = new Color(0.93f, 0.89f, 0.87f, 1f);
 
-    // Mini harita (2026-09-14): sol üst köşe, sabit boyut.
-    private const float MinimapSize = 150f;
+    // Mini harita (2026-09-27'de yeniden yazıldı): sol üst köşe, çevrendeki
+    // dar bir pencere, bakışa göre DÖNÜYOR.
+    //
+    // İlk sürüm 150 pikselin içine ~54 × 96 m'lik haritanın TAMAMINI
+    // sıkıştırıyordu: 3.2 m'lik bir koridor hücresi 4 piksele düşüyor ve
+    // okunmuyordu. Kullanıcı "karışık" deyip kapattırmıştı (2026-09-16).
+    private const float MinimapSize = 210f;
     private const float MinimapMargin = 16f;
-    private const float MinimapWallDotSize = 4f;
-    private const float MinimapPlayerDotSize = 9f;
+
+    /// <summary>Gövde ile pencere arasındaki iç boşluk (çerçeve payı).</summary>
+    private const float MinimapPadding = 9f;
+
+    /// <summary>
+    /// Pencerenin gösterdiği dünya genişliği. 26 m ≈ 8 koridor hücresi:
+    /// yanındaki iki dönüşü görecek kadar geniş, haritayı ezberletmeyecek
+    /// kadar dar.
+    /// </summary>
+    private const float MinimapMetersAcross = 26f;
+
+    private const float MinimapPlayerDotSize = 16f;
     private static readonly Color MinimapBackgroundColor = new Color(0.03f, 0.03f, 0.04f, 0.78f);
     private static readonly Color MinimapWallColor = new Color(0.55f, 0.52f, 0.50f, 1f);
     private static readonly Color MinimapRunnerColor = new Color(0.30f, 0.85f, 0.40f, 1f);
@@ -273,12 +288,25 @@ public static class MenuSetup
     // ---------- Ekranlar ----------
 
     /// <summary>İlk girişte bir kez çıkan isim ekranı.</summary>
+    /// <summary>
+    /// Ekranda görünen oyun adı. **İÇ ad `YAKALAMACA` DEĞİŞMİYOR** (bölüm 0):
+    /// menü öğeleri, sınıf adları ve klasörler aynı kalıyor — değişen yalnızca
+    /// oyuncunun gördüğü başlık.
+    ///
+    /// `Localization`'a girmiyor, bilerek: özel isim, iki dilde de aynı.
+    ///
+    /// İki ekranda birden kullanılıyor (isim girişi ve ana menü); tek sabit
+    /// olması ikisinin ayrışmasını engelliyor — menü figürlerinin açısında
+    /// tam olarak bu yaşanmıştı (bölüm 13).
+    /// </summary>
+    private const string GameTitle = "TERMINAL FIVE";
+
     private static GameObject BuildNameEntryPanel(Transform parent, MenuController controller)
     {
         GameObject panel = CreatePanel("Panel_Isim", parent);
         Transform column = CreateColumn(panel.transform);
 
-        CreateTitle(column, "YAKALAMACA");
+        CreateTitle(column, GameTitle);
         CreateSpacer(column, 10f);
 
         Loc(CreateLabel(column, "Seni nasıl çağıralım?"), "Seni nasıl çağıralım?");
@@ -311,7 +339,7 @@ public static class MenuSetup
         GameObject panel = CreatePanel("Panel_Ana", parent);
         Transform column = CreateColumn(panel.transform);
 
-        CreateTitle(column, "YAKALAMACA");
+        CreateTitle(column, GameTitle);
         CreateSpacer(column, 18f);
 
         // "OYNA" düğmesi kalktı: ağ oyununda menüyü kapatmak oyuna girmek
@@ -560,6 +588,14 @@ public static class MenuSetup
     /// zinciriyle. Harita büyürse (yeni bir kanat gelirse) `Menü Kur`
     /// yeniden çalıştırılınca sınırlar kendiliğinden güncellenir.
     /// </summary>
+    /// <summary>
+    /// Mini haritayı kurar: gövde, çerçeve, kırpma penceresi, duvar kareleri
+    /// ve ortadaki ok.
+    ///
+    /// Duvarlar **bir kez** yerleştiriliyor ve çalışma anında hiç
+    /// kıpırdamıyor; `MiniMapView` yalnızca onları taşıyan kabı döndürüp
+    /// kaydırıyor.
+    /// </summary>
     private static void BuildMinimap(Transform parent)
     {
         List<Vector3> wallPositions = new List<Vector3>();
@@ -580,32 +616,68 @@ public static class MenuSetup
         background.color = MinimapBackgroundColor;
         background.raycastTarget = false;
 
-        AddFrame(panel.transform, AccentDim, 1.5f, 8f);
+        // KENDİ Canvas'ı, bilerek. Harita kabı her karede dönüyor ve bir
+        // RectTransform'u oynatmak bulunduğu Canvas'ın TAMAMINI yeniden
+        // gruplatıyor. Bu canvas menünün ve HUD'ın hepsini taşıyor; iç içe
+        // bir Canvas mini haritayı ayırıyor, yani her kare yeniden gruplanan
+        // şey yalnızca duvar kareleri oluyor.
+        //
+        // `GraphicRaycaster` GEREKMİYOR: mini haritadaki hiçbir grafik
+        // tıklanabilir değil (`raycastTarget = false`).
+        Canvas nested = panel.AddComponent<Canvas>();
+        nested.additionalShaderChannels = AdditionalCanvasShaderChannels.None;
 
-        GameObject drawAreaObject = new GameObject("CizimAlani", typeof(RectTransform));
-        drawAreaObject.transform.SetParent(panel.transform, false);
+        AddFrame(panel.transform, AccentDim, 1.5f, 10f);
 
-        RectTransform drawArea = drawAreaObject.GetComponent<RectTransform>();
-        drawArea.anchorMin = new Vector2(0.5f, 0.5f);
-        drawArea.anchorMax = new Vector2(0.5f, 0.5f);
-        drawArea.pivot = new Vector2(0.5f, 0.5f);
-        drawArea.anchoredPosition = Vector2.zero;
-        drawArea.sizeDelta = new Vector2(MinimapSize - 16f, MinimapSize - 16f);
+        // Kırpma penceresi. `RectMask2D` seçildi, `Mask` değil: maske
+        // sprite'ı gerektirmiyor ve fazladan çizim çağrısı açmıyor.
+        GameObject windowObject = new GameObject("Pencere", typeof(RectTransform), typeof(RectMask2D));
+        windowObject.transform.SetParent(panel.transform, false);
 
+        RectTransform window = windowObject.GetComponent<RectTransform>();
+        window.anchorMin = new Vector2(0.5f, 0.5f);
+        window.anchorMax = new Vector2(0.5f, 0.5f);
+        window.pivot = new Vector2(0.5f, 0.5f);
+        window.anchoredPosition = Vector2.zero;
+        window.sizeDelta = new Vector2(MinimapSize - MinimapPadding * 2f,
+            MinimapSize - MinimapPadding * 2f);
+
+        // Harita kabı NOKTA boyutunda (sizeDelta sıfır): dönüş kendi
+        // pivotunda olsun ve haritanın toplam boyunu burada hesaplamak
+        // gerekmesin diye.
+        GameObject mapRootObject = new GameObject("Harita", typeof(RectTransform));
+        mapRootObject.transform.SetParent(window, false);
+
+        RectTransform mapRoot = mapRootObject.GetComponent<RectTransform>();
+        mapRoot.anchorMin = new Vector2(0.5f, 0.5f);
+        mapRoot.anchorMax = new Vector2(0.5f, 0.5f);
+        mapRoot.pivot = new Vector2(0.5f, 0.5f);
+        mapRoot.sizeDelta = Vector2.zero;
+        mapRoot.anchoredPosition = Vector2.zero;
+
+        float pixelsPerMeter = (MinimapSize - MinimapPadding * 2f) / MinimapMetersAcross;
+
+        // Başlangıç noktası haritanın ORTASI: harita uzayındaki sayılar
+        // küçük kalıyor ve float hassasiyeti hiç sorun olmuyor.
         ComputeWallBounds(wallPositions, out Vector2 worldMin, out Vector2 worldMax);
+        Vector2 worldOrigin = (worldMin + worldMax) * 0.5f;
+
+        // Kare tam bir hücre kadar: bitişik duvarlar tek bir kütle hâlinde
+        // birleşiyor ve koridorlar boşluk olarak okunuyor.
+        float tileSize = MazeMapBuilder.CellSize * pixelsPerMeter;
 
         foreach (Vector3 wallPosition in wallPositions)
-            CreateMinimapWallDot(drawArea, wallPosition, worldMin, worldMax);
+            CreateMinimapWallTile(mapRoot, wallPosition, worldOrigin, pixelsPerMeter, tileSize);
 
-        RectTransform selfDot = CreateMinimapSelfDot(drawArea, out Image selfDotImage);
+        RectTransform selfMarker = CreateMinimapSelfMarker(window, out Image selfMarkerImage);
 
         MiniMapView view = panel.AddComponent<MiniMapView>();
         SerializedObject serialized = new SerializedObject(view);
-        serialized.FindProperty("worldMin").vector2Value = worldMin;
-        serialized.FindProperty("worldMax").vector2Value = worldMax;
-        serialized.FindProperty("drawArea").objectReferenceValue = drawArea;
-        serialized.FindProperty("selfDot").objectReferenceValue = selfDot;
-        serialized.FindProperty("selfDotImage").objectReferenceValue = selfDotImage;
+        serialized.FindProperty("mapRoot").objectReferenceValue = mapRoot;
+        serialized.FindProperty("selfMarker").objectReferenceValue = selfMarker;
+        serialized.FindProperty("selfMarkerImage").objectReferenceValue = selfMarkerImage;
+        serialized.FindProperty("worldOrigin").vector2Value = worldOrigin;
+        serialized.FindProperty("pixelsPerMeter").floatValue = pixelsPerMeter;
         serialized.ApplyModifiedProperties();
 
         if (wallPositions.Count == 0)
@@ -667,39 +739,118 @@ public static class MenuSetup
         max = new Vector2(maxX + pad, maxZ + pad);
     }
 
-    private static void CreateMinimapWallDot(RectTransform drawArea, Vector3 worldPosition,
-        Vector2 worldMin, Vector2 worldMax)
+    private static void CreateMinimapWallTile(RectTransform mapRoot, Vector3 worldPosition,
+        Vector2 worldOrigin, float pixelsPerMeter, float tileSize)
     {
-        GameObject dot = new GameObject("Duvar", typeof(RectTransform), typeof(Image));
-        dot.transform.SetParent(drawArea, false);
+        GameObject tile = new GameObject("Duvar", typeof(RectTransform), typeof(Image));
+        tile.transform.SetParent(mapRoot, false);
 
-        Image image = dot.GetComponent<Image>();
+        Image image = tile.GetComponent<Image>();
         image.color = MinimapWallColor;
         image.raycastTarget = false;
 
-        RectTransform rect = dot.GetComponent<RectTransform>();
+        RectTransform rect = tile.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
-        rect.sizeDelta = new Vector2(MinimapWallDotSize, MinimapWallDotSize);
-        rect.anchoredPosition = MiniMapView.WorldToMapPoint(worldPosition, worldMin, worldMax, drawArea.rect.size);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(tileSize, tileSize);
+        rect.anchoredPosition = MiniMapView.WorldToMapPoint(worldPosition, worldOrigin, pixelsPerMeter);
     }
 
-    private static RectTransform CreateMinimapSelfDot(RectTransform drawArea, out Image selfDotImage)
+    /// <summary>
+    /// Pencerenin ortasındaki ok. Harita baktığın yöne göre döndüğü için ok
+    /// hiç DÖNMÜYOR — yukarısı zaten ilerisi.
+    ///
+    /// Nokta yerine ok, çünkü dönen bir haritada asıl okunması gereken şey
+    /// yön; yuvarlak bir nokta onu hiç söylemiyor.
+    /// </summary>
+    private static RectTransform CreateMinimapSelfMarker(RectTransform window, out Image markerImage)
     {
-        GameObject dot = new GameObject("KendiKonumum", typeof(RectTransform), typeof(Image));
-        dot.transform.SetParent(drawArea, false);
+        GameObject marker = new GameObject("Ben", typeof(RectTransform), typeof(Image));
+        marker.transform.SetParent(window, false);
 
-        selfDotImage = dot.GetComponent<Image>();
-        selfDotImage.color = MinimapRunnerColor;
-        selfDotImage.raycastTarget = false;
+        markerImage = marker.GetComponent<Image>();
+        markerImage.color = MinimapRunnerColor;
+        markerImage.raycastTarget = false;
+        markerImage.sprite = GetOrCreateArrowSprite();
+        markerImage.preserveAspect = true;
 
-        RectTransform rect = dot.GetComponent<RectTransform>();
+        RectTransform rect = marker.GetComponent<RectTransform>();
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
         rect.sizeDelta = new Vector2(MinimapPlayerDotSize, MinimapPlayerDotSize);
         rect.anchoredPosition = Vector2.zero;
 
         return rect;
+    }
+
+    /// <summary>
+    /// Ok sprite'ını üretir ve varlık olarak saklar.
+    ///
+    /// **Neden prosedürel:** projede hazır bir ok dokusu yok ve TMP'nin
+    /// üçgen karakterine güvenmek riskli — varsayılan atlas yalnızca temel
+    /// Latin kapsıyor ve eksik karakter boş kutuya dönüyor (bölüm 20'nin
+    /// kendi dersi). Sopa mesh'i ve materyali de aynı alışkanlıkla
+    /// üretiliyor (`MonsterBatBuilder`).
+    ///
+    /// Kenarlar yumuşatılıyor: 16 piksellik bir üçgende basamaklar aksi
+    /// hâlde açıkça görünüyor.
+    /// </summary>
+    private static Sprite GetOrCreateArrowSprite()
+    {
+        const string folder = "Assets/_Art/UI";
+        const string path = folder + "/MiniHarita_Ok.png";
+
+        Sprite existing = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (existing != null)
+            return existing;
+
+        if (!AssetDatabase.IsValidFolder(folder))
+            AssetDatabase.CreateFolder("Assets/_Art", "UI");
+
+        const int size = 64;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                // Tepesi yukarıda bir üçgen; tabanın ortasındaki çentik oku
+                // "uçak" gibi gösterip yönü daha okunur kılıyor.
+                float u = (x + 0.5f) / size;
+                float v = (y + 0.5f) / size;
+
+                float halfWidth = Mathf.Lerp(0.5f, 0.02f, Mathf.InverseLerp(0.08f, 0.96f, v));
+                float distance = Mathf.Abs(u - 0.5f);
+
+                float inside = Mathf.InverseLerp(halfWidth, halfWidth - 0.035f, distance);
+                inside *= Mathf.InverseLerp(0.04f, 0.10f, v);
+
+                float notch = Mathf.InverseLerp(0.30f, 0.10f, v) *
+                    Mathf.InverseLerp(0.20f, 0f, distance);
+                inside *= 1f - Mathf.Clamp01(notch);
+
+                texture.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Clamp01(inside)));
+            }
+        }
+
+        texture.Apply();
+        System.IO.File.WriteAllBytes(path, texture.EncodeToPNG());
+        Object.DestroyImmediate(texture);
+
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null)
+        {
+            importer.textureType = TextureImporterType.Sprite;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.SaveAndReimport();
+        }
+
+        return AssetDatabase.LoadAssetAtPath<Sprite>(path);
     }
 
     /// <summary>
@@ -1547,6 +1698,15 @@ public static class MenuSetup
         // olurdu. Seçim anında kadroya yansıyor (RoundParticipant.PushCostume).
         Loc(AddButton(column, "KARAKTER", controller.ShowCharacters), "KARAKTER");
 
+        // Seçenekler lobiden de açılıyor (2026-09-26, kullanıcı isteği):
+        // oyuncular odada beklerken fare hassasiyetini, sesi ya da tuşlarını
+        // ayarlamak istiyor ve ana menüye dönmek bağlantıyı koparmak olurdu —
+        // KARAKTER düğmesinin gerekçesinin aynısı.
+        //
+        // `ShowSettings` geldiği ekranı hatırlıyor, yani GERİ ve Esc lobiye
+        // dönüyor; ayrı bir "nereye dön" bilgisi tutmak gerekmedi.
+        Loc(AddButton(column, "SEÇENEKLER", controller.ShowSettings), "SEÇENEKLER");
+
         Button readyButton = AddButton(column, "HAZIRIM", lobby.ToggleReady);
         TMP_Text readyLabel = readyButton.GetComponentInChildren<TextMeshProUGUI>();
 
@@ -1792,14 +1952,14 @@ public static class MenuSetup
         Loc(CreateTitle(column, "KARAKTER"), "KARAKTER").fontSize = 42f;
         CreateSpacer(column, 10f);
 
-        Button roleButton = AddButton(column, "KAÇAN KOSTÜMÜ", select.ToggleRole);
+        Button roleButton = AddButton(column, "KAÇAN", select.ToggleRole);
         TMP_Text roleLabel = roleButton.GetComponentInChildren<TextMeshProUGUI>();
 
         CreateSpacer(column, 8f);
 
         Transform pickRow = CreateRow(column, 62f);
         Button previousButton = AddRowButton(pickRow, "<", select.Previous, 0.18f);
-        TMP_Text costumeLabel = CreateRowText(pickRow, "MUZ ADAM", 26f, AccentLight, 0.64f);
+        TMP_Text costumeLabel = CreateRowText(pickRow, "Banana Man", 26f, AccentLight, 0.64f);
         Button nextButton = AddRowButton(pickRow, ">", select.Next, 0.18f);
 
         TMP_Text counterLabel = CreateLabel(column, "1 / 1");
@@ -2208,6 +2368,12 @@ public static class MenuSetup
 
         TextMeshProUGUI placeholderText = CreateFieldText(textArea.transform, "YerTutucu", placeholder,
             new Color(0.5f, 0.5f, 0.55f, 1f));
+
+        // Yer tutucu da bir arayüz yazısı. Unutulunca İngilizce oyunda Türkçe
+        // kalıyordu ("KOD YA DA IP ADRESİ"). Ad alanının yer tutucusu
+        // `PlayerProfile.DefaultName` ("Player"), tabloda karşılığı yok ve
+        // `Get` bilinmeyen anahtarı olduğu gibi döndürüyor — zararsız.
+        Loc(placeholderText, placeholder);
         TextMeshProUGUI inputText = CreateFieldText(textArea.transform, "Metin", "", TextColor);
 
         TMP_InputField field = fieldObject.GetComponent<TMP_InputField>();

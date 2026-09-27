@@ -52,6 +52,11 @@ public class MonsterAttack : NetworkBehaviour
     [Tooltip("Bıçağın aktif olduğu süre.")]
     [SerializeField] private float swingDuration = 0.22f;
 
+    [Tooltip("Yakalanan kurbanın canavarın kaç metre önüne çekileceği. " +
+        "`RoundParticipant.launchForwardOffset` ile AYNI olmalı — ayrışırsa " +
+        "ölüm anında ikinci bir sıçrama olur.")]
+    [SerializeField] private float grabDistance = 1.1f;
+
     [Header("Atılma (Lunge)")]
     [Tooltip("Sol tıkın tam yüklenmesi için gereken süre.")]
     [SerializeField] private float maxChargeTime = 0.8f;
@@ -91,6 +96,14 @@ public class MonsterAttack : NetworkBehaviour
         "Animasyonda canavar yerden kalkıyor; o sırada yürüyebilmek görüntüyü " +
         "bozuyordu. Süreyi Canavar Modelini Kur aracı klipten ölçüp yazıyor.")]
     [SerializeField] private float attackLockDuration = 1.6f;
+
+    [Tooltip("KOSTÜM BAŞINA saldırı kilidi; sıra CharacterCatalog.Monsters " +
+        "ile aynı. `Canavar Modelini Kur` her kostümün KENDİ kliplerinden " +
+        "ölçüp yazıyor. Boşsa ya da indeks dışarıdaysa yukarıdaki tek " +
+        "değere düşülüyor.\n\nGerekçe: kilit süresi animasyonun uzunluğu " +
+        "kadar olmalı. Tek bir sayı, kalkma klibi olmayan bir canavarı " +
+        "savurduktan sonra animasyonsuz dondurur.")]
+    [SerializeField] private float[] costumeAttackLocks;
 
     [Tooltip("Yakalama animasyonu boyunca kilit (saniye). Bu süre kaçanlar için " +
         "bedava bir kaçış penceresi — bilinçli, mori mantığı.")]
@@ -136,6 +149,29 @@ public class MonsterAttack : NetworkBehaviour
         "jumpscare'in işi zaten onları ürkütmek, canavarı değil.")]
     [SerializeField] private float ownHitVolumeScale = 0.4f;
 
+    [Tooltip("Kostüm başına savurma sesi. Boş bırakılan kostüm yukarıdaki " +
+        "ortak `swingClip`'e düşüyor. Diziyi `Sesleri Yerleştir` yazıyor — " +
+        "koddaki varsayılanı değiştirmek prefaba ULAŞMIYOR (bölüm 16).")]
+    [SerializeField] private AudioClip[] costumeSwingClips;
+
+    [Tooltip("Kostüm başına isabet/jumpscare sesi. Boş bırakılan kostüm " +
+        "ortak `hitClip`'e düşüyor.")]
+    [SerializeField] private AudioClip[] costumeHitClips;
+
+    [Tooltip("Sopa gövdeye indiği an çalan darbe sesi — cesedin yere düşme " +
+        "sesinin aynısı (`Ceset_Dusme`). YALNIZCA sopa taşıyan kostümde " +
+        "çalıyor; KUKLA elle saldırıyor ve orada bir 'gövdeye çarpma' anı " +
+        "yok. Diziyi `Sesleri Yerleştir` yazıyor.")]
+    [SerializeField] private AudioClip impactClip;
+
+    [SerializeField] private float impactVolume = 0.9f;
+
+    // Zamanı gelince çalacak ses. Sopa savurma başında değil, sopa İNERKEN
+    // duyulmalı (bkz. PlayDelayed).
+    private AudioClip pendingClip;
+    private float pendingVolume;
+    private float pendingTime;
+
     [Header("İsabet Kontrolü")]
     [Tooltip("Görüşü kesen katmanlar. Yakalamaca > Katmanları Kur bunu Harita " +
         "yapıyor; ~0 bırakılırsa yerdeki varil de ışını keser ve kaçana " +
@@ -167,6 +203,12 @@ public class MonsterAttack : NetworkBehaviour
     // birbirine karışmıyor (host modunda ikisi de aynı objede çalışıyor).
     private float serverSwingTimer;
     private bool serverHasHitThisSwing;
+
+    // Yakalanan kurban ve sopanın inmesine kalan süre. Yalnızca gecikmesi olan
+    // canavarlarda doluyor (`Costume.HitWindup`); KUKLA'da isabet ile ölüm
+    // aynı karede, yani bu ikisi hiç kullanılmıyor.
+    private RoundParticipant serverGrabVictim;
+    private float serverGrabTimer;
     private double serverNextSwingTime;
 
     /// <summary>Yüklenme oranı (0-1). holdTime maxChargeTime'ı aşsa da 1'de kalır.</summary>
@@ -194,6 +236,11 @@ public class MonsterAttack : NetworkBehaviour
         // kalırdı.
         TickLock();
 
+        // Kilitle aynı gerekçe: bekleyen ses de her koşulda işlemeli. Tur
+        // biterse ya da canavar elenirse aşağıdaki erken çıkışlar devreye
+        // giriyor ve zaten "yolda olan" bir ses sonsuza kadar asılı kalırdı.
+        TickPendingSound();
+
         RoundManager manager = RoundManager.Instance;
 
         // Rol ve canlılık SyncVar; yani "canavar mı" sorusunun cevabı her
@@ -207,7 +254,10 @@ public class MonsterAttack : NetworkBehaviour
             knife.gameObject.SetActive(active);
 
         if (isServer)
+        {
             ServerTickSwing(manager, active);
+            ServerTickGrab(manager, active);
+        }
 
         if (!active)
         {
@@ -280,9 +330,15 @@ public class MonsterAttack : NetworkBehaviour
         controller.AddVelocity(forward * lungeSpeed);
 
         state = AttackState.Swinging;
-        stateTimer = swingDuration;
 
-        Play(swingClip, swingVolume);
+        // İstemci isabet aramıyor (karar sunucuda) ama aynı süreyi sayması
+        // gerekiyor: erken biterse soğuma da erken başlar ve canavar
+        // animasyonu sürerken yeniden savurabilir görünür.
+        stateTimer = ResolveWindup() + swingDuration;
+
+        // Sopa savurmanın BAŞINDA değil, `hitWindup` kadar sonra iniyor —
+        // ses de o an gelmeli (2026-09-24).
+        PlayDelayed(ResolveSwingClip(), swingVolume, ResolveWindup());
 
         // Atılma animasyonu girdiden, anında: ağ turunu beklemek kendi
         // saldırının gecikmeli hissetmesi demekti. Karşı taraf aynı animasyonu
@@ -292,7 +348,7 @@ public class MonsterAttack : NetworkBehaviour
 
         // Animasyon boyunca hareket kilitli. Momentum KESİLMİYOR: atılmanın
         // kendisi bir hız itmesi, kesersek canavar olduğu yerde çırpınır.
-        BeginLock(attackLockDuration, stopMomentum: false);
+        BeginLock(ResolveAttackLock(), stopMomentum: false);
 
         // Atılma sırasında yavaşlatma yok — ceza vuruş bitince geliyor.
         controller.SpeedMultiplier = 1f;
@@ -380,9 +436,15 @@ public class MonsterAttack : NetworkBehaviour
         if (NetworkTime.time < serverNextSwingTime)
             return;
 
-        serverNextSwingTime = NetworkTime.time + (swingDuration + cooldownDuration) * 0.9f;
+        // Toplam savurma süresi gecikme kadar uzuyor — bekleme süresi de
+        // onunla birlikte, yoksa uzun savurmalı bir canavar hız sınırına
+        // takılır ve meşru vuruşu yenirdi.
+        float windup = ResolveWindup();
 
-        serverSwingTimer = swingDuration;
+        serverNextSwingTime =
+            NetworkTime.time + (windup + swingDuration + cooldownDuration) * 0.9f;
+
+        serverSwingTimer = windup + swingDuration;
         serverHasHitThisSwing = false;
 
         RpcSwing();
@@ -403,7 +465,14 @@ public class MonsterAttack : NetworkBehaviour
 
         serverSwingTimer -= Time.deltaTime;
 
-        if (!serverHasHitThisSwing)
+        // Arama penceresi savurmanın BAŞINDA: sayaç `windup + swingDuration`'dan
+        // geriye sayıyor, yani ilk `swingDuration` saniyede `> windup`.
+        //
+        // Kararın başta verilmesi bilinçli: kurban yakalandığı an öne çekilip
+        // kilitleniyor ve sopa onun üstüne iniyor. Karar sona bırakılsaydı
+        // ışınlanma tam vuruş anında olurdu ve göze batardı — oynanışta tam
+        // olarak bu bildirildi.
+        if (serverSwingTimer > ResolveWindup() && !serverHasHitThisSwing)
             ServerTryHit(manager);
     }
 
@@ -457,10 +526,91 @@ public class MonsterAttack : NetworkBehaviour
                 continue;
 
             serverHasHitThisSwing = true;
+
+            float windup = ResolveWindup();
+
+            if (windup > 0f)
+            {
+                // Yakalandı: kurban hemen öne çekilip kilitleniyor, ölüm sopa
+                // inince geliyor.
+                ServerBeginGrab(other, windup);
+                return;
+            }
+
             manager.ReportCaught(other, self);
             RpcHit();
             return;
         }
+    }
+
+    /// <summary>
+    /// Kurbanı canavarın önüne ışınlayıp kilitler; ölüm `windup` saniye sonra
+    /// <see cref="ServerTickGrab"/>'den geliyor.
+    ///
+    /// Mesafe `MonsterSetup.LaunchForwardOffset` ile AYNI olmalı: kurban önce
+    /// buraya çekiliyor, ölünce de `ApplyDeathPose` onu aynı noktaya
+    /// oturtuyor. İkisi ayrışırsa ölüm anında ikinci bir sıçrama olur —
+    /// düzeltmeye çalıştığımız şeyin ta kendisi.
+    /// </summary>
+    [Server]
+    private void ServerBeginGrab(RoundParticipant victim, float windup)
+    {
+        serverGrabVictim = victim;
+        serverGrabTimer = windup;
+
+        Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+
+        if (forward.sqrMagnitude < 0.0001f)
+            forward = Vector3.forward;
+
+        forward.Normalize();
+
+        Vector3 target = transform.position + forward * grabDistance;
+        target.y = victim.transform.position.y;
+
+        victim.ServerPlaceAt(target, Quaternion.LookRotation(-forward, Vector3.up));
+        victim.TargetGrabbed(windup);
+
+        // Görüntü gerçek ışınlamayı beklemiyor: her istemci kurbanın gövdesini
+        // kendi başına öne oturtuyor (tek ağ turu). Ayrıntı
+        // `RoundParticipant.ClientApplyGrabPose`'da.
+        RpcGrabbed(victim.netId, grabDistance);
+    }
+
+    /// <summary>
+    /// Yakalanan kurbanın ölüm sayacı. Sopa inince ölüm ve fırlatma burada
+    /// tetikleniyor.
+    /// </summary>
+    [Server]
+    private void ServerTickGrab(RoundManager manager, bool active)
+    {
+        if (serverGrabVictim == null)
+            return;
+
+        // Canavar elendi, tur bitti ya da kurban başka bir yoldan öldü:
+        // yakalama düşüyor. Kurbanın kilidi kendi güvenlik sayacıyla açılıyor.
+        if (!active || !serverGrabVictim.IsAlive || serverGrabVictim.IsEscaped)
+        {
+            // Kurban zaten ÖLDÜYSE gövdesi ölüm pozunda duruyor; onu geri
+            // almak cesedi yanlış yere doğururdu. Yalnızca hayattaysa
+            // temizleniyor.
+            if (serverGrabVictim.IsAlive)
+                RpcGrabCancelled(serverGrabVictim.netId);
+
+            serverGrabVictim = null;
+            return;
+        }
+
+        serverGrabTimer -= Time.deltaTime;
+
+        if (serverGrabTimer > 0f)
+            return;
+
+        RoundParticipant victim = serverGrabVictim;
+        serverGrabVictim = null;
+
+        manager.ReportCaught(victim, self);
+        RpcHit();
     }
 
     // ---------- Sunucudan istemcilere ----------
@@ -477,7 +627,7 @@ public class MonsterAttack : NetworkBehaviour
     [ClientRpc(includeOwner = false)]
     private void RpcSwing()
     {
-        Play(swingClip, swingVolume);
+        PlayDelayed(ResolveSwingClip(), swingVolume, ResolveWindup());
 
         state = AttackState.Swinging;
         stateTimer = swingDuration;
@@ -498,7 +648,43 @@ public class MonsterAttack : NetworkBehaviour
         // çalıyor — yani dinleyici (kamerası) kaynağın üstünde. Yalnızca o
         // durumda kısılıyor; kaçanlar aynı sesi mesafesine göre normal
         // duyuyor.
-        Play(hitClip, isLocalPlayer ? hitVolume * ownHitVolumeScale : hitVolume);
+        // **Gövde darbesi — sopa TAM BU AN iniyor (2026-09-24).**
+        //
+        // Cesedin yere düşme sesinin aynısı (`Ceset_Dusme`). Kullanıcının
+        // isteği: "o sesi de tam sopayla adama vurduğunda çıkar".
+        //
+        // Ölçüt `CarriesBat`, `LaunchesVictim` DEĞİL: aranan şey "gövdeye
+        // çarpan bir alet var mı", "kurban uçuyor mu" değil. İkisi bugün
+        // aynı kostümde doğru ama sopalı ama fırlatmayan bir üçüncü canavar
+        // geldiğinde `LaunchesVictim` sessizce yanlış cevabı verirdi — ve
+        // bu satır o zaman aşağıdaki erken çıkışın yanlış tarafında kalırdı.
+        //
+        // Bu yüzden erken çıkıştan ÖNCE duruyor: iki yol da (fırlatan ve
+        // yakalama koreografisi olan) aynı darbeyi duyuyor.
+        //
+        // Ceset ayrıca yere/duvara çarpınca kendi düşme sesini yine çalıyor
+        // (`Corpse.ServerReportImpact`) — ikisi ayrı olay: biri sopanın
+        // gövdeye inmesi, öbürü gövdenin yere inmesi. Kullanıcı seslerin
+        // üst üste binmesini zaten onayladı.
+        if (CarriesBat())
+            Play(impactClip, OwnScaled(impactVolume));
+
+        // Fırlatan canavarın (domuz katil) yakalama koreografisi YOK: kurban
+        // olduğu yerde ragdoll olup uçuyor, canavar koşmaya devam ediyor.
+        //
+        // Tetiği yine de ateşlemek GERÇEK bir hata olurdu: o canavarın
+        // animatöründe `Yakalama` durumu hiç kurulmuyor (`BuildController`),
+        // yani tetiği tüketecek geçiş yok ve Unity tüketilmeyen tetiği
+        // SIFIRLAMIYOR — bir sonraki uygun anda kendiliğinden patlardı
+        // (bölüm 13'ün "asılı tetik" dersi).
+        //
+        // **Sesi de burada çalmıyor (2026-09-24):** jumpscare'i yakalama
+        // anında `RpcGrabbed` çaldı, bir saniye sonra ikinci kez duyulmamalı.
+        // Erken çıkış bu yüzden sesten ÖNCE geldi.
+        if (LaunchesVictim())
+            return;
+
+        Play(ResolveHitClip(), HitVolumeForListener());
 
         // Yakalama animasyonu YALNIZCA buradan: bu Rpc sunucu isabeti
         // doğruladığında çağrılıyor. Iskalarsan hiç gelmiyor, dolayısıyla
@@ -509,6 +695,230 @@ public class MonsterAttack : NetworkBehaviour
         // Yakalarken duruyor: kurbanın üstünde. Bu süre diğer kaçanlar için
         // bedava kaçış penceresi — bilinçli bir takas.
         BeginLock(killLockDuration, stopMomentum: true, killCameraPullBack);
+    }
+
+    /// <summary>
+    /// Bu canavar kurbanı fırlatan cinsten mi (`Costume.LaunchesVictim`)?
+    ///
+    /// Kostüm `RoundParticipant`'ın SyncVar'ında, yani her istemci aynı
+    /// cevabı kendi hesaplıyor — ayrıca bir mesaj taşımaya gerek yok.
+    /// </summary>
+    /// <summary>
+    /// Bu kostümün saldırı kilidi. Dizi doluysa oradan, değilse tek değerden.
+    ///
+    /// Kilit süresi ANIMASYONUN uzunluğu kadar olmalı: kısa olursa canavar
+    /// klip biterken yürümeye başlayıp görüntüyü bozar, uzun olursa
+    /// animasyon bitmiş bir karakter yerinde donmuş görünür.
+    /// </summary>
+    /// <summary>
+    /// Bu kostümün savurma–isabet gecikmesi. Kostüm `RoundParticipant`'ın
+    /// SyncVar'ında, yani sunucu ve istemci aynı sayıyı kendi hesaplıyor —
+    /// ayrıca bir mesaj taşımaya gerek yok (bölüm 4).
+    /// </summary>
+    private float ResolveWindup()
+    {
+        RoundParticipant participant = self != null
+            ? self
+            : GetComponent<RoundParticipant>();
+
+        return participant != null
+            ? CharacterCatalog.Monster(participant.MonsterCostume).HitWindup
+            : 0f;
+    }
+
+    /// <summary>
+    /// Sesi `delay` saniye SONRA çalar. Sıfır ya da altı = hemen.
+    ///
+    /// ### Neden gerekti — sopa sesi bir saniye erken geliyordu (2026-09-24)
+    ///
+    /// Domuz katilin savurma klibi 2.4 saniye ve sopa **savurmanın başında
+    /// değil, `hitWindup` (1.0 sn) sonra** iniyor — ölüm de o an oluyor.
+    /// Ses ise savurma başlar başlamaz çalıyordu, yani sopa daha havadayken.
+    ///
+    /// Gecikme `hitWindup`'ın KENDİSİ: iki sayı ayrı yazılsaydı biri
+    /// değişince öbürü unutulur ve ses yine kayardı. Ayrıca KUKLA'nın
+    /// windup'ı sıfır olduğu için bu yol onda hiç çalışmıyor — gecikme
+    /// kendiliğinden yalnızca domuza ait kalıyor.
+    ///
+    /// `AudioSource.PlayDelayed` KULLANILMIYOR: o kaynağın KENDİ klibini
+    /// çalıyor ve bu kaynak ayak sesiyle paylaşılıyor (bölüm 12) —
+    /// araya giren bir adım sesi gecikmeli çalmayı bozardı. `PlayOneShot`
+    /// ise gecikme almıyor, o yüzden zamanlama burada tutuluyor.
+    /// </summary>
+    private void PlayDelayed(AudioClip clip, float volume, float delay)
+    {
+        if (clip == null)
+            return;
+
+        if (delay <= 0f)
+        {
+            Play(clip, volume);
+            return;
+        }
+
+        pendingClip = clip;
+        pendingVolume = volume;
+        pendingTime = Time.time + delay;
+    }
+
+    /// <summary>
+    /// Bekleyen sesin zamanı geldiyse çalar.
+    ///
+    /// Tek yuva yeterli: savurma kilidi (`ResolveAttackLock`, domuzda 2.4 sn)
+    /// windup'tan uzun, yani bir sonraki savurma başlamadan bekleyen ses
+    /// çoktan çalmış oluyor. Üst üste binerse de yenisi eskisini eziyor —
+    /// duyulmayan bir ses, yanlış anda duyulan sesten iyi.
+    /// </summary>
+    private void TickPendingSound()
+    {
+        if (pendingClip == null || Time.time < pendingTime)
+            return;
+
+        Play(pendingClip, pendingVolume);
+        pendingClip = null;
+    }
+
+    /// <summary>
+    /// Sesin bu dinleyicideki seviyesi. Canavarı OYNAYAN kişide kısılıyor
+    /// (kaynak kulağının dibinde, mesafe düşüşü hiç işlemiyor — bölüm 12);
+    /// kaçanlar tam seviye duyuyor.
+    /// </summary>
+    private float OwnScaled(float volume) =>
+        isLocalPlayer ? volume * ownHitVolumeScale : volume;
+
+    /// <summary>İsabet/jumpscare sesinin bu dinleyicideki seviyesi.</summary>
+    private float HitVolumeForListener() => OwnScaled(hitVolume);
+
+    /// <summary>
+    /// Bu canavar elinde sopa taşıyor mu (`Costume.CarriesBat`)?
+    ///
+    /// `LaunchesVictim`'den AYRI tutuluyor: biri "gövdeye çarpan bir alet
+    /// var mı", öbürü "kurban uçuyor mu" sorusu. Bugün ikisi de yalnızca
+    /// domuz katilde doğru ama aynı şeyi sormuyorlar.
+    /// </summary>
+    private bool CarriesBat()
+    {
+        RoundParticipant participant = GetComponent<RoundParticipant>();
+
+        return participant != null
+            && CharacterCatalog.Monster(participant.MonsterCostume).CarriesBat;
+    }
+
+    /// <summary>
+    /// Bu kostümün savurma sesi. Kendi klibi yoksa ortak klibe düşüyor.
+    /// </summary>
+    private AudioClip ResolveSwingClip() => CostumeClip(costumeSwingClips, swingClip);
+
+    /// <summary>
+    /// Bu kostümün isabet (jumpscare) sesi. Kendi klibi yoksa ortak klip.
+    /// </summary>
+    private AudioClip ResolveHitClip() => CostumeClip(costumeHitClips, hitClip);
+
+    /// <summary>
+    /// Kostüm dizisinden klip seçer, yoksa yedeğe düşer.
+    ///
+    /// **`??` KULLANILMIYOR, bilerek.** Unity `==`'i kendi "yok edilmiş
+    /// nesne" mantığıyla aşırı yüklüyor ama `??` saf referans eşitliğine
+    /// bakıp o yüklemeyi atlıyor: boşaltılmış bir klip `??` için "dolu"
+    /// görünür ve yedek hiç devreye girmezdi. Bu proje aynı tuzağa
+    /// 2026-09-21'de `GetComponent ?? AddComponent` ile düştü ve araç ortada
+    /// patladı (o oturumun 1. dersi).
+    ///
+    /// Kostüm `RoundParticipant`'ın SyncVar'ında, yani her istemci aynı
+    /// cevabı kendi hesaplıyor — ses için ağdan bir şey taşınmıyor.
+    /// </summary>
+    private AudioClip CostumeClip(AudioClip[] clips, AudioClip fallback)
+    {
+        if (clips == null || clips.Length == 0)
+            return fallback;
+
+        RoundParticipant participant = GetComponent<RoundParticipant>();
+        if (participant == null)
+            return fallback;
+
+        int index = participant.MonsterCostume;
+        if (index < 0 || index >= clips.Length)
+            return fallback;
+
+        AudioClip clip = clips[index];
+
+        return clip != null ? clip : fallback;
+    }
+
+    private float ResolveAttackLock()
+    {
+        RoundParticipant participant = GetComponent<RoundParticipant>();
+
+        if (participant == null || costumeAttackLocks == null)
+            return attackLockDuration;
+
+        int index = participant.MonsterCostume;
+
+        if (index < 0 || index >= costumeAttackLocks.Length)
+            return attackLockDuration;
+
+        float value = costumeAttackLocks[index];
+
+        return value > 0f ? value : attackLockDuration;
+    }
+
+    private bool LaunchesVictim()
+    {
+        RoundParticipant participant = GetComponent<RoundParticipant>();
+
+        return participant != null
+            && CharacterCatalog.Monster(participant.MonsterCostume).LaunchesVictim;
+    }
+
+    /// <summary>
+    /// Yakalamayı bütün istemcilere duyurur; her biri kurbanın gövdesini
+    /// canavarın önüne oturtuyor.
+    ///
+    /// `netId` taşınıyor, `RoundParticipant` referansı değil: Mirror referansı
+    /// zaten netId olarak serileştiriyor ve nesne o istemcide henüz
+    /// çözülememişse sessizce null geliyor. Açıkça netId yollayıp burada
+    /// çözmek, çözülemediğinde ne olduğunu görünür kılıyor.
+    /// </summary>
+    [ClientRpc]
+    private void RpcGrabbed(uint victimNetId, float distance)
+    {
+        // **Jumpscare BURADA çalıyor, ölümde değil (2026-09-24).**
+        //
+        // Fırlatan canavarda yakalama ile ölüm arasında `hitWindup` kadar
+        // (1.0 sn) boşluk var: kurban öne çekilip kilitleniyor, sopa sonra
+        // iniyor. Ses ölümde çalınca korkutma anı KAÇIRILIYORDU — oyuncu
+        // yakalandığını zaten görüyor, ses bir saniye sonra geliyordu.
+        //
+        // Kurbanın çözülmesini BEKLEMİYOR: aşağıdaki erken çıkış yalnızca
+        // gövde pozunu ilgilendiriyor, sesin ona ihtiyacı yok.
+        //
+        // Elle saldıran canavarda (KUKLA) bu yol hiç çalışmıyor — yakalama
+        // mekaniği yalnızca `hitWindup > 0` olan kostümlerde kuruluyor
+        // (bkz. ServerTickSwing).
+        Play(ResolveHitClip(), HitVolumeForListener());
+
+        if (!NetworkClient.spawned.TryGetValue(victimNetId, out NetworkIdentity identity)
+            || identity == null)
+            return;
+
+        RoundParticipant victim = identity.GetComponent<RoundParticipant>();
+
+        if (victim != null)
+            victim.ClientApplyGrabPose(transform, distance);
+    }
+
+    /// <summary>Yakalama düştü: kurbanın gövdesi yerine dönüyor.</summary>
+    [ClientRpc]
+    private void RpcGrabCancelled(uint victimNetId)
+    {
+        if (!NetworkClient.spawned.TryGetValue(victimNetId, out NetworkIdentity identity)
+            || identity == null)
+            return;
+
+        RoundParticipant victim = identity.GetComponent<RoundParticipant>();
+
+        if (victim != null)
+            victim.ClientClearGrabPose();
     }
 
     // ---------- Ortak ----------

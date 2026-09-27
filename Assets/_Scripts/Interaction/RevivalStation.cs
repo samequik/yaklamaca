@@ -1,4 +1,5 @@
 using Mirror;
+using TMPro;
 using UnityEngine;
 
 /// <summary>Ceset kabulü ve diriltme kararı sunucuda; normal hedef terminallerinden bağımsız.</summary>
@@ -85,6 +86,14 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     public int RevivedCount => revivedHere.Count;
     public Corpse Body => FindCorpse(corpseId);
 
+    /// <summary>Kabin kökündeki tabela objesinin adı (`RevivalSetup`).</summary>
+    private const string SignName = "Tabela";
+
+    /// <summary>Tabela yazısının dil anahtarı — numarasız, bilerek.</summary>
+    private const string SignKey = "DİRİLTME";
+
+    private TMP_Text signLabel;
+
     private void Awake()
     {
         // Kabin gövdesine bakınca da terminal bulunsun diye köke aktarıcı
@@ -96,6 +105,8 @@ public class RevivalStation : NetworkBehaviour, IInteractable
             RevivalStationRelay relay = cabin.GetComponent<RevivalStationRelay>()
                 ?? cabin.gameObject.AddComponent<RevivalStationRelay>();
             relay.Bind(this);
+
+            BindSign(cabin);
         }
 
         block = new MaterialPropertyBlock();
@@ -129,7 +140,42 @@ public class RevivalStation : NetworkBehaviour, IInteractable
             if (wanted != null) audioSource.Play();
         }
     }
-    private void OnDisable() => ReleaseLocal();
+    private void OnEnable() => Localization.Changed += ApplySignText;
+
+    private void OnDisable()
+    {
+        Localization.Changed -= ApplySignText;
+        ReleaseLocal();
+    }
+
+    /// <summary>
+    /// Kabinin üstündeki tabelayı dile bağlar.
+    ///
+    /// ### Neden ÇALIŞMA ANINDA, araçta değil
+    ///
+    /// `Diriltme Sistemini Kur` sahnede tam iki kabin bulunca HİÇBİR ŞEY
+    /// yapmıyor (bölüm 23) — kabinler 2026-09-10'da elle taşındı ve araç
+    /// onları bilerek geri almıyor. Yani tabelayı araçtan düzeltmek var olan
+    /// iki kabine hiç ulaşmazdı. Aynı gerekçe `Terminal`in durum ışığında da
+    /// var (bölüm 11.2): elle yerleştirilmiş nesnelere çalışma anında
+    /// dokunuluyor.
+    ///
+    /// Numara da burada düşüyor: sahnedeki yazı "DİRİLTME 1" olsa bile
+    /// ekranda "DİRİLTME" / "REVIVAL" görünüyor.
+    /// </summary>
+    private void BindSign(Transform cabin)
+    {
+        Transform sign = cabin.Find(SignName);
+        signLabel = sign != null ? sign.GetComponent<TMP_Text>() : null;
+        ApplySignText();
+    }
+
+    private void ApplySignText()
+    {
+        if (signLabel != null)
+            signLabel.SetText(Localization.Get(SignKey));
+    }
+
     private void ReleaseLocal()
     {
         if (!localFocused) return;

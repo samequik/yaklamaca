@@ -400,68 +400,30 @@ public static class NetworkSetup
     /// <summary>
     /// Doğum noktaları. Mirror bunlar yoksa herkesi (0,0,0)'da doğurur —
     /// labirentin merkez hücresi duvar olduğu için oyuncular duvarın içinde
-    /// belirirdi. Noktalar fizikle sınanıyor, harita elle düzenlenmiş olsa bile
-    /// çalışıyor.
+    /// belirirdi.
+    ///
+    /// **Yerleştirmeyi artık `SpawnPointSetup` yapıyor** (2026-09-23).
+    /// Burada ikinci bir kopyası duruyordu ve ikisi ayrı davranıyordu: bu
+    /// araç altı işaretsiz nokta kuruyor, hepsini ana haritaya koyuyor ve
+    /// canavara ayrı bir nokta vermiyordu. Yani `Ağ Kurulumu`'nu çalıştırmak
+    /// `Doğum Noktalarını Kur`'un işini sessizce geri alırdı.
+    ///
+    /// Aynı hatanın iki yerde yaşaması bu projede bir kez daha oldu
+    /// (`MonsterSetup` / `RunnerSetup`, CLAUDE.md 2026-09-21 dersi 2):
+    /// "aynı hata iki yerde varsa biri düzeltilince öbürü aranmalı". İkinci
+    /// kopyayı tutmak yerine tek üreticiye devrediliyor.
     /// </summary>
     private static int BuildSpawnPoints()
     {
-        const string groupName = "DogumNoktalari";
-        const int wanted = 6;
-        const float areaHalfSize = 24f;
-        const float minSpacing = 8f;
-
-        GameObject existing = GameObject.Find(groupName);
-        if (existing != null)
-            Undo.DestroyObjectImmediate(existing);
-
-        GameObject group = new GameObject(groupName);
-        Undo.RegisterCreatedObjectUndo(group, "Ağ Kurulumu");
-
-        int placed = 0;
-        int attempts = 0;
-
-        while (placed < wanted && attempts < 600)
-        {
-            attempts++;
-
-            Vector3 candidate = new Vector3(
-                Random.Range(-areaHalfSize, areaHalfSize),
-                0.7f, // kapsül merkezi: ayaklar zeminde
-                Random.Range(-areaHalfSize, areaHalfSize));
-
-            // Kontrol küresi doğum noktasından ayrı: aynı yerde ve 0.7 yarıçapla
-            // sorarsak kürenin altı zemine değiyor ve her nokta "dolu" çıkıyor.
-            Vector3 probe = candidate + Vector3.up * 0.25f;
-
-            if (Physics.CheckSphere(probe, 0.55f, ~0, QueryTriggerInteraction.Ignore))
-                continue; // duvarın içi
-            if (IsTooCloseToExisting(group.transform, candidate, minSpacing))
-                continue;
-
-            GameObject point = new GameObject($"Dogum_{placed + 1}");
-            point.transform.SetParent(group.transform, false);
-            point.transform.position = candidate;
-            point.AddComponent<NetworkStartPosition>();
-
-            placed++;
-        }
+        int placed = SpawnPointSetup.Build(out string report);
 
         if (placed == 0)
             Debug.LogWarning("Hiç doğum noktası yerleştirilemedi — oyuncular (0,0,0)'da, " +
-                "yani labirentin duvarında doğacak. Harita kurulu mu?");
+                "yani labirentin duvarında doğacak. Harita kurulu mu?\n" + report);
+        else
+            Debug.Log("Doğum noktaları: " + report);
 
         return placed;
-    }
-
-    private static bool IsTooCloseToExisting(Transform group, Vector3 candidate, float minDistance)
-    {
-        foreach (Transform child in group)
-        {
-            if ((child.position - candidate).sqrMagnitude < minDistance * minDistance)
-                return true;
-        }
-
-        return false;
     }
 
     private static NetworkManager BuildNetworkManager(GameObject playerPrefab)

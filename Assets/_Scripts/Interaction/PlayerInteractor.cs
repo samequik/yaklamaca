@@ -95,7 +95,7 @@ public class PlayerInteractor : MonoBehaviour
         bool atStation = currentTarget is RevivalStation;
         currentPrompt = atStation
             ? currentPrompt
-            : "Ceset taşınıyor — bırak · basılı tut: fırlat";
+            : Localization.Get("Ceset taşınıyor — bırak · basılı tut: fırlat");
 
         if (KeyBindings.Pressed(GameAction.Interact))
         {

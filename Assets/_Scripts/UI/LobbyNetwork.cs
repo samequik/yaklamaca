@@ -124,7 +124,7 @@ public class LobbyNetwork : MonoBehaviour
         NetworkManager manager = NetworkManager.singleton;
         if (manager == null)
         {
-            StatusMessage = "NetworkManager yok. Yakalamaca > Ağ Kurulumu (1. adım).";
+            StatusMessage = Localization.Get("NetworkManager yok. Yakalamaca > Ağ Kurulumu (1. adım).");
             Debug.LogError(StatusMessage);
             return;
         }
@@ -272,7 +272,7 @@ public class LobbyNetwork : MonoBehaviour
         NetworkManager manager = NetworkManager.singleton;
         if (manager == null)
         {
-            StatusMessage = "NetworkManager yok. Yakalamaca > Ağ Kurulumu (1. adım).";
+            StatusMessage = Localization.Get("NetworkManager yok. Yakalamaca > Ağ Kurulumu (1. adım).");
             Debug.LogError(StatusMessage);
             return;
         }
@@ -443,6 +443,118 @@ public class LobbyNetwork : MonoBehaviour
 
         manager.transport = wanted;
         Transport.active = wanted;
+
+        ApplySnapshotBuffer(manager);
+    }
+
+    /// <summary>
+    /// Anlık görüntü tamponunu, oyuncunun `NetworkTransform`'unun GERÇEK
+    /// gönderim aralığına göre büyütür.
+    ///
+    /// ### Neden gerekti — tampon bir gönderim aralığından KÜÇÜKTÜ (2026-09-23)
+    ///
+    /// Mirror'ın formülü:
+    ///
+    /// ```
+    /// bufferTime = NetworkServer.sendInterval * bufferTimeMultiplier
+    /// ```
+    ///
+    /// Sahnedeki değerler `sendRate = 60` ve `bufferTimeMultiplier = 2`,
+    /// yani tampon **33 ms**. Oyuncunun `NetworkTransform`'u ise
+    /// `syncInterval = 0.05`, yani konum **50 ms**'de bir geliyor.
+    ///
+    /// Tampon bir gönderim aralığından küçük olunca zaman çizgisi en yeni
+    /// anlık görüntüye yetişiyor ve ara değerleyecek bir şey bulamıyor:
+    /// uzak oyuncunun konumu DONUYOR, sonraki paket gelince sıçrıyor.
+    /// Kusursuz bir LAN'de bile oluyor, internette jitter'le birlikte çok
+    /// daha uzun sürüyor.
+    ///
+    /// **Mirror'ın dinamik ayarı bunu göremiyor.** `DynamicAdjustment`
+    /// jitter'in standart sapmasını ölçüyor:
+    ///
+    /// ```
+    /// multiples = (sendInterval + jitterStd) / sendInterval
+    /// safezone  = multiples + tolerance
+    /// ```
+    ///
+    /// Paketler düzenli aralıklarla geliyorsa (LAN) jitterStd ≈ 0 ve sonuç
+    /// yine 2 çıkıyor. Ölçtüğü şey paketlerin DÜZENSİZLİĞİ, gönderim
+    /// hızlarının uyuşmazlığı değil.
+    ///
+    /// ### Neyi düzeltiyor
+    ///
+    /// Donan konum üç şeyi birden bozuyordu ve üçü de "bazen gelmiyor"
+    /// diye bildirildi:
+    ///
+    /// | Belirti | Neden |
+    /// |---|---|
+    /// | Canavarın ayak sesi | Hız pozisyon farkından çıkıyor; donan karede sıfır görünüyor (bkz. `FootstepAudio.ReportTooSlow`) |
+    /// | Kalp atışı | `ScreenEffects.DreadAt` canavara olan MESAFEYİ ölçüyor; donmuş konum mesafeyi olduğundan uzak gösteriyor |
+    /// | Ekran sarsıntısı | Aynı dehşet sayısından besleniyor |
+    ///
+    /// Dehşet 16 m'de başlıyor: kovalarken 10.67 m/s giden bir canavarın
+    /// konumu 300 ms donarsa 3.2 m'lik bir hata demek, yani canavar
+    /// gerçekte menzildeyken ekranda hâlâ dışarıda görünüyor.
+    ///
+    /// ### Sayı ÖLÇÜLÜYOR, yazılmıyor
+    ///
+    /// Gereken çarpan prefabın kendi `syncInterval`'inden hesaplanıyor.
+    /// Sabit bir sayı yazmak, biri `syncInterval`'i değiştirdiğinde aynı
+    /// hatayı sessizce geri getirirdi — bölüm 16'nın "iki sayı birbirine
+    /// bağlıysa birini değiştirirken öbürünü de kontrol et" dersi.
+    ///
+    /// Yalnızca BÜYÜTÜYOR: elle daha yüksek bir değer verilmişse ona
+    /// dokunulmuyor.
+    /// </summary>
+    private static void ApplySnapshotBuffer(NetworkManager manager)
+    {
+        if (manager == null || manager.sendRate <= 0)
+            return;
+
+        float sendInterval = 1f / manager.sendRate;
+        float transformInterval = LongestTransformInterval(manager.playerPrefab);
+
+        if (transformInterval <= 0f)
+            return;
+
+        // Tampon en az BİR tam gönderim aralığını örtmeli, üstüne bir
+        // gönderim aralığı kadar da jitter payı. Yukarı yuvarlanıyor:
+        // eksik bir tampon donma demek, fazlası yalnızca birkaç ms gecikme.
+        int needed = Mathf.CeilToInt((transformInterval + sendInterval) / sendInterval);
+
+        if (manager.snapshotSettings.bufferTimeMultiplier >= needed)
+            return;
+
+        Debug.Log($"Anlık görüntü tamponu büyütüldü: " +
+            $"{manager.snapshotSettings.bufferTimeMultiplier} → {needed} " +
+            $"({sendInterval * needed * 1000f:0} ms). Oyuncunun konumu " +
+            $"{transformInterval * 1000f:0} ms'de bir geliyor; küçük tampon " +
+            "uzak oyuncuları donduruyordu.");
+
+        manager.snapshotSettings.bufferTimeMultiplier = needed;
+    }
+
+    /// <summary>
+    /// Oyuncu prefabındaki `NetworkTransform`'ların en UZUN gönderim
+    /// aralığı. En yavaş olan belirleyici: tampon onu örtmüyorsa o bileşen
+    /// donuyor.
+    /// </summary>
+    private static float LongestTransformInterval(GameObject playerPrefab)
+    {
+        if (playerPrefab == null)
+            return 0f;
+
+        float longest = 0f;
+        NetworkTransformBase[] transforms =
+            playerPrefab.GetComponentsInChildren<NetworkTransformBase>(true);
+
+        for (int i = 0; i < transforms.Length; i++)
+        {
+            if (transforms[i] != null && transforms[i].syncInterval > longest)
+                longest = transforms[i].syncInterval;
+        }
+
+        return longest;
     }
 
     /// <summary>

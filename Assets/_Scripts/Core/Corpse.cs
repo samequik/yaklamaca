@@ -125,6 +125,17 @@ public class Corpse : NetworkBehaviour, IInteractable
 
     /// <summary>Bu ana kadar hız tavanı gevşek — bkz. ClampSpeeds.</summary>
     private float throwClampUntil;
+
+    /// <summary>
+    /// O gevşemede izin verilen tavan — son fırlatmanın GERÇEK hızı.
+    ///
+    /// Bir süre burada sabit `ThrowSpeed` (9) kullanılıyordu ve vuruş
+    /// fırlatması 11'den başlıyordu: gövde daha ilk fizik adımında 9'a
+    /// kırpılıyor, yani istenen hıza hiç ulaşamıyordu. "Ceset yeterince
+    /// uçmuyor" şikâyetinin sebebi buydu — sayıyı büyütmek de işe
+    /// yaramazdı, çünkü kırpan şey sayının kendisi değildi.
+    /// </summary>
+    private float throwClampSpeed;
     private int playerMask;
     public uint VictimNetId => victimNetId;
     public uint StationNetId => stationNetId;
@@ -437,7 +448,13 @@ public class Corpse : NetworkBehaviour, IInteractable
         // Fırlatmadan hemen sonra tavan gevşiyor: normal tavan (maxSpeed = 6)
         // fırlatma hızından düşük ve gövdeyi daha havalanmadan kırpardı —
         // "fırlattım ama iki adım öteye düştü" demek olurdu.
-        float cap = Time.time < throwClampUntil ? Mathf.Max(maxSpeed, ThrowSpeed) : maxSpeed;
+        //
+        // Tavan, o fırlatmanın GERÇEK hızından geliyor — sabit bir sayıdan
+        // değil. Sabit `ThrowSpeed` kullanıldığı sürece ondan hızlı her
+        // fırlatma sessizce kırpılıyordu.
+        float cap = Time.time < throwClampUntil
+            ? Mathf.Max(maxSpeed, throwClampSpeed)
+            : maxSpeed;
         float limit = cap * cap;
 
         foreach (var part in ragdoll)
@@ -551,6 +568,7 @@ public class Corpse : NetworkBehaviour, IInteractable
         ServerDrop();
 
         throwClampUntil = Time.time + ThrowGrace;
+        throwClampSpeed = ThrowSpeed;
         awaitingLanding = true;
 
         foreach (var part in ragdoll)
@@ -562,6 +580,68 @@ public class Corpse : NetworkBehaviour, IInteractable
 
         sync.Publish();
     }
+    /// <summary>
+    /// Gövdeyi verilen yöne fırlatır — `ServerThrow`'un taşımadan bağımsız
+    /// hâli. Canavar vurunca kurbanın uçması bunu kullanıyor.
+    ///
+    /// **Hız BÜTÜN parçalara aynı veriliyor.** Yalnızca kalçaya itki vermek
+    /// gövdeyi eklemlerden geriye açar ve ceset havada yırtılıyormuş gibi
+    /// görünür; hepsine aynı hızı vermek onu tek parça hâlinde yolluyor,
+    /// dönüşü eklemlerin kendisi üretiyor.
+    ///
+    /// Hız tavanı (`maxSpeed` = 6) kısa süre gevşiyor: o tavan duvara
+    /// dayanınca uzuvların savrulmasını engellemek için var, fırlatmayı
+    /// engellemek için değil — gevşetilmezse gövde daha havalanmadan kırpılır.
+    /// </summary>
+    [Server] public void ServerLaunch(Vector3 direction, float speed)
+    {
+        if (ragdoll == null || ragdoll.Count == 0)
+            return;
+
+        if (direction.sqrMagnitude < 1e-6f)
+            return;
+
+        direction = direction.normalized;
+
+        // Pay taşımadakinden UZUN: vuruş fırlatması daha hızlı, yani havada
+        // daha çok kalıyor. Kısa pay gövdeyi yolun ortasında 6 m/s'ye
+        // düşürüp uçuşu yarıda keserdi.
+        throwClampUntil = Time.time + HitLaunchGrace;
+        throwClampSpeed = speed;
+        awaitingLanding = true;
+
+        foreach (var part in ragdoll)
+        {
+            if (part.Body.isKinematic) continue;
+            part.Body.WakeUp();
+            part.Body.velocity = direction * speed;
+        }
+
+        sync.Publish();
+    }
+
+    /// <summary>
+    /// Canavarın vuruşuyla uçan kurbanın hızı.
+    ///
+    /// 11'den 17'ye çıkarıldı (2026-09-21). Not: 11 zaten hiç
+    /// ulaşılamıyordu — hız tavanı onu 9'a kırpıyordu (bkz.
+    /// `throwClampSpeed`). Yani gerçek artış 9 → 17.
+    ///
+    /// Gövdede doğrusal sönümleme var (`RagdollFactory`, 0.9), yani hız
+    /// uçuş boyunca hızla eriyor; mesafe hızla DOĞRUSAL artmıyor.
+    /// </summary>
+    public const float HitLaunchSpeed = 17f;
+
+    /// <summary>
+    /// Vuruş fırlatmasında hız tavanının gevşek kaldığı süre. Taşıma
+    /// fırlatmasındakinden (`ThrowGrace` 0.7) uzun: gövde daha hızlı gidiyor
+    /// ve havada daha çok kalıyor.
+    /// </summary>
+    private const float HitLaunchGrace = 1.3f;
+
+    /// <summary>Vuruşta yukarı kavis — dümdüz ileri giden gövde zemine sürtüp duruyor.</summary>
+    public const float HitLaunchRise = 0.45f;
+
     [Server] public void ServerDrop()
     {
         if (carrierNetId == 0) return;

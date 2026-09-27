@@ -27,6 +27,17 @@ public static class MonsterSetup
     private const string DollModel = DollFolder + "/Art/Models/KillerDollUnity_BaseBody.fbx";
     private const string DollMaterials = DollFolder + "/Art/Materials";
     internal const string ControllerPath = ModelFolder + "/Canavar.controller";
+
+    /// <summary>
+    /// Kostüm başına denetleyici yolu. İlk kostüm eski adı koruyor
+    /// (`Canavar.controller`): adı değiştirmek var olan prefab ve menü
+    /// referanslarını koparırdı.
+    ///
+    /// `MenuStageSetup` de bunu çağırıyor — yol iki yerde ayrı ayrı
+    /// kurulsaydı biri değişince öbürü sessizce yanlış dosyayı arardı.
+    /// </summary>
+    internal static string ControllerPathFor(int index) =>
+        index == 0 ? ControllerPath : $"{ModelFolder}/Canavar_{index}.controller";
     private const string PlayerPrefabPath = "Assets/_Prefabs/NetworkPlayer.prefab";
 
     private const string MonsterRootName = "CanavarGovde";
@@ -67,6 +78,67 @@ public static class MonsterSetup
     private const string KillClipKey = "kill";
     private const string RecoverClipKey = "ıskalama";
 
+    /// <summary>Eksik rollerin ödünç alınacağı klasör (kaçanın klipleri).</summary>
+    private const string BorrowFolder = "Assets/_Art/Models/Kacan";
+
+    // ---- Fırlatan canavarın ölüm koreografisi ----
+    //
+    // Prefaba serileşmiş alanlar olduğu için araç bunları HER ÇALIŞTIRMADA
+    // yazıyor; koddaki varsayılanı değiştirmek tek başına hiçbir şey yapmaz
+    // (bölüm 16). Ayar yeri burası.
+
+    /// <summary>Kurban canavarın kaç metre önüne oturtuluyor.</summary>
+    private const float LaunchForwardOffset = 1.1f;
+
+    /// <summary>Kurban orada kaç saniye durup sonra uçuyor.</summary>
+    private const float LaunchDeathHold = 0.25f;
+
+    // ---- Canavarın ayak sesi ----
+    //
+    // Bunlar da prefaba serileşmiş alanlar, yani koddaki varsayılanı
+    // değiştirmek yetmiyor (bölüm 16). Ayar yeri burası.
+    //
+    // Adımlar MESAFEYLE tetikleniyor: `MonsterWalkStride` doğrudan tempoyu
+    // belirliyor. 1.5'te yürüme 0.39 sn/adım çıkıyordu ve koşmanın
+    // 0.36'sıyla neredeyse aynıydı — 2.4'te 0.63 sn/adım.
+
+    /// <summary>Canavar yürürken/eğilirken kaç metrede bir adım sesi.</summary>
+    private const float MonsterWalkStride = 2.4f;
+
+    /// <summary>Canavarın yürüme/eğilme adımının sesi (koşu 0.85).</summary>
+    private const float MonsterWalkVolume = 0.32f;
+
+    /// <summary>
+    /// Rol → kabul edilen klip adları. Her kostüm kliplerini kendi adıyla
+    /// indiriyor ve o adlar rollerle uyuşmuyor: domuz katilde boşta durma
+    /// `Unarmed Idle`, yürüme `Standing Walk Forward`.
+    ///
+    /// **Dışlama listesi ŞART.** Roller birbirinin adını kapsıyor:
+    /// `crouching idle` "idle" içeriyor, `crouched walking` "walking"
+    /// içeriyor. Bu tuzağa 2026-09-12'de bir kez düşüldü — muz adam dururken
+    /// eğilme klibini oynuyordu (bölüm 13). Sıra da önemli: daha uzun ve
+    /// daha spesifik ad önce aranıyor.
+    /// </summary>
+    private static readonly (string Role, string[] Hints, string[] Exclude)[] ClipRoles =
+    {
+        ("crouching idle", new[] { "crouch idle", "crouching idle" },
+                           new string[0]),
+        ("running crawl",  new[] { "running crawl", "crouched walking", "crouch walk" },
+                           new string[0]),
+        ("standard run",   new[] { "standing run forward", "standard run", "running", "run" },
+                           new[] { "crouch", "crawl" }),
+        ("walking",        new[] { "standing walk forward", "walking", "walk" },
+                           new[] { "crouch" }),
+        ("idle",           new[] { "unarmed idle", "idle" },
+                           new[] { "crouch" }),
+        (LungeClipKey,     new[] { "standing melee attack", "melee attack", "attack" },
+                           new string[0]),
+        (RecoverClipKey,   new[] { "ıskalama", "iskalama", "recover" },
+                           new string[0]),
+        (KillClipKey,      new[] { "kill", "takedown" },
+                           new string[0]),
+    };
+
     /// <summary>
     /// Kırpılacak klipler: ad → (ilk kare, son kare).
     ///
@@ -106,9 +178,21 @@ public static class MonsterSetup
         { KillClipKey, new Vector2(0f, 78f) }
     };
 
-    // Mixamo dosyaları "Karakter@Animasyon.fbx" diye iniyor; eşleştirme
-    // "@" sonrasındaki ada bakıyor. Küçük harfe çevrilip karşılaştırılıyor.
-    private static readonly string[] LoopingClips =
+    /// <summary>
+    /// Döngü olması GEREKEN roller. Yürüyüş, koşu ve boşta durma sürekli
+    /// tekrarlıyor; saldırı, ıskalama ve yakalama tek atımlık.
+    ///
+    /// **Karar ROLE göre veriliyor, klip ADINA göre değil.** Burada bir süre
+    /// tam ad listesi vardı (`"idle", "walking", …`) ve yalnızca KUKLA'nın
+    /// klip adlarını tanıyordu: başka bir paketin yürüyüşü (`Standing Walk
+    /// Forward`) listede bulunamayıp DÖNGÜSÜZ import ediliyor, karakter tek
+    /// adım atıp son karede donuyordu. Oynayan bunu "yürüme animasyonu yok"
+    /// diye görüyor — hiçbir yerde hata yazmıyor.
+    ///
+    /// Aynı hata `RunnerSetup`'ta bulunup düzeltilmişti (bölüm 13); burada
+    /// kalmıştı ve 2026-09-20'de domuz katille ortaya çıktı.
+    /// </summary>
+    private static readonly string[] LoopingRoles =
     {
         "idle", "walking", "standard run", "crouching idle", "running crawl"
     };
@@ -143,31 +227,290 @@ public static class MonsterSetup
             return;
         }
 
-        Dictionary<string, AnimationClip> clips = ImportAnimations(avatar);
-        if (clips.Count == 0)
+        // ORTAK klipler: ilk kostümün (KUKLA) klasörü aynı zamanda paylaşılan
+        // set. Kendi klasörü olmayan kostümler tamamen bunu kullanıyor.
+        Dictionary<string, AnimationClip> shared = ImportAnimations(avatar, ModelFolder);
+        if (shared.Count == 0)
         {
             EditorUtility.DisplayDialog("Animasyon yok",
                 $"{ModelFolder} altında animasyon FBX'i bulunamadı.", "Tamam");
             return;
         }
 
-        AnimatorController controller = BuildController(clips);
-        string attached = AttachToPlayerPrefab(model, controller, clips);
+        List<MonsterBuild> builds = new List<MonsterBuild>();
+        System.Text.StringBuilder report = new System.Text.StringBuilder();
+
+        for (int i = 0; i < CharacterCatalog.Monsters.Length; i++)
+        {
+            CharacterCatalog.Costume costume = CharacterCatalog.Monsters[i];
+
+            GameObject costumeModel = i == 0
+                ? model
+                : AssetDatabase.LoadAssetAtPath<GameObject>(costume.ModelPath);
+
+            if (costumeModel == null)
+            {
+                report.AppendLine($"· UYARI: {costume.Name} modeli yok ({costume.ModelPath})");
+                continue;
+            }
+
+            // Her kostümün kendi avatarı: klipleri o iskelete bağlamak için
+            // gerekiyor. Humanoid'e ÇEVİRME işi burada yapılıyor — domuz
+            // katilin FBX'i Generic iniyordu.
+            Avatar costumeAvatar = i == 0 ? avatar : EnsureHumanoid(costume.ModelPath);
+
+            if (costumeAvatar == null)
+            {
+                report.AppendLine($"· UYARI: {costume.Name} Humanoid'e çevrilemedi, atlandı");
+                continue;
+            }
+
+            Dictionary<string, AnimationClip> clips = ResolveClips(costume, costumeAvatar, shared);
+
+            string controllerPath = ControllerPathFor(i);
+
+            builds.Add(new MonsterBuild
+            {
+                Costume = costume,
+                Model = AssetDatabase.LoadAssetAtPath<GameObject>(costume.ModelPath),
+                Controller = BuildController(clips, controllerPath),
+                Clips = clips,
+            });
+
+            report.AppendLine($"· {costume.Name}: {clips.Count} klip");
+            report.Append(DescribeClips(clips));
+        }
+
+        // Denetleyiciler prefab bağlamadan ÖNCE diske yazılıyor.
+        //
+        // 2026-09-20'de prefab adımı bir istisnayla patladı ve `Run` buraya
+        // hiç ulaşamadı: denetleyiciler yalnızca BELLEKTE doluydu, diskte boş
+        // kaldı ve canavar T-poza düştü. Kaydı öne almak, sonraki bir adımın
+        // patlaması hâlinde bile çalışan bir animatör bırakıyor.
+        AssetDatabase.SaveAssets();
+
+        string attached = AttachToPlayerPrefab(builds);
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
         Debug.Log(
-            "Canavar kuruldu.\n\n" +
+            $"Canavar kuruldu — {builds.Count} kostüm.\n\n" +
             $"· {materials} materyal onarıldı (Standard shader + eksik albedo)\n" +
             $"· {textures} doku {MaxTextureSize}px'e indirildi\n" +
-            $"· {clips.Count} animasyon Humanoid'e bağlandı (Copy From Other Avatar)\n" +
-            DescribeClips(clips) +
-            $"· Animator: {ControllerPath}\n" +
+            report +
             $"· {attached}\n\n" +
-            "Test: lobide canavarı kendine seç, turu başlat. Kaçan hâlâ kapsül.\n\n" +
+            "Test: lobide canavarı kendine seç, KARAKTER ekranından kostüm seç, " +
+            "turu başlat.\n\n" +
             "Ağ Kurulumu'nu tekrar çalıştırırsan prefab sıfırdan kurulur — " +
             "bu menüyü de tekrar çalıştır.");
+    }
+
+    /// <summary>Tek bir canavar kostümünün kurulum çıktısı.</summary>
+    private struct MonsterBuild
+    {
+        public CharacterCatalog.Costume Costume;
+        public GameObject Model;
+        public AnimatorController Controller;
+        public Dictionary<string, AnimationClip> Clips;
+    }
+
+    /// <summary>
+    /// Modeli Humanoid'e çevirip avatarını döndürür. Zaten Humanoid'se
+    /// dokunmuyor.
+    ///
+    /// Domuz katil paketi Generic (`animationType: 2`) iniyordu ve Humanoid
+    /// olmadan üç şey birden çalışmaz: ortak kliplerin kas uzayından
+    /// oynatılması (bölüm 17), sopa için `GetBoneTransform(RightHand)` ve
+    /// birinci şahısta kafa/boyun gizleme.
+    ///
+    /// **Otomatik eşleme şaşabilir.** Unity kemikleri ada ve hiyerarşiye göre
+    /// tahmin ediyor; stilize bir karakterde (domuz kafası, kısa uzuvlar)
+    /// tutmayabilir. Tutmazsa avatar geçersiz kalıyor ve burası uyarı yazıyor
+    /// — sessizce T-poza düşmesindense.
+    /// </summary>
+    private static Avatar EnsureHumanoid(string modelPath)
+    {
+        if (!(AssetImporter.GetAtPath(modelPath) is ModelImporter importer))
+            return null;
+
+        if (importer.animationType != ModelImporterAnimationType.Human)
+        {
+            importer.animationType = ModelImporterAnimationType.Human;
+            importer.avatarSetup = ModelImporterAvatarSetup.CreateFromThisModel;
+            importer.SaveAndReimport();
+        }
+
+        Avatar avatar = FindAvatar(modelPath);
+
+        if (avatar == null)
+            Debug.LogWarning($"{modelPath}: Humanoid avatar üretilemedi. " +
+                "Rig > Configure ekranında eksik kemik olabilir.");
+        else if (!avatar.isValid)
+            Debug.LogWarning($"{modelPath}: avatar GEÇERSİZ — Unity kemikleri " +
+                "otomatik eşleyemedi. Rig > Configure'dan elle eşlemek gerekiyor.");
+
+        return avatar;
+    }
+
+    /// <summary>Bu klip anahtarı döngü olması gereken bir role mi düşüyor?</summary>
+    private static bool ShouldLoop(string key)
+    {
+        foreach ((string role, string[] hints, string[] exclude) in ClipRoles)
+        {
+            if (System.Array.IndexOf(LoopingRoles, role) < 0)
+                continue;
+
+            if (IsExcluded(key, exclude))
+                continue;
+
+            foreach (string hint in hints)
+            {
+                if (key == hint || key.Contains(hint))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Bir kostümün rol → klip tablosunu kurar.
+    ///
+    /// ### Kendi klasörü olan kostüm hiçbir şeyi SESSİZCE miras almaz
+    ///
+    /// İlk sürüm "eksik rolü nerede bulursan doldur" zinciri kuruyordu
+    /// (kendi → ortak → ödünç) ve oynanınca üç klip birden sızdı: domuz katil
+    /// KUKLA'nın `ıskalama`, `kill` ve `Running Crawl` kliplerini devraldı.
+    /// Oysa ilk ikisinin HİÇ olmaması, üçüncüsünün de kaçandan gelmesi
+    /// gerekiyordu.
+    ///
+    /// Artık iki ayrı yol var:
+    ///
+    /// - **Kendi klasörü OLAN kostüm** (domuz katil): yalnızca kendi klipleri
+    ///   + `Costume.BorrowedRoles`'ta AÇIKÇA yazılmış ödünçler. Başka hiçbir
+    ///   şey. Bulunmayan rol tabloya girmiyor ve `BuildController` o durumu
+    ///   hiç kurmuyor.
+    /// - **Kendi klasörü OLMAYAN kostüm** (KUKLA): ortak seti kullanıyor,
+    ///   davranışı hiç değişmedi.
+    /// </summary>
+    private static Dictionary<string, AnimationClip> ResolveClips(
+        CharacterCatalog.Costume costume, Avatar avatar,
+        Dictionary<string, AnimationClip> shared)
+    {
+        Dictionary<string, AnimationClip> result =
+            new Dictionary<string, AnimationClip>();
+
+        bool hasOwn = !string.IsNullOrEmpty(costume.AnimationFolder);
+
+        Dictionary<string, AnimationClip> own = hasOwn
+            ? ImportAnimations(avatar, costume.AnimationFolder)
+            : shared;
+
+        // Ödünç klasörü SALT OKUNUR açılıyor — `ImportAnimations` DEĞİL.
+        //
+        // O metot klibi verilen avatara `CopyFromOther` ile bağlayıp
+        // `SaveAndReimport` çağırıyor. Ödünç klasörü KAÇANIN klasörü ve
+        // klipleri KillerDoll rig'inde yazılmış: oraya domuz katilin avatarını
+        // yazmak kaçanın kliplerini BOZUYOR ("Transform 'mixamorig:Hips' for
+        // human bone 'Hips' not found"). 2026-09-20'de tam bu oldu.
+        //
+        // Yeniden import etmeye zaten gerek yok: humanoid klipler kas uzayında
+        // saklanıyor, hangi avatarla import edildiklerinden bağımsız olarak
+        // her humanoid iskelette oynuyorlar (bölüm 17). Okumak yeterli.
+        Dictionary<string, AnimationClip> borrowed =
+            costume.BorrowedRoles.Length > 0
+                ? LoadClips(BorrowFolder)
+                : new Dictionary<string, AnimationClip>();
+
+        foreach ((string role, string[] hints, string[] exclude) in ClipRoles)
+        {
+            AnimationClip clip = Match(own, hints, exclude);
+
+            if (clip == null && System.Array.IndexOf(costume.BorrowedRoles, role) >= 0)
+                clip = Match(borrowed, hints, exclude);
+
+            if (clip != null)
+                result[role] = clip;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Bir klasördeki klipleri **hiçbir import ayarına dokunmadan** okur.
+    ///
+    /// `ImportAnimations`'ın aksine avatar yazmıyor, `SaveAndReimport`
+    /// çağırmıyor — başka bir karakterin klasöründen ödünç alırken tek
+    /// güvenli yol bu.
+    /// </summary>
+    private static Dictionary<string, AnimationClip> LoadClips(string folder)
+    {
+        Dictionary<string, AnimationClip> result =
+            new Dictionary<string, AnimationClip>();
+
+        if (!AssetDatabase.IsValidFolder(folder))
+            return result;
+
+        foreach (string guid in AssetDatabase.FindAssets("t:Model", new[] { folder }))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            AnimationClip clip = FindClip(path);
+
+            if (clip != null)
+                result[ClipKey(path)] = clip;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// İpuçlarını sırayla deneyip ilk eşleşen klibi döndürür.
+    ///
+    /// Tam ad eşleşmesi önce, sonra "içinde geçiyor". Dışlama listesindeki bir
+    /// kelime anahtarda geçiyorsa aday elenir — `crouching idle`'ın "idle"
+    /// rolüne düşmesini engelleyen şey bu.
+    /// </summary>
+    private static AnimationClip Match(Dictionary<string, AnimationClip> clips,
+        string[] hints, string[] exclude)
+    {
+        if (clips == null || clips.Count == 0)
+            return null;
+
+        foreach (string hint in hints)
+        {
+            foreach (KeyValuePair<string, AnimationClip> pair in clips)
+            {
+                if (pair.Key != hint)
+                    continue;
+                if (!IsExcluded(pair.Key, exclude))
+                    return pair.Value;
+            }
+        }
+
+        foreach (string hint in hints)
+        {
+            foreach (KeyValuePair<string, AnimationClip> pair in clips)
+            {
+                if (!pair.Key.Contains(hint))
+                    continue;
+                if (!IsExcluded(pair.Key, exclude))
+                    return pair.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsExcluded(string key, string[] exclude)
+    {
+        foreach (string word in exclude)
+        {
+            if (key.Contains(word))
+                return true;
+        }
+
+        return false;
     }
 
     // ---------- Materyaller ----------
@@ -285,11 +628,15 @@ public static class MonsterSetup
     /// Döngüsüz bir yürüyüş her tekrarda takılıyor; döngülü bir saldırı ise hiç
     /// bitmiyor.
     /// </summary>
-    private static Dictionary<string, AnimationClip> ImportAnimations(Avatar avatar)
+    private static Dictionary<string, AnimationClip> ImportAnimations(
+        Avatar avatar, string folder)
     {
         Dictionary<string, AnimationClip> result = new Dictionary<string, AnimationClip>();
 
-        string[] guids = AssetDatabase.FindAssets("t:Model", new[] { ModelFolder });
+        if (!AssetDatabase.IsValidFolder(folder))
+            return result;
+
+        string[] guids = AssetDatabase.FindAssets("t:Model", new[] { folder });
 
         foreach (string guid in guids)
         {
@@ -299,7 +646,7 @@ public static class MonsterSetup
                 continue;
 
             string key = ClipKey(path);
-            bool loop = System.Array.IndexOf(LoopingClips, key) >= 0;
+            bool loop = ShouldLoop(key);
 
             bool changed = false;
 
@@ -333,17 +680,54 @@ public static class MonsterSetup
             // listeden çıkarmak eski hâlini geri getirmiyordu, çünkü kısaltma
             // import ayarına yazılmış kalıyordu. Böylece araç kendi kendini
             // onarıyor — kırpma listesi neyse dosyalar ona eşitleniyor.
-            ModelImporterClipAnimation[] defaults = importer.defaultClipAnimations;
+            // Alım listesi `ClipTakes` üzerinden: boş dönerse önce bekleyen
+            // rig ayarlarıyla yeniden import ediliyor, hâlâ boşsa konsola
+            // yazılıyor. Doğrudan okumak rig bozukken sessizce hiçbir ayar
+            // yazmamaya yol açıyordu (bkz. ClipTakes).
+            ModelImporterClipAnimation[] defaults = ClipTakes.Resolve(importer, path);
             ModelImporterClipAnimation[] takes = importer.clipAnimations;
 
             if (takes == null || takes.Length != defaults.Length)
                 takes = defaults;
+
+            // Kök dönüşü HER ZAMAN sıfırlanıyor ve kilit açılıyor.
+            //
+            // Bir süre domuz katilin yürüme/koşma kliplerine -30 derecelik bir
+            // pay GÖMÜLÜYORDU. Oynanışta istenmedi: gömülü açıyı herkes
+            // görüyor, yani canavarı oynayan kendi gövdesini de yamuk
+            // görüyordu. Açı artık çalışma anında uygulanıyor
+            // (`PlayerBodyVisual`), çünkü orada "kim bakıyor" sorusu
+            // sorulabiliyor.
+            //
+            // Sıfır yazmak GEREKLİ, atlamak değil: ayar klibin import
+            // dosyasında KALICI, yani eskiden gömülen -30 kendiliğinden
+            // gitmiyor. Kırpmanın "her çalıştırmada tam aralıktan başlat"
+            // kuralıyla aynı gerekçe — araç kendi kendini onarmalı.
+            const float yaw = 0f;
 
             for (int i = 0; i < takes.Length; i++)
             {
                 if (takes[i].loopTime != loop)
                 {
                     takes[i].loopTime = loop;
+                    changed = true;
+                }
+
+                if (!Mathf.Approximately(takes[i].rotationOffset, yaw))
+                {
+                    takes[i].rotationOffset = yaw;
+                    changed = true;
+                }
+
+                // Pay sıfırsa kilidi de açıyoruz: sayı geri alındığında klip
+                // eski hâline dönmeli. Kırpmanın "her çalıştırmada tam
+                // aralıktan başlat" kuralıyla aynı gerekçe — ayar kalıcı
+                // olduğu için araç kendi kendini onarmalı.
+                bool lockRotation = yaw != 0f;
+
+                if (takes[i].lockRootRotation != lockRotation)
+                {
+                    takes[i].lockRootRotation = lockRotation;
                     changed = true;
                 }
 
@@ -454,10 +838,10 @@ public static class MonsterSetup
     /// kendiliğinden geliyor. Isabet gelirse `Kill` araya giriyor ve ıskalama
     /// hiç oynamıyor — CLAUDE.md bölüm 4, kararı sunucu veriyor.
     /// </summary>
-    private static AnimatorController BuildController(Dictionary<string, AnimationClip> clips)
+    private static AnimatorController BuildController(
+        Dictionary<string, AnimationClip> clips, string controllerPath)
     {
-        AssetDatabase.DeleteAsset(ControllerPath);
-        AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(ControllerPath);
+        AnimatorController controller = GetOrClearController(controllerPath);
 
         controller.AddParameter(MonsterAnimator.SpeedParameter, AnimatorControllerParameterType.Float);
         controller.AddParameter(MonsterAnimator.SpeedScaleParameter, AnimatorControllerParameterType.Float);
@@ -499,25 +883,88 @@ public static class MonsterSetup
         // bozuktu: o dilim atılış değil, hazırlıktı. Doğru aralık gözle
         // bulundu (15-45).
         AnimatorState lunge = CreateClipState(machine, "Atilma", Clip(clips, LungeClipKey));
-        AnimatorState recover = CreateClipState(machine, "Kalkma", Clip(clips, RecoverClipKey));
-        AnimatorState kill = CreateClipState(machine, "Yakalama", Clip(clips, KillClipKey));
 
         AddCondition(machine.AddAnyStateTransition(lunge), AnimatorConditionMode.If, 0f,
             MonsterAnimator.AttackTrigger);
 
-        // İsabet onaylanınca araya giriyor; atılma bitmeden de kesebiliyor.
-        AddCondition(machine.AddAnyStateTransition(kill), AnimatorConditionMode.If, 0f,
-            MonsterAnimator.KillTrigger);
+        // ---- Kalkma ve Yakalama KOŞULLU ----
+        //
+        // Klibi olmayan bir durum kurulmuyor. Domuz katilde ikisi de yok:
+        // ıskalayınca doğrudan yürüyüşe dönüyor, yakalayınca kurban olduğu
+        // yerde ragdoll olup uçuyor (`Costume.LaunchesVictim`).
+        //
+        // Boş bir durum kurmak ekranda T-POZ demek ve Unity bunu sessizce
+        // yapıyor (bölüm 13'ün "boş hareket artık HATA yazıyor" dersi) — o
+        // yüzden durum hiç açılmıyor, atılma doğrudan yürüyüşe bağlanıyor.
+        AnimationClip recoverClip = Clip(clips, RecoverClipKey);
 
-        // Atılma bitip isabet gelmediyse kalkma. Geçiş normalden uzun (0.25 sn):
-        // iki klip ayrı dosyalardan geliyor ve kesim noktasındaki pozlar birebir
-        // tutmayabilir; uzun karışım o farkı yutuyor.
-        Chain(lunge, recover, 0.25f);
-        Chain(recover, upright);
-        Chain(kill, upright);
+        if (recoverClip != null)
+        {
+            AnimatorState recover = CreateClipState(machine, "Kalkma", recoverClip);
+
+            // Geçiş normalden uzun (0.25 sn): iki klip ayrı dosyalardan geliyor
+            // ve kesim noktasındaki pozlar birebir tutmayabilir; uzun karışım
+            // o farkı yutuyor.
+            Chain(lunge, recover, 0.25f);
+            Chain(recover, upright);
+        }
+        else
+        {
+            Chain(lunge, upright, 0.2f);
+        }
+
+        AnimationClip killClip = Clip(clips, KillClipKey);
+
+        if (killClip != null)
+        {
+            AnimatorState kill = CreateClipState(machine, "Yakalama", killClip);
+
+            // İsabet onaylanınca araya giriyor; atılma bitmeden de kesebiliyor.
+            AddCondition(machine.AddAnyStateTransition(kill), AnimatorConditionMode.If, 0f,
+                MonsterAnimator.KillTrigger);
+
+            Chain(kill, upright);
+        }
 
         EditorUtility.SetDirty(controller);
         return controller;
+    }
+
+    /// <summary>
+    /// Var olan denetleyiciyi İÇİNİ BOŞALTARAK yeniden kullanır; yoksa kurar.
+    ///
+    /// **Dosya SİLİNMİYOR, GUID korunuyor.** Silinen bir varlığın GUID'i de
+    /// gidiyor ve ona bakan her referans (oyuncu prefabı, menü sahnesindeki
+    /// figürler) KOPUK kalıyor. Denetleyicisi olmayan bir `Animator` hiçbir
+    /// şey oynatmıyor: ekranda T-POZ, hiçbir yerde hata yok.
+    ///
+    /// Aynı hata `RunnerSetup`'ta bulunup düzeltilmişti (bölüm 13) ama burada
+    /// kalmıştı ve 2026-09-20'de tam olarak bu belirtiyi verdi: araç yarıda
+    /// patlayınca KUKLA'nın denetleyicisi silinmiş, yenisi ise diske
+    /// yazılmamış hâlde kaldı.
+    ///
+    /// İçerik temizleniyor çünkü durumlar, karışım ağaçları ve geçişler ayrı
+    /// ALT VARLIKLAR: silinmezlerse dosyada birikirler.
+    /// </summary>
+    private static AnimatorController GetOrClearController(string path)
+    {
+        AnimatorController existing =
+            AssetDatabase.LoadAssetAtPath<AnimatorController>(path);
+
+        if (existing == null)
+            return AnimatorController.CreateAnimatorControllerAtPath(path);
+
+        foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(path))
+        {
+            if (asset != existing && asset != null)
+                Object.DestroyImmediate(asset, true);
+        }
+
+        existing.parameters = new AnimatorControllerParameter[0];
+        existing.layers = new AnimatorControllerLayer[0];
+        existing.AddLayer("Base Layer");
+
+        return existing;
     }
 
     private static AnimatorState CreateBlendState(AnimatorController controller,
@@ -605,9 +1052,11 @@ public static class MonsterSetup
     /// harita giydirmede de kullanılıyor (MapDressWindow) — pivotun nerede
     /// olduğunu bilmek zorunda kalmıyoruz.
     /// </summary>
-    private static string AttachToPlayerPrefab(GameObject model, AnimatorController controller,
-        Dictionary<string, AnimationClip> clips)
+    private static string AttachToPlayerPrefab(List<MonsterBuild> builds)
     {
+        if (builds.Count == 0)
+            return "UYARI: hiçbir kostüm kurulamadı.";
+
         if (AssetDatabase.LoadAssetAtPath<GameObject>(PlayerPrefabPath) == null)
             return "UYARI: oyuncu prefabı yok, model bağlanmadı (önce Ağ Kurulumu).";
 
@@ -619,44 +1068,152 @@ public static class MonsterSetup
             if (capsule == null)
                 return "UYARI: prefabta CharacterController yok, model bağlanmadı.";
 
-            Transform existing = contents.transform.Find(MonsterRootName);
-            if (existing != null)
-                Object.DestroyImmediate(existing.gameObject);
+            // Hem eski TEKİL adı hem numaralı olanları temizliyoruz: araç
+            // daha önce tek gövde kurmuş olabilir ve o kök yerinde kalırsa
+            // iki canavar üst üste görünürdü.
+            for (int i = contents.transform.childCount - 1; i >= 0; i--)
+            {
+                Transform child = contents.transform.GetChild(i);
 
-            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(model, contents.transform);
-            instance.name = MonsterRootName;
-
-            float scale = ResolveScale(instance, capsule.height) * ExtraScale;
-            instance.transform.localScale = Vector3.one * scale;
+                if (child.name == MonsterRootName || child.name.StartsWith(MonsterRootName + "_"))
+                    Object.DestroyImmediate(child.gameObject);
+            }
 
             RemoveKnife(contents);
 
-            // Ayaklar hull'un tabanına: kök objenin merkezi controller.center'da,
-            // taban ondan height/2 aşağıda.
-            instance.transform.localPosition = capsule.center + Vector3.down * (capsule.height / 2f);
-            instance.transform.localRotation = Quaternion.identity;
+            List<GameObject> roots = new List<GameObject>();
+            List<Animator> animators = new List<Animator>();
+            System.Text.StringBuilder notes = new System.Text.StringBuilder();
 
-            Animator animator = instance.GetComponentInChildren<Animator>();
-            if (animator != null)
+            for (int i = 0; i < builds.Count; i++)
             {
-                animator.runtimeAnimatorController = controller;
-                animator.applyRootMotion = false; // hareketi PlayerController veriyor
-                animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+                MonsterBuild build = builds[i];
+
+                GameObject instance =
+                    (GameObject)PrefabUtility.InstantiatePrefab(build.Model, contents.transform);
+                instance.name = $"{MonsterRootName}_{i}";
+
+                float scale = ResolveScale(instance, capsule.height) * ExtraScale;
+                instance.transform.localScale = Vector3.one * scale;
+
+                // Ayaklar hull'un tabanına: kök objenin merkezi
+                // controller.center'da, taban ondan height/2 aşağıda.
+                instance.transform.localPosition =
+                    capsule.center + Vector3.down * (capsule.height / 2f);
+                instance.transform.localRotation = Quaternion.identity;
+
+                Animator animator = instance.GetComponentInChildren<Animator>();
+
+                if (animator != null)
+                {
+                    animator.runtimeAnimatorController = build.Controller;
+                    animator.applyRootMotion = false; // hareketi PlayerController veriyor
+                    animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+                }
+
+                // Sopa kostüme özel. Kemik çözümü Animator'dan geldiği için
+                // gövde AÇIKKEN yapılmak zorunda — kapalı bir Animator'da
+                // `GetBoneTransform` null döner (bölüm 21.1). Gövdeler
+                // aşağıda, kablolama bittikten SONRA kapatılıyor.
+                if (build.Costume.CarriesBat)
+                {
+                    GameObject bat = MonsterBatBuilder.Attach(instance);
+                    notes.Append(bat != null
+                        ? $" · {build.Costume.Name}: sopa takıldı"
+                        : $" · {build.Costume.Name}: SOPA TAKILAMADI");
+                }
+
+                // Model Ağ Kurulumu'ndan SONRA ekleniyor, yani prefabın katmanı
+                // o sırada atanmış oluyor ama modelinki Default kalıyordu.
+                LayerSetup.Apply(instance, LayerSetup.Oyuncu);
+
+                ReportEyeHeight(build.Costume, instance, animator, capsule);
+
+                roots.Add(instance);
+                animators.Add(animator);
             }
 
-            WireComponents(contents, instance, animator, clips);
+            WireComponents(contents, roots, animators, builds);
 
-            // Model Ağ Kurulumu'ndan SONRA ekleniyor, yani prefabın katmanı o
-            // sırada atanmış oluyor ama modelinki Default kalıyordu.
-            LayerSetup.Apply(instance, LayerSetup.Oyuncu);
+            // Kablolama BİTTİKTEN sonra kapatılıyor: kapalı bir Animator'da
+            // `GetBoneTransform` null döner ve ikinci kostümün kafa/boyun
+            // kemiği boş kalırdı (bölüm 13'ün aynı tuzağı).
+            for (int i = 1; i < roots.Count; i++)
+                roots[i].SetActive(false);
 
             PrefabUtility.SaveAsPrefabAsset(contents, PlayerPrefabPath);
-            return $"Model prefaba bağlandı (ölçek {scale:0.###}).";
+            return $"{roots.Count} canavar gövdesi prefaba bağlandı.{notes}";
         }
         finally
         {
             PrefabUtility.UnloadPrefabContents(contents);
         }
+    }
+
+    /// <summary>
+    /// Kostümün KAFA KEMİĞİNİN gerçek yüksekliğini ölçüp konsola yazar.
+    ///
+    /// Kamera hizası (`Costume.EyeHeightOffset`) iki tur tahminle ayarlanmaya
+    /// çalışıldı ve ikisi de alçak kaldı. Ölçüm tahminden ucuz: araç artık
+    /// hedefi kendisi söylüyor, geriye sayıyı yazmak kalıyor.
+    ///
+    /// **Ölçüm BAĞLAMA POZUNDA (T-poz).** Eğilmiş hiza buradan çıkmıyor —
+    /// onu eğilme klibi belirliyor ve ancak oynanırken görülüyor.
+    ///
+    /// Göz hizası kafa kemiğinin biraz ÜSTÜNDE değil ALTINDA olmalı: kemik
+    /// çenenin üstünde, gözler ondan yukarıda ama kafanın tepesinden aşağıda.
+    /// Pratik hedef kafa kemiği ile tepe arasının ortası.
+    /// </summary>
+    private static void ReportEyeHeight(CharacterCatalog.Costume costume,
+        GameObject instance, Animator animator, CharacterController capsule)
+    {
+        if (animator == null || !animator.isHuman)
+            return;
+
+        Transform head = animator.GetBoneTransform(HumanBodyBones.Head);
+
+        if (head == null)
+            return;
+
+        // Gövde kökü hull'un TABANINDA duruyor (AttachToPlayerPrefab onu
+        // oraya koyuyor), yani kemiğin ona göre yüksekliği doğrudan
+        // "ayaktan itibaren kaç metre" demek.
+        float meters = head.position.y - instance.transform.position.y;
+        float units = meters / PlayerController.UnitsToMeters;
+
+        // Bugünkü kamera hizası: hull'un 64 birimi + profilin payı (canavarda
+        // 6) + kostümün payı.
+        float camera = 64f + 6f + costume.EyeHeightOffset;
+
+        Debug.Log(
+            $"[Kamera ölçümü] {costume.Name}\n" +
+            $"· Kafa kemiği: {units:0.0} unit ({meters:0.000} m) — ayaktan itibaren\n" +
+            $"· Kamera şu an: {camera:0.0} unit ({camera * PlayerController.UnitsToMeters:0.000} m)\n" +
+            $"· Fark: {units - camera:0.0} unit — kamerayı kafaya getirmek için " +
+            $"`CharacterCatalog` içinde eyeHeightOffset'e bu kadar ekle.");
+    }
+
+    /// <summary>
+    /// Renderer dizisini serileştirilmiş bir diziye yazar.
+    ///
+    /// <paramref name="headOnly"/> doğruyken yalnızca kafa parçaları giriyor:
+    /// kafa kemiğini sıfırlamak gözleri/saçı toplamıyor (kendi iskeletleri
+    /// var), o yüzden birinci şahısta ayrıca kapatılıyorlar.
+    /// </summary>
+    private static void FillRenderers(SerializedProperty array, Renderer[] source, bool headOnly)
+    {
+        List<Renderer> picked = new List<Renderer>();
+
+        foreach (Renderer renderer in source)
+        {
+            if (!headOnly || IsHeadPart(renderer))
+                picked.Add(renderer);
+        }
+
+        array.arraySize = picked.Count;
+
+        for (int i = 0; i < picked.Count; i++)
+            array.GetArrayElementAtIndex(i).objectReferenceValue = picked[i];
     }
 
     /// <summary>Modelin gerçek boyunu ölçüp hull yüksekliğine oranlar.</summary>
@@ -719,8 +1276,8 @@ public static class MonsterSetup
         }
     }
 
-    private static void WireComponents(GameObject root, GameObject monsterRoot, Animator animator,
-        Dictionary<string, AnimationClip> clips)
+    private static void WireComponents(GameObject root, List<GameObject> monsterRoots,
+        List<Animator> animators, List<MonsterBuild> builds)
     {
         PlayerBodyVisual visual = root.GetComponent<PlayerBodyVisual>()
             ?? root.AddComponent<PlayerBodyVisual>();
@@ -728,40 +1285,51 @@ public static class MonsterSetup
         MonsterAnimator monsterAnimator = root.GetComponent<MonsterAnimator>()
             ?? root.AddComponent<MonsterAnimator>();
 
+        GameObject monsterRoot = monsterRoots[0];
+        Animator animator = animators[0];
+
         Transform capsule = root.transform.Find("Govde");
 
         SerializedObject serializedVisual = new SerializedObject(visual);
         serializedVisual.FindProperty("capsuleRenderer").objectReferenceValue =
             capsule != null ? capsule.GetComponent<Renderer>() : null;
-        serializedVisual.FindProperty("monsterRoot").objectReferenceValue = monsterRoot;
 
-        // Kafa kemiği: birinci şahısta sıfıra ölçeklenip görüşü açıyor.
+        // Tekil alanlar artık YEDEK yol. Dizi dolduğu için çalışma anında
+        // kullanılmıyorlar (`PlayerBodyVisual.Refresh`'teki `legacyMonster`),
+        // ama boş bırakmak eski bir prefabı kurtarma yolunu kapatırdı.
+        serializedVisual.FindProperty("monsterRoot").objectReferenceValue = monsterRoot;
         serializedVisual.FindProperty("headBone").objectReferenceValue =
             animator != null ? animator.GetBoneTransform(HumanBodyBones.Head) : null;
 
-        Renderer[] monsterRenderers = monsterRoot.GetComponentsInChildren<Renderer>(true);
-        SerializedProperty array = serializedVisual.FindProperty("monsterRenderers");
-        array.arraySize = monsterRenderers.Length;
-        for (int i = 0; i < monsterRenderers.Length; i++)
-            array.GetArrayElementAtIndex(i).objectReferenceValue = monsterRenderers[i];
+        FillRenderers(serializedVisual.FindProperty("monsterRenderers"),
+            monsterRoot.GetComponentsInChildren<Renderer>(true), false);
+        FillRenderers(serializedVisual.FindProperty("headRenderers"),
+            monsterRoot.GetComponentsInChildren<Renderer>(true), true);
 
-        // Kafaya ait ayrı renderer'lar. Kafa kemiğini sıfırlamak gözleri
-        // toplamıyor (kendi iskeletleri var), o yüzden ayrıca kapatılıyorlar.
-        // Ayırma ada ve materyal adına bakıyor: modelin parçaları
-        // "KillerDollEyes...", "...Head..." diye adlandırılmış.
-        List<Renderer> headParts = new List<Renderer>();
-        foreach (Renderer renderer in monsterRenderers)
+        // ---- Asıl yol: kostüm dizisi ----
+        SerializedProperty bodies = serializedVisual.FindProperty("monsterBodies");
+        bodies.arraySize = monsterRoots.Count;
+
+        for (int i = 0; i < monsterRoots.Count; i++)
         {
-            if (IsHeadPart(renderer))
-                headParts.Add(renderer);
+            SerializedProperty entry = bodies.GetArrayElementAtIndex(i);
+            Renderer[] renderers = monsterRoots[i].GetComponentsInChildren<Renderer>(true);
+
+            entry.FindPropertyRelative("root").objectReferenceValue = monsterRoots[i];
+            entry.FindPropertyRelative("animator").objectReferenceValue = animators[i];
+            entry.FindPropertyRelative("headBone").objectReferenceValue =
+                animators[i] != null && animators[i].isHuman
+                    ? animators[i].GetBoneTransform(HumanBodyBones.Head)
+                    : null;
+
+            FillRenderers(entry.FindPropertyRelative("renderers"), renderers, false);
+            FillRenderers(entry.FindPropertyRelative("headRenderers"), renderers, true);
         }
 
-        SerializedProperty headArray = serializedVisual.FindProperty("headRenderers");
-        headArray.arraySize = headParts.Count;
-        for (int i = 0; i < headParts.Count; i++)
-            headArray.GetArrayElementAtIndex(i).objectReferenceValue = headParts[i];
-
+        serializedVisual.FindProperty("monsterAnimator").objectReferenceValue = monsterAnimator;
         serializedVisual.ApplyModifiedProperties();
+
+        Dictionary<string, AnimationClip> clips = builds[0].Clips;
 
         SerializedObject serializedAnimator = new SerializedObject(monsterAnimator);
         serializedAnimator.FindProperty("animator").objectReferenceValue = animator;
@@ -793,7 +1361,35 @@ public static class MonsterSetup
         {
             SerializedObject serializedParticipant = new SerializedObject(participant);
             serializedParticipant.FindProperty("bodyVisual").objectReferenceValue = visual;
+
+            // Fırlatan canavarın ölüm koreografisi. **Koddaki varsayılanı
+            // değiştirmek YETMİYOR:** bu alanlar prefaba bir kez serileşti ve
+            // orada donmuş duruyor (bölüm 16'nın tuzağı — `lockYawLimit` ve
+            // `attackLockDuration` de aynı sebeple burada yazılıyor).
+            //
+            // Kurban canavarın `LaunchForwardOffset` metre önüne oturuyor,
+            // `LaunchDeathHold` saniye orada duruyor (sopayı yediği an), sonra
+            // cesede dönüşüp ileri uçuyor.
+            serializedParticipant.FindProperty("launchForwardOffset").floatValue =
+                LaunchForwardOffset;
+            serializedParticipant.FindProperty("launchDeathHold").floatValue =
+                LaunchDeathHold;
+
             serializedParticipant.ApplyModifiedProperties();
+        }
+
+        // Canavarın ayak sesi. Alanlar prefaba serileşmiş olduğu için
+        // koddaki varsayılanları onlara ulaşmıyor (bölüm 16) — araç açıkça
+        // yazıyor. Kaçanın sayılarına (sprintStride/sprintVolume) hiç
+        // dokunulmuyor: sessizlik onun aracı.
+        FootstepAudio footsteps = root.GetComponent<FootstepAudio>();
+
+        if (footsteps != null)
+        {
+            SerializedObject serializedSteps = new SerializedObject(footsteps);
+            serializedSteps.FindProperty("monsterWalkStride").floatValue = MonsterWalkStride;
+            serializedSteps.FindProperty("monsterWalkVolume").floatValue = MonsterWalkVolume;
+            serializedSteps.ApplyModifiedProperties();
         }
 
         MonsterAttack attack = root.GetComponent<MonsterAttack>();
@@ -817,6 +1413,26 @@ public static class MonsterSetup
             if (attackLock > 0f)
                 serializedAttack.FindProperty("attackLockDuration").floatValue = attackLock;
 
+            // Kostüm başına kilit: her canavar KENDİ kliplerinin uzunluğu
+            // kadar kilitleniyor. Tek bir sayı, kalkma klibi olmayan domuz
+            // katili savurduktan sonra animasyonsuz dondururdu.
+            SerializedProperty locks = serializedAttack.FindProperty("costumeAttackLocks");
+            locks.arraySize = builds.Count;
+
+            for (int i = 0; i < builds.Count; i++)
+            {
+                Dictionary<string, AnimationClip> own = builds[i].Clips;
+                float total = 0f;
+
+                if (own.TryGetValue(LungeClipKey, out AnimationClip ownLunge) && ownLunge != null)
+                    total += ownLunge.length;
+
+                if (own.TryGetValue(RecoverClipKey, out AnimationClip ownRecover) && ownRecover != null)
+                    total += ownRecover.length;
+
+                locks.GetArrayElementAtIndex(i).floatValue = total;
+            }
+
             if (clips.TryGetValue(KillClipKey, out AnimationClip kill) && kill != null)
                 serializedAttack.FindProperty("killLockDuration").floatValue = kill.length;
 
@@ -830,6 +1446,13 @@ public static class MonsterSetup
             // serileştirilmiş duruyor (CLAUDE.md bölüm 16'daki tuzak), o
             // yüzden araç açıkça yazıyor.
             serializedAttack.FindProperty("lockYawLimit").floatValue = 0f;
+
+            // Yakalama mesafesi, kurbanın ölüm pozundaki mesafesiyle AYNI
+            // sabitten yazılıyor. İkisi ayrışırsa kurban önce bir noktaya
+            // çekilir, ölürken başka bir noktaya sıçrar — düzeltmeye
+            // çalıştığımız "vuruş anında ışınlanma" sorununun ta kendisi.
+            serializedAttack.FindProperty("grabDistance").floatValue =
+                LaunchForwardOffset;
 
             serializedAttack.ApplyModifiedProperties();
         }

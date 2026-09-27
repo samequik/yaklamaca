@@ -39,8 +39,10 @@ public class RoundManager : NetworkBehaviour
         "yarısı elle, yarısı otomatik bir çift mesafeyi garanti etmez.")]
     [SerializeField] private Transform monsterSpawn;
 
-    [Tooltip("Kaçanlar bu yarıçapta bir halkaya diziliyor (metre). Hepsini " +
-        "aynı noktaya koymak karakterleri birbirini itmeye zorluyor.")]
+    [Tooltip("İki oyuncunun doğum noktaları arasındaki EN AZ mesafe (metre). " +
+        "Bir süre bu bir HALKA YARIÇAPIYDI ve 1.6 m koridorun yarı " +
+        "genişliğinin tam kendisi olduğu için bütün kaçanlar üst üste " +
+        "doğuyordu; artık ayrılık ölçüsü olarak kullanılıyor.")]
     [SerializeField] private float runnerSpawnSpread = 1.6f;
 
     [Tooltip("Tur başında botlar da doğum noktasına diziliyor mu. Varsayılan " +
@@ -784,6 +786,25 @@ public class RoundManager : NetworkBehaviour
         corpse.ServerInit(victim.netId);
         NetworkServer.Spawn(instance);
 
+        // Fırlatan canavar (domuz katil): kurban vuruşun yönüne uçuyor.
+        //
+        // `NetworkServer.Spawn` `OnStartServer`'ı SENKRON çağırıyor ve ragdoll
+        // orada kuruluyor (`Corpse.BuildVisual`), yani hemen ardından hız
+        // vermek güvenli — bir kare beklemeye gerek yok.
+        if (victim.DeathLaunches)
+        {
+            Transform killer = victim.KillerTransform;
+
+            if (killer != null)
+            {
+                Vector3 direction =
+                    Vector3.ProjectOnPlane(killer.forward, Vector3.up).normalized
+                    + Vector3.up * Corpse.HitLaunchRise;
+
+                corpse.ServerLaunch(direction, Corpse.HitLaunchSpeed);
+            }
+        }
+
         spawnedCorpses.Add(instance);
     }
 
@@ -856,9 +877,25 @@ public class RoundManager : NetworkBehaviour
     [Server]
     private void ServerPlaceParticipants()
     {
-        if (!ResolveSpawnAnchors(out Transform runnerAnchor, out Transform monsterAnchor))
+        List<Transform> runnerPoints = new List<Transform>();
+        List<Transform> monsterPoints = new List<Transform>();
+
+        if (!ResolveSpawnPoints(runnerPoints, monsterPoints))
             return;
 
+        // Her turda farklı dizilim: noktalar karıştırılıp sırayla
+        // dağıtılıyor. Sabit bir eşleme birkaç turda ezberlenirdi — aynı
+        // gerekçeyle canavarın noktası da rastgele seçiliyor.
+        Shuffle(runnerPoints);
+
+        Transform monsterPoint = monsterPoints[Random.Range(0, monsterPoints.Count)];
+
+        // O turda KULLANILMIŞ yerler. Ayrılığı fizikle sormuyoruz, bu listeyle
+        // soruyoruz: `CharacterController`'ı taşımak fizik broadphase'ini AYNI
+        // karede güncellemiyor (bölüm 0.1'in tavan/lamba dersi), yani az önce
+        // taşıdığımız oyuncuyu `CheckSphere` göremeyebilir. Liste hem kesin
+        // hem de kare sırasından bağımsız.
+        List<Vector3> taken = new List<Vector3>();
         int runnerIndex = 0;
 
         for (int i = 0; i < participants.Count; i++)
@@ -867,51 +904,208 @@ public class RoundManager : NetworkBehaviour
             if (participant == null)
                 continue;
 
-            // Tutorial'da oyuncuyu HAVAYA fırlatan şey tam buydu: 3.2 m'lik tek
-            // şeritli koridorda halkadaki yer duvara çarpıyor (RunnerSlot), ölü
-            // eğitim botu da oyuncuyla AYNI noktaya konuyor ve iki
-            // CharacterController birbirini zeminin altına itiyordu.
+            // Tutorial'da oyuncuyu HAVAYA fırlatan şey buydu: ölü eğitim botu
+            // oyuncuyla AYNI noktaya konuyor ve iki CharacterController
+            // birbirini zeminin altına itiyordu.
             if (participant.IsBot && !placeBotsAtRoundStart)
                 continue;
 
             if (participant.Role == RoundRole.Monster)
             {
-                participant.ServerPlaceAt(monsterAnchor.position, monsterAnchor.rotation);
+                Vector3 monsterSpot = FreeSpotNear(monsterPoint.position, taken);
+                taken.Add(monsterSpot);
+                participant.ServerPlaceAt(monsterSpot, monsterPoint.rotation);
                 continue;
             }
 
-            participant.ServerPlaceAt(
-                RunnerSlot(runnerAnchor.position, runnerIndex), runnerAnchor.rotation);
+            // Kadro nokta sayısını aşarsa noktalar baştan kullanılıyor;
+            // `FreeSpotNear` ikinci kişiyi yine de ayırıyor.
+            Transform point = runnerPoints[runnerIndex % runnerPoints.Count];
+
+            Vector3 spot = FreeSpotNear(point.position, taken);
+            taken.Add(spot);
+            participant.ServerPlaceAt(spot, point.rotation);
 
             runnerIndex++;
         }
     }
 
     /// <summary>
-    /// Kaçanların dizileceği noktalar: ilki merkezde, kalanlar çevresinde bir
-    /// halkada.
-    ///
-    /// Hepsini aynı noktaya koymak `CharacterController`'ları birbirini itmeye
-    /// zorluyor ve oyuncular tur başlar başlamaz fırlıyordu.
+    /// Listeyi yerinde karıştırır (Fisher-Yates).
     /// </summary>
-    private Vector3 RunnerSlot(Vector3 anchor, int index)
+    private static void Shuffle(List<Transform> points)
     {
-        if (index <= 0 || runnerSpawnSpread <= 0f)
-            return anchor;
+        for (int i = points.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (points[i], points[j]) = (points[j], points[i]);
+        }
+    }
 
-        float step = Mathf.PI * 2f / Mathf.Max(1, LobbyRoster.MaxPlayers - 1);
-        float angle = (index - 1) * step;
+    /// <summary>
+    /// İstenen noktayı, o turda ZATEN KULLANILMIŞ yerlerden uzağa kaydırır.
+    ///
+    /// ### Sabit yarıçaplı halka NEDEN kaldırıldı (2026-09-23)
+    ///
+    /// Buradaki eski kod bütün kaçanları tek çapanın çevresinde
+    /// `runnerSpawnSpread` (1.6 m) yarıçaplı bir halkaya diziyordu ve o
+    /// sayı koridorun yarı genişliğinin (3.2 / 2) **tam kendisiydi**:
+    /// koridora dik duran yuvalar her seferinde duvarın yüzüne biniyor,
+    /// kontrol küresi onları reddediyor ve yedek yol (`return anchor`)
+    /// hepsini çapanın üstüne yığıyordu. Sahnedeki gerçek duvar verisiyle
+    /// ölçüldü: altı çapanın ALTISINDA da 2-3 oyuncu iç içe doğuyordu.
+    ///
+    /// Halkayı büyütmek çözüm değil — koridor dar olduğu sürece HER sabit
+    /// yarıçap bir duvara denk gelir. Doğrusu aramak: yarıçapı kademeli
+    /// büyüterek boş bir yer bulmak ve bulunca orada durmak.
+    ///
+    /// Bugün ana yolda buraya neredeyse hiç girilmiyor: herkesin kendi
+    /// noktası var ve noktalar birbirinden metrelerce uzak
+    /// (`Doğum Noktalarını Kur`). Burası kadro nokta sayısını aştığında ya
+    /// da araç hiç çalıştırılmamışken devreye giriyor.
+    /// </summary>
+    private Vector3 FreeSpotNear(Vector3 wanted, List<Vector3> taken)
+    {
+        if (IsSpotFree(wanted, taken))
+            return wanted;
 
-        Vector3 candidate = anchor
-            + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * runnerSpawnSpread;
+        for (float radius = 1.1f; radius <= 4.4f; radius += 0.55f)
+        {
+            // Her halkada faz kaydırılıyor: aynı açılar üst üste denenirse
+            // arama dar bir koridorda hep aynı iki yönü tarar.
+            float phase = radius * 0.7f;
 
-        // Duvarın içine denk gelirse merkeze düşülüyor: iki kaçanın aynı
-        // noktada doğması, birinin duvara gömülmesinden iyi. Sınama
-        // `NetworkSetup.BuildSpawnPoints` ile aynı ölçülerde.
-        return Physics.CheckSphere(candidate + Vector3.up * 0.25f, 0.55f, ~0,
-            QueryTriggerInteraction.Ignore)
-            ? anchor
-            : candidate;
+            for (int step = 0; step < 16; step++)
+            {
+                float angle = phase + step * (Mathf.PI * 2f / 16f);
+
+                Vector3 candidate = wanted
+                    + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * radius;
+
+                if (!IsSpotFree(candidate, taken))
+                    continue;
+                if (BlockedByGeometry(candidate))
+                    continue;
+
+                return candidate;
+            }
+        }
+
+        // Çaresiz kalındı (çok dar bir cepte çok kalabalık bir kadro).
+        // Duvara gömmektense üst üste koymak yeğ — eski davranış.
+        Debug.LogWarning("Doğum için boş yer bulunamadı; iki oyuncu aynı " +
+            "noktada başlıyor. Doğum noktaları dar bir yere sıkışmış olabilir — " +
+            "Yakalamaca > Doğum Noktalarını Kur (iki harita) onları dağıtıyor.");
+
+        return wanted;
+    }
+
+    /// <summary>Bu nokta, o turda kullanılmış yerlerden yeterince uzak mı.</summary>
+    private bool IsSpotFree(Vector3 candidate, List<Vector3> taken)
+    {
+        float minimum = Mathf.Max(0.8f, runnerSpawnSpread);
+
+        for (int i = 0; i < taken.Count; i++)
+        {
+            if ((taken[i] - candidate).sqrMagnitude < minimum * minimum)
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Nokta duvarın (ya da bir süsün) içinde mi.
+    ///
+    /// **Oyuncu katmanı maskeden ÇIKARILIYOR.** O katman da sorulsaydı iki
+    /// ayrı yanlış cevap gelirdi: lobide o noktada duran, henüz taşınmamış
+    /// bir oyuncu geçerli bir yeri reddettirirdi; az önce taşınmış bir
+    /// oyuncu ise fizik broadphase'i aynı karede güncellenmediği için zaten
+    /// görünmezdi. Oyuncular arası ayrılığı `IsSpotFree` kesin olarak
+    /// hallediyor, burası yalnızca GEOMETRİYE bakıyor.
+    /// </summary>
+    private static bool BlockedByGeometry(Vector3 candidate)
+    {
+        return Physics.CheckSphere(candidate + Vector3.up * 0.25f, 0.55f,
+            GeometryMask, QueryTriggerInteraction.Ignore);
+    }
+
+    private static int geometryMask;
+
+    private static int GeometryMask
+    {
+        get
+        {
+            if (geometryMask != 0)
+                return geometryMask;
+
+            int players = LayerMask.NameToLayer("Oyuncu");
+            geometryMask = players >= 0 ? ~(1 << players) : ~0;
+
+            return geometryMask;
+        }
+    }
+
+    /// <summary>
+    /// Kaçan ve canavar noktalarını toplar. Üç kaynak, bu öncelikle:
+    ///
+    /// 1. **Elle konmuş çapalar** (`runnerSpawn` / `monsterSpawn`). İkisi de
+    ///    doluysa hesap hiç yapılmıyor — yarısı elle yarısı otomatik bir
+    ///    çift mesafeyi garanti etmez.
+    /// 2. **Rol işaretli noktalar** (`SpawnPoint`). `Doğum Noktalarını Kur`
+    ///    bunları kuruyor: kaçanlar ana haritaya, canavar güney kanadına.
+    /// 3. **Eski yol:** işaretsiz `NetworkStartPosition`'lardan en uzak
+    ///    çift. Araç hiç çalıştırılmamış bir projede oyun oynanabilir
+    ///    kalsın diye duruyor.
+    /// </summary>
+    [Server]
+    private bool ResolveSpawnPoints(List<Transform> runnerPoints,
+        List<Transform> monsterPoints)
+    {
+        // --- 1) Elle konmuş çapalar ---
+        if (runnerSpawn != null && monsterSpawn != null)
+        {
+            runnerPoints.Add(runnerSpawn);
+            monsterPoints.Add(monsterSpawn);
+            return true;
+        }
+
+        // --- 2) Rol işaretli noktalar ---
+        SpawnPoint[] marked = FindObjectsOfType<SpawnPoint>();
+
+        for (int i = 0; i < marked.Length; i++)
+        {
+            if (marked[i] == null)
+                continue;
+
+            if (marked[i].Role == RoundRole.Monster)
+                monsterPoints.Add(marked[i].transform);
+            else
+                runnerPoints.Add(marked[i].transform);
+        }
+
+        // İKİ liste de dolu olmalı. Yalnızca biri doluysa eski yola
+        // düşülüyor: yarım bir kurulumdan "canavar kaçanın dibinde doğdu"
+        // çıkardı ve sebebi görünmezdi.
+        if (runnerPoints.Count > 0 && monsterPoints.Count > 0)
+            return true;
+
+        runnerPoints.Clear();
+        monsterPoints.Clear();
+
+        // --- 3) Eski yol ---
+        if (!ResolveSpawnAnchors(out Transform runnerAnchor, out Transform monsterAnchor))
+            return false;
+
+        runnerPoints.Add(runnerAnchor);
+        monsterPoints.Add(monsterAnchor);
+
+        Debug.LogWarning("Rol işaretli doğum noktası yok; eski tek-çapa yoluna " +
+            "düşüldü ve bütün kaçanlar aynı noktanın çevresine diziliyor. " +
+            "Yakalamaca > Doğum Noktalarını Kur (iki harita) her kaçana kendi " +
+            "noktasını veriyor.");
+
+        return true;
     }
 
     /// <summary>

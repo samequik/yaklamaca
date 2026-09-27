@@ -77,18 +77,63 @@ public static class RunnerSetup
 
     /// <summary>
     /// Ölüm klibinin oynatma hızı. Ham klipte kurban yere geç düşüyordu —
-    /// canavar çoktan yumruklamaya başlamışken kaçan hâlâ havadaydı, arada bir
-    /// saniyeye yakın fark vardı.
+    /// canavar çoktan yumruklamaya başlamışken kaçan hâlâ havadaydı.
     ///
     /// **Yalnızca ölüm klibine uygulanıyor.** Locomotion'ın hızı zaten
     /// karakterin gerçek hızından hesaplanıyor (`SpeedScaleParameter`); oraya
     /// sabit bir çarpan koymak ayak kaymasını bozardı.
     ///
-    /// Ayarlamak için: klip 2.6 sn, yani düşüş anı bu çarpanın tersiyle
-    /// öne geliyor. Daha erken düşsün istiyorsan büyüt, yumuşasın istiyorsan
-    /// 1'e yaklaştır. Değiştirdikten sonra `Kaçan Modelini Kur`.
+    /// **Yalnızca KUKLA'yı etkiliyor.** Fırlatan canavarda (domuz katil) ölüm
+    /// klibi hiç oynamıyor — `RoundParticipant.DeathHold` `launching` iken
+    /// `PlayDeath()` çağırmıyor, kurban o anki poziyle ragdoll'a geçiyor.
+    ///
+    /// ### Neden tek başına YETMİYOR (2026-09-26)
+    ///
+    /// Kullanıcının iki gözlemi klibin içindeki düşüş anını çözüyor: ham
+    /// klipte (1.0×) fark ~1.0 sn, 1.7×'te ~0.5 sn. İki denklem, iki
+    /// bilinmeyen:
+    ///
+    /// | | Değer |
+    /// |---|---|
+    /// | Klip | 2.60 sn (78 kare @30) |
+    /// | Kurbanın yere değmesi | **1.21 sn** (klibin %47'si) |
+    /// | Canavarın yıkma anı | **0.21 sn** |
+    ///
+    /// Yani hızlandırmanın kazanabileceği ŞEY TAVANLI: sonsuz hızda bile en
+    /// fazla 0.71 sn. Yarım saniye için 6× oynatma gerekirdi ve o komik
+    /// görünürdü:
+    ///
+    /// | Hız | Düşüş | Kazanç |
+    /// |---|---|---|
+    /// | 1.7 | 0.71 sn | — |
+    /// | **2.0** | 0.61 sn | 0.11 sn |
+    /// | 3.0 | 0.41 sn | 0.31 sn |
+    /// | 6.0 | 0.20 sn | 0.51 sn |
+    ///
+    /// Kalanı <see cref="DeathEntryOffset"/> taşıyor: hareketin HIZINI
+    /// bozmadan klibin baş tarafını atlıyor. İkisi birlikte düşüşü
+    /// **0.50 sn** öne alıyor ve kurbanı canavarın yıkma anına (0.21 sn)
+    /// oturtuyor.
+    ///
+    /// Değiştirdikten sonra `Kaçan Modelini Kur`.
     /// </summary>
-    private const float DeathSpeed = 1.7f;
+    private const float DeathSpeed = 2f;
+
+    /// <summary>
+    /// Ölüm klibine hangi noktadan GİRİLDİĞİ (0-1, klibin normalleştirilmiş
+    /// süresi). 0.30 = ilk %30 atlanıyor, yani 0.78 sn'lik hazırlık kısmı.
+    ///
+    /// Hızlandırmaktan farkı: hareketin kendi temposu bozulmuyor, yalnızca
+    /// daha ileriden başlıyor. <see cref="DeathSpeed"/>'in tablosu bunun
+    /// neden gerektiğini anlatıyor — istenen yarım saniye hıza sığmıyor.
+    ///
+    /// **Bedeli bir sıçrama:** kurban ilk karede ayakta değil, çoktan
+    /// devrilmeye başlamış görünüyor. Zaten o anda gövde canavarın önüne
+    /// oturtuluyor (`ApplyDeathPose`), yani ortada başka bir sıçrama da var;
+    /// ama fazla büyütülürse kurban havada belirmiş gibi durur. Geç
+    /// geliyorsa büyüt, sıçrama göze batıyorsa küçült.
+    /// </summary>
+    private const float DeathEntryOffset = 0.3f;
 
     // Klip anahtarları: dosya adında "@" sonrası kısım, küçük harf.
     /// <summary>Canavardan ödünç alınan boşta klibinin anahtarı (bölüm 17).</summary>
@@ -338,7 +383,12 @@ public static class RunnerSetup
                 changed = true;
             }
 
-            ModelImporterClipAnimation[] defaults = importer.defaultClipAnimations;
+            // Alım listesi `ClipTakes` üzerinden okunuyor: boş dönerse önce
+            // bekleyen rig ayarlarıyla yeniden import ediliyor. Doğrudan
+            // `defaultClipAnimations` okumak, rig bozukken SESSİZCE boş liste
+            // veriyordu ve aşağıdaki döngü hiç çalışmıyordu — kaçanın
+            // `Walking` klibi üç gün boyunca döngüsüz kaldı (bkz. ClipTakes).
+            ModelImporterClipAnimation[] defaults = ClipTakes.Resolve(importer, path);
             ModelImporterClipAnimation[] takes = importer.clipAnimations;
 
             if (takes == null || takes.Length != defaults.Length)
@@ -604,6 +654,9 @@ public static class RunnerSetup
             AnimatorStateTransition toDeath = machine.AddAnyStateTransition(death);
             toDeath.hasExitTime = false;
             toDeath.duration = 0.05f;
+
+            // Klibin hazırlık kısmı atlanıyor — bkz. `DeathEntryOffset`.
+            toDeath.offset = DeathEntryOffset;
             toDeath.canTransitionToSelf = false;
             toDeath.AddCondition(AnimatorConditionMode.If, 0f, RunnerAnimator.DeathTrigger);
         }

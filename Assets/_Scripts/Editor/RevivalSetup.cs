@@ -48,8 +48,8 @@ public static class RevivalSetup
             if (best < 25 * 25) throw new InvalidOperationException("Kabinler yeterince uzak yerleştirilemiyor.");
             var root = new GameObject("DiriltmeIstasyonlari");
             Undo.RegisterCreatedObjectUndo(root, "Diriltme kabinlerini ekle");
-            BuildStation(root.transform, first, "Diriltme_A", 1);
-            BuildStation(root.transform, second, "Diriltme_B", 2);
+            BuildStation(root.transform, first, "Diriltme_A");
+            BuildStation(root.transform, second, "Diriltme_B");
             Debug.Log($"İki diriltme kabini eklendi: {first}, {second}; uzaklık {Mathf.Sqrt(best):0.0} m.");
         }
         else if (existing.Length != 2) throw new InvalidOperationException("Sahnede iki dışında sayıda kabin var; elle kontrol et.");
@@ -193,7 +193,7 @@ public static class RevivalSetup
     // internal + kökü döndürüyor: Tutorial Sahnesi Kur aynı kabini kendi
     // girintisine koyup çeviriyor. Ana haritadaki çağrı dönüş değerini
     // kullanmıyor, davranışı değişmedi.
-    internal static GameObject BuildStation(Transform parent, Vector3 position, string name, int number)
+    internal static GameObject BuildStation(Transform parent, Vector3 position, string name)
     {
         var root = new GameObject(name); root.transform.SetParent(parent); root.transform.position = position;
         // Açık ön yüz: giriş/çıkışı engelleyen kapı veya eşik yok.
@@ -231,7 +231,11 @@ public static class RevivalSetup
         sign.transform.localPosition = new Vector3(0, 1.85f, 0.77f);
         sign.transform.localRotation = Quaternion.Euler(0, 180, 0);
         var text = sign.AddComponent<TextMeshPro>(); text.font = TMP_Settings.defaultFontAsset;
-        text.text = "DİRİLTME " + number; text.fontSize = 2.2f; text.alignment = TextAlignmentOptions.Center;
+        // Numara KALDIRILDI (2026-09-26): kabini ayırt etmeye yaramıyordu,
+        // oyuncu zaten karşısındakini görüyor. Yazıyı çalışma anında
+        // `RevivalStation` dile göre yeniden yazıyor, yani buradaki değer
+        // yalnızca Editor'de görünen taban hâl.
+        text.text = "DİRİLTME"; text.fontSize = 2.2f; text.alignment = TextAlignmentOptions.Center;
         text.rectTransform.sizeDelta = new Vector2(1.4f, 0.25f); text.color = new Color(0.4f, 1, 0.85f);
         return root;
     }

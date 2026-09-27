@@ -75,6 +75,27 @@ public class FootstepAudio : MonoBehaviour
     [Tooltip("Koşarken kaç metrede bir adım sesi.")]
     [SerializeField] private float sprintStride = 2.6f;
 
+    [Header("Canavar — her hızda duyulur")]
+    [Tooltip("Canavar YÜRÜRKEN ve EĞİLİRKEN de ses çıkarıyor; yalnızca kaçan " +
+        "sessiz kalıyor.\n\nGerekçe: sessizlik KAÇANIN aracı (bölüm 5'teki " +
+        "hız/gizlilik takası) — gizlenmesi gereken o. Canavarın zaten sönmeyen " +
+        "kırmızı bir hâlesi var, yani yeri baştan belli; onu da sessiz yapmak " +
+        "kaçanın erken uyarısını götürüyordu.\n\nBu hızın altında (durma, " +
+        "ufak kayma) yine ses yok.")]
+    [SerializeField] private float monsterMinSpeed = 60f;
+
+    [Tooltip("Canavar koşmuyorken (yürüme/eğilme) kaç metrede bir adım.\n\n" +
+        "Adımlar MESAFEYLE tetikleniyor, yani bu sayı doğrudan tempoyu " +
+        "belirliyor. 1.5'te yürüme 0.39 sn/adım çıkıyordu ve koşmanın " +
+        "0.36'sıyla neredeyse aynıydı — oynanışta 'yürürken koşma sesi gibi " +
+        "geliyor' diye bildirildi. 2.4'te yürüme 0.63 sn/adım: açıkça daha " +
+        "ağır bir tempo.")]
+    [SerializeField] private float monsterWalkStride = 2.4f;
+
+    [Tooltip("Canavarın yürüme/eğilme adımının sesi. Koşudan belirgin kısık " +
+        "(koşu 0.85): sinsice yaklaşmak mümkün olmalı ama duyulmadan değil.")]
+    [SerializeField] private float monsterWalkVolume = 0.32f;
+
     [SerializeField] private Vector2 stepPitchRange = new Vector2(0.92f, 1.08f);
 
     [Header("Ses Seviyesi")]
@@ -95,6 +116,12 @@ public class FootstepAudio : MonoBehaviour
         "hız bunun üstündeyse adım sesi çalmıyor — yoksa zıplayarak geçen " +
         "oyuncu havada adım sesi çıkarırdı.")]
     [SerializeField] private float airborneVerticalSpeed = 2.5f;
+
+    [Tooltip("Hız eşiğin altına düştükten kaç saniye sonra adım birikimi " +
+        "siliniyor. SIFIR YAPMA: uzak oyuncunun hızı ağdan gelen konumdan " +
+        "çıkıyor ve paket gecikince bir anlığına sıfır görünüyor — hemen " +
+        "silmek o oyuncunun adım sesini tamamen susturur.")]
+    [SerializeField] private float stopResetDelay = 0.35f;
 
     private PlayerController controller;
     private RoundParticipant participant;
@@ -118,7 +145,25 @@ public class FootstepAudio : MonoBehaviour
 
     private bool Grounded => ControllerLive ? controller.IsGrounded : !derivedAirborne;
 
+    /// <summary>
+    /// Uzak oyuncunun hızındaki yumuşatma zaman sabiti (saniye). Ağdan gelen
+    /// konumun donduğu kareleri dolduracak kadar uzun, gerçek duruşu geç
+    /// fark ettirmeyecek kadar kısa.
+    /// </summary>
+    private const float RemoteSpeedSmoothing = 0.12f;
+
+    /// <summary>Hızın eşiğin altında kaldığı süre — `stopResetDelay` için.</summary>
+    private float slowTimer;
+
     private float CurrentSpeed => ControllerLive ? controller.HorizontalSpeed : derivedSpeed;
+
+    /// <summary>
+    /// Bu oyuncu canavar mı? `FootstepAudio` düz bir `MonoBehaviour`, rolü
+    /// kendisi bilmiyor — `RoundParticipant`'tan okuyor (o bir
+    /// `NetworkBehaviour` ve rol zaten SyncVar).
+    /// </summary>
+    private bool IsMonster =>
+        participant != null && participant.Role == RoundRole.Monster;
 
     private void Awake()
     {
@@ -136,6 +181,8 @@ public class FootstepAudio : MonoBehaviour
         // Doğduğu karede eski konumla fark almak devasa bir hız üretirdi.
         lastPosition = transform.position;
         derivedAirborne = false;
+        derivedSpeed = 0f;
+        slowTimer = 0f;
     }
 
     private void OnDisable()
@@ -182,36 +229,101 @@ public class FootstepAudio : MonoBehaviour
         if (source == null || !Grounded)
             return;
 
+        float speed = CurrentSpeed;
+
+        // ---- CANAVAR: her hızda duyuluyor (2026-09-21) ----
+        //
+        // 2026-09-13'te "yalnızca koşarken ses" kuralı konulmuştu ve canavarı
+        // da kapsıyordu; oynanışta "canavarların ayak sesi yürürken ve
+        // eğilirken hiç gelmiyor" diye bildirildi.
+        //
+        // Sessizlik KAÇANIN aracı (bölüm 5). Canavarın zaten sönmeyen kırmızı
+        // bir hâlesi var, yani konumu baştan belli — onu da sessiz yapmak
+        // kaçanın erken uyarısını götürüyor, takasın karşılığı ise yok.
+        //
+        // **Eğilme bayrağına BAKILMIYOR, hıza bakılıyor.** `controller.IsDucked`
+        // uzak oyuncuda donmuş (bileşen orada kapalı, bölüm 12) — eğilirken hız
+        // zaten `sprintThreshold`'un altına düşüyor, yani sorulacak tek soru
+        // hız.
+        if (IsMonster)
+        {
+            if (speed < monsterMinSpeed)
+            {
+                ReportTooSlow();
+                return;
+            }
+
+            slowTimer = 0f;
+
+            bool sprinting = speed >= sprintThreshold;
+
+            distanceSinceStep += speed * PlayerController.UnitsToMeters * Time.deltaTime;
+
+            if (distanceSinceStep < (sprinting ? sprintStride : monsterWalkStride))
+                return;
+
+            distanceSinceStep = 0f;
+            PlayStep(sprinting ? sprintVolume : monsterWalkVolume);
+            return;
+        }
+
+        // ---- KAÇAN: yalnızca gerçek koşu ----
+        //
         // Eğilerek gitmek TAMAMEN sessiz. Normalde eğilirken hız zaten
-        // sprintThreshold'un çok altına düşüyor (crouchSpeedMultiplier), ama
-        // niyeti örtük bir hız eşiğine bırakmak yerine burada açıkça yazmak
-        // daha güvenli — `TrailLeaver` de aynı şeyi kendi tarafında yapmıyor
-        // çünkü ona hiç gerek kalmıyor, ama burada tutarlılık için tutuluyor.
+        // sprintThreshold'un altına düşüyor, ama niyeti örtük bir hız eşiğine
+        // bırakmak yerine burada açıkça yazmak daha güvenli.
         if (controller.IsDucked)
         {
             distanceSinceStep = 0f;
             return;
         }
 
-        float speed = CurrentSpeed;
-
-        // Yürümek de TAMAMEN sessiz — yalnızca gerçek koşu ses çıkarıyor
-        // (2026-09-13, oynanış geri bildirimi: "yürüyünce ne ses ne iz").
+        // Yürümek de TAMAMEN sessiz (2026-09-13: "yürüyünce ne ses ne iz").
         // `TrailLeaver.minSpeed` ile birebir aynı eşik ve aynı davranış:
-        // eşiğin altına her düşüşte birikim sıfırlanıyor, yalnızca tam
-        // durmada değil — ikisi hep aynı anda açılıp kapanmalı.
+        // eşiğin altına her düşüşte birikim sıfırlanıyor — ikisi hep aynı
+        // anda açılıp kapanmalı.
         if (speed < sprintThreshold)
         {
-            distanceSinceStep = 0f;
+            ReportTooSlow();
             return;
         }
+
+        slowTimer = 0f;
 
         distanceSinceStep += speed * PlayerController.UnitsToMeters * Time.deltaTime;
         if (distanceSinceStep < sprintStride)
             return;
 
         distanceSinceStep = 0f;
-        PlayStep();
+        PlayStep(sprintVolume);
+    }
+
+    /// <summary>
+    /// Hız eşiğin altına düştü: birikimi SİLMEDEN önce biraz bekle.
+    ///
+    /// ### Neden gecikme var (2026-09-23)
+    ///
+    /// Burada eskiden doğrudan `distanceSinceStep = 0f` vardı ve uzak
+    /// oyuncunun adım sesini ağ koşullarına bağımlı kılıyordu: hız pozisyon
+    /// farkından çıktığı için, ağdan yeni konum gelmeyen HER kare "durdu"
+    /// gibi okunuyor ve o ana kadar biriken mesafe siliniyordu.
+    ///
+    /// Sayıyla: canavarın yürüme adımı 2.4 m'de bir çalıyor, yani 3.81 m/s
+    /// hızda 0.63 saniyede bir — 60 FPS'te ~38 kare. O 38 karenin BİR
+    /// tanesinde bile konum yenilenmezse birikim sıfırlanıyor ve adım hiç
+    /// çalmıyordu. "Bazen ayak sesi gelmiyor" şikâyeti tam olarak buydu ve
+    /// bağlantı kötüleştikçe artıyordu.
+    ///
+    /// Gecikme kuralın NİYETİNİ bozmuyor: duran bir oyuncu 0.35 saniye
+    /// sonra birikimini yine kaybediyor, yani "durup kalkınca hemen adım
+    /// sesi" diye bir kazanç oluşmuyor.
+    /// </summary>
+    private void ReportTooSlow()
+    {
+        slowTimer += Time.deltaTime;
+
+        if (slowTimer >= stopResetDelay)
+            distanceSinceStep = 0f;
     }
 
     /// <summary>
@@ -235,8 +347,27 @@ public class FootstepAudio : MonoBehaviour
 
         // Eşikler Source biriminde (u/s), pozisyon farkı metrede: çeviriyoruz
         // ki yerel ve uzak yol aynı sayılarla ayarlansın.
-        derivedSpeed = new Vector2(delta.x, delta.z).magnitude * inverse
+        // Eşikler Source biriminde (u/s), pozisyon farkı metrede.
+        float instant = new Vector2(delta.x, delta.z).magnitude * inverse
             / PlayerController.UnitsToMeters;
+
+        // **Uzak oyuncuda anlık hız güvenilir DEĞİL, yumuşatılıyor.**
+        //
+        // Konum ağdan geliyor ve her karede yenilenmiyor: `NetworkTransform`
+        // 20 Hz gönderiyor (syncInterval 0.05), ekran 60+ FPS çiziyor. Mirror
+        // ara değerleme yapıyor ama anlık görüntü tamponu boşalınca konum
+        // DONUYOR — o karelerde fark sıfır ve anlık hız sıfır görünüyor,
+        // oyuncu tam hızla koşarken bile.
+        //
+        // Yumuşatma o boşlukları dolduruyor: birkaç karelik donma hızı
+        // sıfıra düşürmüyor, gerçek duruş ise 0.1 sn içinde okunuyor.
+        // Yerel oyuncuda bu yola hiç girilmiyor (`CurrentSpeed` orada
+        // doğrudan hareket kodundan okuyor), yani yumuşatma kimsenin kendi
+        // adımını geciktirmiyor.
+        derivedSpeed = ControllerLive
+            ? instant
+            : Mathf.Lerp(derivedSpeed, instant,
+                1f - Mathf.Exp(-Time.deltaTime / RemoteSpeedSmoothing));
 
         derivedVertical = delta.y * inverse;
 
@@ -255,9 +386,9 @@ public class FootstepAudio : MonoBehaviour
         derivedAirborne = airborne;
     }
 
-    private void PlayStep()
+    private void PlayStep(float baseVolume)
     {
-        bool isMonster = participant != null && participant.Role == RoundRole.Monster;
+        bool isMonster = IsMonster;
         AudioClip clip = isMonster && heavyStep != null ? heavyStep : lightStep;
         if (clip == null)
             return;
@@ -266,7 +397,7 @@ public class FootstepAudio : MonoBehaviour
         // duymanın makineleşmiş hissini kırıyor.
         source.pitch = Random.Range(stepPitchRange.x, stepPitchRange.y);
 
-        float volume = sprintVolume;
+        float volume = baseVolume;
 
         // Canavarın kendi ekranında dinleyici (kamerası) kaynağın üstünde —
         // yalnızca o durumda kısılıyor, kaçanlar aynı adımı mesafesine göre
@@ -276,30 +407,19 @@ public class FootstepAudio : MonoBehaviour
         if (isMonster && participant.isLocalPlayer)
             volume *= ownHeavyStepVolumeScale;
 
-        // GEÇİCİ TEŞHİS LOGU (2026-09-14) — "izlerken canavarın adımı bazen
-        // duyulmuyor" şikâyeti için. Mesafe teşhisi kullanıcı tarafından
-        // ÇÜRÜTÜLDÜ (dibindeyken bile duyulmuyor) ve kod okumakla ikinci bir
-        // sebep bulunamadı: kaynak/dinleyici/ses seviyesi hepsi doğru
-        // görünüyor. Tahmin etmek yerine ölçüyoruz — bir dahaki sefere
-        // olduğunda bu satır konsolda gerçek durumu gösterecek. Kesinleşince
-        // BU BLOK SİLİNMELİ, kalıcı bir log değil.
-        if (isMonster)
-        {
-            int enabledListeners = 0;
-            foreach (AudioListener listener in FindObjectsOfType<AudioListener>())
-            {
-                if (listener.enabled)
-                    enabledListeners++;
-            }
-
-            Debug.Log($"[SesTeşhis] Canavar adımı: konum={transform.position}, " +
-                $"clip={clip.name}, volume={volume:F2}, " +
-                $"source.enabled={source.enabled}, source.mute={source.mute}, " +
-                $"kendi canavarım={participant.isLocalPlayer}, " +
-                $"AudioListener.volume={AudioListener.volume:F2}, " +
-                $"sahnede AÇIK dinleyici sayısı={enabledListeners}");
-        }
-
+        // 2026-09-14'ten beri burada geçici bir teşhis logu duruyordu:
+        // "izlerken canavarın adımı BAZEN duyulmuyor, bazen duyuluyor."
+        // Sebep 2026-09-21'de bulundu ve log kaldırıldı.
+        //
+        // Şikâyet 2026-09-14'te geldi; "yalnızca koşarken ses" kuralı
+        // 2026-09-13'te konmuştu — yani bir gün önce. Canavar kovalarken
+        // eşiğin (300 u/s) üstünde ve duyuluyor, ama köşe dönünce hız payı
+        // siliniyor (bölüm 1'in direksiyon cezası) ve hız eşiğin altına
+        // düşüyor: tam o anlarda sessizleşiyordu. "Bazen geliyor bazen
+        // gelmiyor" tarifi birebir bu.
+        //
+        // Mesafe teşhisi de bu yüzden çürümüştü: canavar DİBİNDEYKEN bile
+        // duyulmuyordu, çünkü yaklaşırken yavaşlamıştı.
         source.PlayOneShot(clip, volume);
     }
 }

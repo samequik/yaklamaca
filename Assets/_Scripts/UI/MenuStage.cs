@@ -114,6 +114,9 @@ public class MenuStage : MonoBehaviour
     private Transform[] runners;
     private Transform runner;
     private Transform monster;
+
+    /// <summary>Canavar kostüm figürleri; sıra CharacterCatalog.Monsters ile aynı.</summary>
+    private Transform[] monsters;
     // Kullanıcının seçim ekranında sürükleyerek eklediği dönüş. Odak
     // değişince sıfırlanıyor: her karakter sana dönük başlamalı.
     private float dragYaw;
@@ -159,7 +162,7 @@ public class MenuStage : MonoBehaviour
         }
 
         ResolveRunners(turntable);
-        monster = turntable.Find("Canavar");
+        ResolveMonsters(turntable);
 
         // Taban açılar KURULUMDAN okunuyor, koda yazılmıyor: iki figür
         // birbirine hafifçe dönük duruyor ve o açılar `MenuStageSetup`'ta.
@@ -222,6 +225,56 @@ public class MenuStage : MonoBehaviour
     /// ve sıraları `CharacterCatalog.Runners` ile aynı — araç ikisini birlikte
     /// kuruyor.
     /// </summary>
+    /// <summary>
+    /// Canavar kostüm figürlerini toplar (`Canavar_0`, `Canavar_1`, …).
+    ///
+    /// Numarasız eski `Canavar` figürüne DÜŞÜYOR: `Menü Kur` henüz yeniden
+    /// çalıştırılmamış bir sahnede canavar büsbütün kaybolmasın diye.
+    /// </summary>
+    private void ResolveMonsters(Transform turntable)
+    {
+        List<Transform> found = new List<Transform>();
+
+        for (int i = 0; ; i++)
+        {
+            Transform figure = turntable.Find("Canavar_" + i);
+
+            if (figure == null)
+                break;
+
+            found.Add(figure);
+            WarnIfNoController(figure);
+        }
+
+        if (found.Count == 0)
+        {
+            Transform legacy = turntable.Find("Canavar");
+
+            if (legacy != null)
+                found.Add(legacy);
+        }
+
+        monsters = found.ToArray();
+    }
+
+    /// <summary>
+    /// Denetleyicisi olmayan bir `Animator` hiçbir şey oynatmıyor ve ekranda
+    /// T-poz olarak görünüyor. Unity bunu hata saymıyor: boş referans geçerli
+    /// bir durum. Bir kez yaşandı ve sebebi bulmak birkaç tur sürdü — artık
+    /// sahne kendisi söylüyor.
+    /// </summary>
+    private static void WarnIfNoController(Transform figure)
+    {
+        Animator animator = figure.GetComponent<Animator>();
+
+        if (animator == null || animator.runtimeAnimatorController == null)
+        {
+            Debug.LogError($"Menü sahnesi: '{figure.name}' figürünün animatör denetleyicisi " +
+                "YOK, ekranda T-poz duracak. `Yakalamaca > Menü Kur` çalıştır — " +
+                "denetleyici dosyası model araçlarından SONRA bağlanıyor.", figure);
+        }
+    }
+
     private void ResolveRunners(Transform turntable)
     {
         List<Transform> found = new List<Transform>();
@@ -278,6 +331,15 @@ public class MenuStage : MonoBehaviour
 
         int index = CharacterCatalog.SanitizeRunner(PlayerProfile.RunnerCostume);
         runner = index < runners.Length ? runners[index] : runners[0];
+
+        if (monsters == null || monsters.Length == 0)
+        {
+            monster = null;
+            return;
+        }
+
+        int monsterIndex = CharacterCatalog.SanitizeMonster(PlayerProfile.MonsterCostume);
+        monster = monsterIndex < monsters.Length ? monsters[monsterIndex] : monsters[0];
     }
 
     /// <summary>
@@ -367,8 +429,17 @@ public class MenuStage : MonoBehaviour
             }
         }
 
-        if (monster != null)
-            monster.gameObject.SetActive(requested != Focus.Runner);
+        // Seçili olmayan canavar kostümleri her durumda kapalı: hepsi aynı
+        // noktada duruyor, açık kalsalar iç içe geçmiş figürler görünürdü.
+        if (monsters != null)
+        {
+            for (int i = 0; i < monsters.Length; i++)
+            {
+                if (monsters[i] != null)
+                    monsters[i].gameObject.SetActive(
+                        monsters[i] == monster && requested != Focus.Runner);
+            }
+        }
 
         // Sürükleme sıfırlanıyor: her karakter sana dönük başlamalı, önceki
         // figürü çevirdiğin açıyla değil.

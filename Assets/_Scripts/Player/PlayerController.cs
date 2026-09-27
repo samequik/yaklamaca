@@ -138,6 +138,34 @@ public class PlayerController : MonoBehaviour
         "MovementProfile.eyeForwardOffset.")]
     [SerializeField] private float eyeForwardOffset;
 
+    // Kostümün kendi payları. Prefabta alan DEĞİLLER, çalışma anında
+    // `RoundParticipant` yazıyor: kostüm bir SyncVar ve rol değiştikçe
+    // yeniden hesaplanıyor, serileştirilmiş bir değer bayatlardı.
+    private float costumeEyeOffset;
+    private float costumeDuckedEyeOffset;
+
+    /// <summary>
+    /// Seçili kostümün göz hizası paylarını uygular (Source unit).
+    ///
+    /// `RoundParticipant` hem rol hem kostüm değişince çağırıyor: ikisi
+    /// birlikte hangi modelin çizildiğini belirliyor.
+    /// </summary>
+    public void SetCostumeEyeOffsets(float standing, float ducked)
+    {
+        if (Mathf.Approximately(costumeEyeOffset, standing)
+            && Mathf.Approximately(costumeDuckedEyeOffset, ducked))
+            return;
+
+        costumeEyeOffset = standing;
+        costumeDuckedEyeOffset = ducked;
+
+        // Hemen yerine oturt, yoksa kostüm değiştikten sonra bir kare eski
+        // hizada kalırdı. Null kontrolü şart: kostüm SyncVar'ı Awake'ten önce
+        // de gelebiliyor.
+        if (controller != null)
+            ApplyDuckGeometry(duckFraction);
+    }
+
     [Header("Zemin Kontrolü")]
     [SerializeField] private LayerMask groundMask = ~0;
     [SerializeField] private float groundCheckDistance = 0.2f;
@@ -614,11 +642,19 @@ public class PlayerController : MonoBehaviour
                 cameraRestCached = true;
             }
 
-            // Pay yalnızca AYAKTAKİ hizaya biniyor: eğilmiş göz hizası olduğu
-            // gibi kalıyor. Eğilme geçidi 1.1 m ve orada kamerayı yukarı almak
-            // tavanın içini gösterirdi.
+            // Profilin payı (ROL başına) yalnızca AYAKTAKİ hizaya biniyor.
+            // Kostümün payı (MODEL başına) ikisine de: her modelin kafası
+            // hull'a göre farklı yükseklikte oturuyor ve eğilmede hiç telafi
+            // yoktu — 1.30 ölçekli bir canavarın kafası orada kameranın
+            // üstünde kalıyordu.
+            //
+            // Eğilmedeki pay küçük tutulmalı: eğilme geçidi 1.1 m ve hiza
+            // 28 unit (0.533 m), fazlası tavanın içini gösterir (bölüm 14).
             float eyeFromFeet =
-                Mathf.Lerp(StandingEyeUnits + eyeHeightOffset, DuckedEyeUnits, fraction)
+                Mathf.Lerp(
+                    StandingEyeUnits + eyeHeightOffset + costumeEyeOffset,
+                    DuckedEyeUnits + costumeDuckedEyeOffset,
+                    fraction)
                 * UnitsToMeters;
             Vector3 localPosition = cameraTransform.localPosition;
             localPosition.y = eyeFromFeet - standingHeight / 2f;

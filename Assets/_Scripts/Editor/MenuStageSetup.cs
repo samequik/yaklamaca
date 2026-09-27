@@ -88,8 +88,15 @@ internal static class MenuStageSetup
                 RunnerSetup.ControllerPathFor(i), new Vector3(-0.62f, 0f, 0f), 1.40f);
         }
 
-        AddCharacter(turntable.transform, "Canavar", RunnerSetup.MonsterModelPath,
-            MonsterSetup.ControllerPath, new Vector3(0.68f, 0f, 0.25f), 1.80f);
+        // Canavarın da HER kostümü kuruluyor — kaçandaki desenin aynısı.
+        // Tek figür koyup modelini çalışma anında değiştirmek mümkün değil:
+        // her modelin kendi iskeleti ve kendi animatörü var.
+        for (int i = 0; i < CharacterCatalog.Monsters.Length; i++)
+        {
+            AddCharacter(turntable.transform, $"Canavar_{i}",
+                CharacterCatalog.Monsters[i].ModelPath,
+                MonsterSetup.ControllerPathFor(i), new Vector3(0.68f, 0f, 0.25f), 1.80f);
+        }
 
         root.SetActive(false);
     }

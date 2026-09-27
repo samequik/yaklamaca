@@ -31,7 +31,9 @@ ve kilit paneli (bölüm 18) · lightmap + occlusion · **EOS relay'i** ·
 **kısa lobi kodu ve oda listesi** (bölüm 13) · **sesli sohbet, mikrofon
 göstergesi ve TAB paneli** (bölüm 19) · **gerçek UI** (bölüm 20) ·
 **fizik motorlu ceset/ragdoll** (bölüm 21) ·
-**ceset taşıma ve diriltme** (bölüm 23) · git · **GitHub** (bölüm 24) ·
+**ceset taşıma ve diriltme** (bölüm 23) · **ikinci canavar: domuz katil,
+sopası ve fırlatan öldürmesi** (2026-09-21) · **iki haritaya dağılmış doğum
+noktaları** (2026-09-23) · git · **GitHub** (bölüm 24) ·
 **korku ekran efektleri** (bölüm 25) · **menü arka planı ve karakter seçimi**
 (bölüm 13 — kod ve sahne tamam, 2026-09-20'de `Menü Kur` çalıştırıldı) ·
 **retro PSP görünümü** (bölüm 25, 2026-09-19 — dört turda oturdu; kullanıcı
@@ -55,7 +57,7 @@ doğrulandı — burada uzun süre "ikisi de hiç denenmedi" yazıyordu, o da
 bayatlamıştı. Geriye **bütün denge sayıları** ve aşağıdaki devir listesindeki
 "yazıldı ama oynanmadı" maddeleri kalıyor.
 
-> **Yeni bir oturum açıyorsan önce aşağıdaki "2026-09-20: OTURUM DEVRİ"
+> **Yeni bir oturum açıyorsan önce aşağıdaki "2026-09-23: OTURUM DEVRİ"
 > başlığını oku.** Ne bitti, ne bekliyor, hangi araç çalıştırılacak, neye izin
 > yok — hepsi orada, dosyanın tamamını taramana gerek kalmadan.
 
@@ -687,21 +689,1655 @@ düzensiz piksel üretecekti. Ayrıntı bölüm 25, "Dördüncü tur".
 
 ---
 
-### 2026-09-20: OTURUM DEVRİ — yeni oturum buradan başlasın
+### 2026-09-21: İKİNCİ CANAVAR — domuz katil, sopalı ve fırlatan
+
+Tek oturum, dört büyük parça: **ikinci canavar kostümü**, **prosedürel
+beyzbol sopası**, **canavara özel bir öldürme mekaniği** ve canavarın **ayak
+sesi**. Yol boyunca **dokuz ayrı hata** bulundu; hepsi aşağıdaki tabloda,
+çünkü çoğu tekrar düşülmeye çok müsait.
+
+Kullanıcı modeli (`Character_Killer_05`) ve beş Mixamo klibini kendisi
+getirdi. Sopa modeli YOKTU — kodla üretildi.
+
+#### 1. Canavar tarafı ÇOKLU kostüme geçti
+
+Kaçan tarafı 2026-09-12'den beri çoklu kostüm (`runnerBodies` dizisi), canavar
+tarafı tekildi (`monsterRoot` + `monsterRenderers`). Aynı desen aynalandı:
+
+| Parça | Ne oldu |
+|---|---|
+| `PlayerBodyVisual` | `RunnerBody` → **`CostumeBody`** (kaçan+canavar ortak), `monsterBodies[]` dizisi, `monsterAnimator` yönlendirmesi, kostüm başına boyun önbelleği |
+| `CharacterCatalog.Monsters` | İkinci giriş: **DOMUZ KATİL** |
+| `MonsterSetup` | `Run()` kostüm döngüsüne çevrildi; her kostüm kendi avatarı, kendi denetleyicisi (`Canavar.controller`, `Canavar_1.controller`) ve kendi gövdesi (`CanavarGovde_0`, `CanavarGovde_1`) |
+| `MenuStageSetup` / `MenuStage` | Menüde kostüm başına figür (`Canavar_0`, `Canavar_1`), seçili olan açılıyor |
+
+**Tekil alanlar YEDEK olarak duruyor.** `monsterBodies` boşsa `monsterRoot`'a
+düşülüyor — `Canavar Modelini Kur` hiç çalıştırılmamış bir prefabta canavar
+görünmez olmasın diye. İkisi asla birlikte açılmıyor (`legacyMonster`).
+
+> **`RunnerBody` → `CostumeBody` yeniden adlandırması GÜVENLİ.** Unity iç içe
+> `[Serializable]` sınıfları YAPISAL olarak saklıyor; prefab YAML'ında tür adı
+> hiç geçmiyor (`runnerBodies:` bloğundan doğrulandı). Alan adı ve üyeler aynı
+> kaldığı için veri korunuyor.
+
+#### 2. Kliplerin rollere bağlanması — üç ayrı tuzak
+
+Domuz katilin beş klibi var ve **adları rollerle uyuşmuyor**
+(`Unarmed Idle` → "idle", `Standing Walk Forward` → "walking"). Mevcut kod tam
+ad eşleşmesi yapıyordu.
+
+**Çözüm: rol → ipucu tablosu + DIŞLAMA listesi** (`MonsterSetup.ClipRoles`).
+Dışlama şart, çünkü roller birbirinin adını kapsıyor: `crouching idle`
+"idle" içeriyor, `crouched walking` "walking" içeriyor. Bu tuzağa 2026-09-12'de
+bir kez düşülmüştü (bölüm 13).
+
+**Ödünç alma AÇIK LİSTE oldu.** İlk sürüm "eksik rolü nerede bulursan doldur"
+zinciri kuruyordu (kendi → ortak → ödünç) ve oynanınca **üç klip birden
+sızdı**: domuz katil KUKLA'nın `ıskalama`, `kill` ve `Running Crawl`
+kliplerini devraldı. Oysa ilk ikisinin HİÇ olmaması, üçüncüsünün de kaçandan
+gelmesi gerekiyordu.
+
+Yeni kural: **kendi animasyon klasörü olan kostüm hiçbir şeyi sessizce miras
+almaz.** Ya kendi klibi vardır, ya `Costume.BorrowedRoles`'ta açıkça ödünç
+yazılmıştır, ya da o rol YOKTUR — ve olmayan rol için animatör durumu hiç
+kurulmaz.
+
+Bugünkü tablo (çalıştırmadan ÖNCE simüle edilip doğrulandı):
+
+| Rol | KUKLA | DOMUZ KATİL |
+|---|---|---|
+| idle | `@Idle` | `Unarmed Idle` |
+| walking | `@Walking` | `Standing Walk Forward` |
+| standard run | `@Standard Run` | `Standing Run Forward` |
+| crouching idle | `@Crouching Idle` | `Crouch Idle` |
+| **running crawl** | `@Running Crawl` | **kaçandan ödünç:** `Crouched Walking` |
+| attack | `@attack` | `Standing Melee Attack Horizontal` |
+| ıskalama | `@ıskalama` | **YOK** → `Kalkma` durumu kurulmuyor |
+| kill | `@kill` | **YOK** → `Yakalama` durumu kurulmuyor |
+
+#### 3. Prosedürel beyzbol sopası (`MonsterBatBuilder`)
+
+Model dosyası yok: mesh bir **lathe** (profil eğrisini eksen etrafında
+döndürme) ile üretiliyor, `Assets/_Art/Meshes/BeyzbolSopasi.asset` olarak
+kaydediliyor. Materyal Standard, koyu ahşap.
+
+**Sopa TAMAMEN GÖRSEL.** Collider'ı yok: isabet kararı sunucunun ışınında
+(bölüm 4), sopa vermek menzili uzatmıyor. Katman `Sus` — canavarın kendi nişan
+ışınını kesmesin.
+
+**Sağ EL KEMİĞİNE bağlanıyor** (`HumanBodyBones.RightHand`), adıyla değil
+rolüyle — model değişirse kemik adı değişir, `RightHand` değişmez.
+
+**Duruş elle bulundu, koda yazıldı.** Kullanıcı Play modunda gözle ayarlayıp
+sayıları verdi; Play modundaki değişiklik kalıcı olmadığı için (bölüm 25'in
+kendi notu) `MonsterBatBuilder.TunedPosition/TunedEuler/TunedScale`'e
+yazıldı. Hesaplanan eski yol `UseTunedPose` bayrağının arkasında duruyor —
+başka bir model sopa taşırsa oradan başlanacak.
+
+> **Ölçek sabit yazıldı ve bunun bir bedeli var:** `BatLength`'i değiştirmek
+> artık sopanın boyunu değiştirmiyor. Tek sopalı kostüm olduğu sürece sorun
+> değil.
+
+#### 4. Domuz katilin KENDİ öldürme mekaniği
+
+Kullanıcının tarifi: yakalama koreografisi yok, kurban vuruş anında **ileri
+uçuyor**. Akış:
+
+```
+0.00 sn   savurma başlıyor + isabet ARANIYOR (0.22 sn boyunca)
+isabet →  kurban ANINDA canavarın 1.1 m önüne ışınlanıp KİLİTLENİYOR
+1.00 sn   sopa iniyor → ölüm
++0.25 sn  ceset doğup 17 m/s ile ileri uçuyor
++0.12 sn  canlı beden siliniyor
+2.36 sn   sonra yeni savurma
+```
+
+**Karar savurmanın BAŞINDA veriliyor, sonunda değil.** İlk sürüm isabeti sopa
+inerken arıyordu ve kurban tam vuruş anında ışınlanıyordu — göze batıyordu.
+Şimdi yakalama baştan kesinleşiyor, kurban öne çekilip kilitleniyor
+(`RoundParticipant.TargetGrabbed` → terminalin `BeginFocus` mekanizması) ve
+sopa onun üstüne iniyor.
+
+**Oynanış takası:** o bir saniye boyunca kaçış yok. İstenen görüntü bunu
+gerektiriyor — kaçabildiği bir pencere olsaydı ışınlanmayı başa alamazdık.
+
+**Fırlatma zaten yazılıydı.** `Corpse.ServerThrow` (taşınan cesedi fırlatma,
+bölüm 23) aynı fikri kullanıyordu; taşımadan bağımsız hâli
+`Corpse.ServerLaunch` olarak ayrıldı.
+
+**İki mesafe TEK sabitten yazılıyor.** Yakalama mesafesi
+(`MonsterAttack.grabDistance`) ile ölüm pozunun mesafesi
+(`RoundParticipant.launchForwardOffset`) ayrışırsa kurban önce bir noktaya
+çekilir, ölürken başkasına sıçrar. Araç ikisini de
+`MonsterSetup.LaunchForwardOffset`'ten yazıyor.
+
+**Saldırı kilidi KOSTÜM BAŞINA.** Tek bir `attackLockDuration` vardı ve
+KUKLA'nın kliplerinden hesaplanıyordu (atılma 1.0 + kalkma 1.6 = 2.6 sn).
+Domuz katilin kalkma klibi yok, yani savurduktan sonra **1.6 saniye
+animasyonsuz donardı.** `costumeAttackLocks[]` her canavarın kendi klip
+uzunluğundan ölçülüyor.
+
+#### 5. Canavarın ayak sesi — bir haftalık gizem çözüldü
+
+Şikâyet: "canavarların yürürken ve eğilirken ayak sesi çıkmıyor."
+
+Sebep 2026-09-13'te konan kuraldı: "yalnızca koşarken ses" — ve canavarı da
+kapsıyordu. Artık **canavar her hızda duyuluyor**, kaçan hiç değişmedi.
+
+Gerekçe: sessizlik **kaçanın aracı** (bölüm 5'teki hız/gizlilik takası).
+Canavarın zaten sönmeyen kırmızı bir hâlesi var, yani yeri baştan belli — onu
+da sessiz yapmak kaçanın erken uyarısını götürüyor, karşılığında canavara
+hiçbir şey vermiyordu.
+
+> ### Bu, 2026-09-14'ten beri "sebebi bilinmiyor" diye duran şeydi
+>
+> AGENTS.md'de bir haftadır şu yazıyordu: *"izlerken canavarın adımı BAZEN
+> duyuluyor bazen duyulmuyor, gerçek sebep hâlâ bilinmiyor"* — ve mesafe
+> teşhisi kullanıcı tarafından çürütülmüştü (canavar dibindeyken bile
+> duyulmuyordu).
+>
+> Tarihler bitişik: kural **2026-09-13**'te kondu, şikâyet **2026-09-14**'te
+> geldi. "Bazen" kısmı da oturuyor: canavar kovalarken eşiğin (300 u/s)
+> üstünde ve duyuluyor, ama **köşe dönünce direksiyon cezası hız payını
+> siliyor** (bölüm 1) ve eşiğin altına düşüyor — tam o anlarda susuyordu.
+> Mesafe teşhisinin çürümesi de bundan: canavar dibindeydi ama yavaşlamıştı.
+>
+> `FootstepAudio`'daki geçici `[SesTeşhis]` logu **silindi** (açık iş 6
+> kapandı). Belirti tekrar ederse geri konur.
+
+**Tempo ayrı bir şikâyetti ve ayrı bir kaldıraç istedi.** İlk sürümde yürüme
+adımı koşmayla aynı sıklıkta geliyordu. Ölçüldü:
+
+| | Hız | Eski (1.5 m) | Yeni (2.4 m) |
+|---|---|---|---|
+| Yürüme | 3.81 m/s | 0.39 sn/adım | **0.63 sn/adım** |
+| Koşma (taban) | 7.24 m/s | 0.36 sn/adım | 0.36 sn/adım |
+| Koşma (tam pay) | 10.67 m/s | 0.24 sn/adım | 0.24 sn/adım |
+
+Yani eskiden yürüme (0.39) ile koşma (0.36) neredeyse aynıydı — "yürürken
+koşma sesi gibi geliyor" şikâyeti tam olarak buydu. Adımlar **mesafeyle**
+tetiklendiği için adım aralığı doğrudan tempoyu belirliyor.
+
+Ses seviyesi de kısıldı: yürüme/eğilme **0.32** (koşma 0.85).
+
+#### 6. 30°'lik gövde açısı — yalnızca BAŞKALARININ ekranında
+
+Domuz katilin yürüme ve koşma klipleri "sopayı tutarak" yazılmış ve gövde
+gidiş yönüne göre yan duruyor. Düzeltme **iki aşamada** oturdu:
+
+1. **Önce klibe gömüldü** (`rotationOffset` + `lockRootRotation`). Çalıştı ama
+   açıyı HERKES görüyordu: canavarı oynayan kendi gövdesini de yamuk
+   görüyordu ve birinci şahısta bu rahatsız ediyor.
+2. **Sonra çalışma anına taşındı.** `PlayerBodyVisual.LateUpdate` gövde köküne
+   yazıyor ve **birinci şahısta sıfır**. Gövde kökü ağda hiç yok (bölüm 17),
+   yani tamamen yerel bir görüntü — ek trafik yok.
+
+**Yalnızca yürüme/koşma sırasında** devreye giriyor: açı
+`CharacterAnimatorBase.LocomotionBlend` ile çarpılıyor (0 = duruyor ya da
+eğilmiş, 1 = tam ayakta hareket). Sert bir açma/kapama gövdeyi zıplatırdı.
+
+> **Sopa bundan etkilenmiyor ve sebebi hiyerarşi.** Açı gövde KÖKÜNE, sopa ise
+> el kemiğine bağlı — yani açının ALTINDA. Bir ebeveyni döndürmek bütün
+> çocuklarını birlikte döndürüyor: el ve sopa katı bir bütün olarak dönüyor,
+> aralarındaki ilişki hiç değişmiyor. Sopayı birinci şahısta ayarlamak bu
+> yüzden güvenli.
+
+#### 7. Ölünce hemen izleyiciye atmama
+
+`SpectatorController` `!self.IsAlive` olur olmaz kamerayı koparıyordu.
+`RoundParticipant.deathViewDuration` (**1.6 sn**) araya girdi: ölen oyuncu
+kendi kamerasında kalıp nasıl öldüğünü görüyor.
+
+Yalnızca ELENMEYİ geciktiriyor — kurtulmak ve geç katılmak eskisi gibi anında.
+
+##### 2026-09-26: "ölür ölmez izlemeye geçiyor" — mekanizma SAĞLAM, kurulum eksiksiz
+
+Kullanıcı şüphelendi ve ölçüldü; zincirin dört halkası da yerinde:
+
+| Halka | Nerede | Durum |
+|---|---|---|
+| Süre alanı | `RoundParticipant.deathViewDuration` | 1.6 sn |
+| Prefabtaki değer | `NetworkPlayer.prefab` | **`deathViewDuration: 1.6`** |
+| Pencereyi kuran | `ApplyAlive` → `deathViewUntil = Time.time + …` | var |
+| Okuyan | `SpectatorController` → `&& !self.InDeathView` | var |
+
+Kamera da kapatılmıyor: `disableWhenEliminated` = `{ playerController,
+interactor, flashlight, bob }` — `Camera` listede YOK.
+
+**Kullanıcının isteği üzerine hiçbir şey değiştirilmedi** ("öyle bir şey
+yaptıysan hiç elleme").
+
+> ### Ama pencerenin İÇİ boş geçiyor olabilir — iki sebep
+>
+> Süre çalışıyor, yine de "hiç olmadı" gibi hissettirebilir:
+>
+> **1. Görüntü DONUYOR.** `PlayerController` bakışı (yaw + pitch) taşıyor ve
+> o da `disableWhenEliminated` listesinde. Yani ölen oyuncu 1.6 saniye
+> boyunca **kafasını bile çeviremiyor** — hareketsiz tek bir kare. Bir
+> "ölümünü izle" anından çok takılma gibi okunabiliyor.
+>
+> **2. KUKLA'da kamera olay yerinde DEĞİL.** Işınlanma yalnızca domuzda var
+> (bu bölümün 3. maddesi): KUKLA'da kurbanın yalnızca GÖVDESİ canavarın
+> üstüne oturtuluyor, kamera öldüğü noktada kalıyor. Kaçan da kaçarken
+> ölüyor, yani büyük ihtimalle canavara SIRTI dönük — 1.6 saniye boş
+> koridora bakıp izleyiciye düşüyor.
+>
+> Domuzda durum tersine iyi: kurban savurmanın başında canavarın önüne
+> ışınlanıyor ve `LookRotation(-forward)` ile ona DÖNDÜRÜLÜYOR, yani sopanın
+> inişini gerçekten görüyor.
+>
+> Kullanıcı üç seçenekten birini seçti: **kamerayı öldürene çevirmek**
+> (aşağıdaki başlık). Süreyi büyütmek ve bakışı açık bırakmak yapılmadı.
+
+##### Çözüm: ölüm penceresinde kamera ÖLDÜRENE dönüyor (2026-09-26)
+
+`SpectatorController.TickDeathViewAim` — izleyici henüz devralmamışken ve
+`InDeathView` doluyken kamerayı `self.KillerTransform`'a çeviriyor. Süzgeç
+`BatSway` ile aynı kalıp (`1 - exp(-k·dt)`, k = 8), yani kare hızından
+bağımsız ve sert bir sıçrama üretmiyor.
+
+Ölçüldü — dönüş 1.6 sn'lik pencereye rahatça sığıyor:
+
+| Başlangıç sapması | 10°'nin altına | Pencere sonunda |
+|---|---|---|
+| 45° | 0.20 sn | 0° |
+| 90° | 0.28 sn | 0° |
+| 135° | 0.33 sn | 0° |
+| **180° (sırtı dönük)** | **0.37 sn** | 0° |
+
+Yani en kötü durumda bile 0.4 sn'de olayın üstünde ve geriye **~1.2 sn
+seyir** kalıyor.
+
+**Domuzu BOZMUYOR.** Fırlatan canavarda kurban zaten canavarın önüne
+ışınlanıp ona döndürülüyor (`LookRotation(-forward)`), yani fark sıfır ve
+süzgeç hiçbir dönüş üretmiyor. Düzeltilen şey yalnızca KUKLA'nın boş
+geçen penceresi.
+
+**Kamerayla çekişme yok:** `PlayerController` ve `CameraBob` ölümde
+kapatılıyor, yani o pencerede kamerayı yazan başka kimse yok. Dirilince
+`PlayerController` `localRotation`'ı koşulsuz geri yazıyor
+(`RunnerSetup`/`PlayerController` satır 532), o yüzden dünya-uzayı yazısı
+kalıcı iz bırakmıyor.
+
+**Öldüren yoksa dokunulmuyor** (`killerNetId == 0` — test tuşuyla kendini
+eleme): bakılacak hedef yok, davranış eskisi gibi.
+
+**Araç GEREKMİYOR.** `deathAimSharpness` (8) ve `deathAimHeight` (0.35) yeni
+alanlar, prefabta karşılıkları yok, yani C# varsayılanları geçerli
+(ölçüldü). Ama bir kez prefaba yazıldıktan sonra bölüm 16'nın tuzağı bunlar
+için de işlemeye başlar.
+
+---
+
+### 2026-09-21 oturumunda bulunan DOKUZ hata
+
+Hepsi oynanırken ya da Editor.log'dan bulundu. Çoğu tekrar düşülmeye müsait.
+
+| # | Belirti | Gerçek sebep |
+|---|---|---|
+| 1 | Araç ortada patladı, domuz modeli hiç kurulmadı | **`GetComponent<T>() ?? AddComponent<T>()`** — Unity `==`'i aşırı yüklüyor ama `??`'yi yükleyemiyor; `??` sahte-null'ı "dolu" sanıp `AddComponent`'ı hiç çağırmıyor. `MissingComponentException` |
+| 2 | KUKLA T-pozda | `BuildController` eski denetleyiciyi `DeleteAsset` ile SİLİYORDU ve durumlar yalnızca bellekteydi; 1 numaralı patlama `SaveAssets`'e varmadan olunca diskte **boş** bir denetleyici kaldı |
+| 3 | Kaçanın animasyonları bozuldu | Ödünç klasörü (kaçanın klasörü) domuz katilin avatarıyla **yeniden import edildi** — `Transform 'mixamorig:Hips' for human bone 'Hips' not found` |
+| 4 | Domuzun yürüme/koşması yok | Döngü kararı **tam ad listesiyle** veriliyordu; `standing walk forward` listede yok → döngüsüz import → tek adım atıp donuyor |
+| 5 | Eğilerek yürüme KUKLA'dan geldi, ıskalama/kill sızdı | "Eksik rolü nerede bulursan doldur" zinciri — ortak set önce geliyordu (bkz. 2. madde) |
+| 6 | Kamera domuzun kafasında değil | `eyeHeightOffset` ROLE bağlıydı, kostüme değil; eğilmede ise hiç telafi yoktu (`DuckedEyeUnits`'e pay eklenmiyordu) |
+| 7 | Kurban vuruştan ÖNCE uçup ölüyor | İsabet savurma başlar başlamaz her karede aranıyordu; domuzun klibi 2.4 sn ve sopa çok daha geç iniyor |
+| 8 | Yakalanan beden 1 saniye geç geliyor | `ApplyDeathPose` gövdenin **dünya** konumunu BİR KEZ yazıyor; gövde oyuncu kökünün çocuğu, kök sonradan ışınlanınca aynı kaydırma **ikinci kez** uygulanıyor ve gövde fırlıyor |
+| 9 | Ceset yeterince uçmuyor | Hız tavanı sabit `ThrowSpeed` (9) ile sınırlıydı; vuruş fırlatması 11'den başlıyordu ve **ilk fizik adımında 9'a kırpılıyordu** — sayıyı büyütmek tek başına işe yaramazdı |
+
+#### Bu oturumun dersleri
+
+> **1. `??` operatörü Unity nesnelerinde ÇALIŞMIYOR.** Unity `==`'i kendi
+> "yok edilmiş nesne" mantığıyla aşırı yüklüyor ama `??` saf referans
+> eşitliğine bakıyor ve o yüklemeyi atlıyor. `GetComponent` ile
+> `AddComponent`'ı zincirlemek için **açık `== null` kontrolü** şart.
+>
+> **2. Bir varlığı silip yeniden yaratmak GUID'i de siliyor.** Ona bakan her
+> referans kopuk kalıyor ve denetleyicisi olmayan bir `Animator` ekranda
+> T-poz veriyor — hiçbir yerde hata yazmadan. Bu ders `RunnerSetup` için
+> 2026-09-12'de yazılmıştı ve `MonsterSetup`'ta tekrarlandı: **aynı hata iki
+> yerde varsa biri düzeltilince öbürü aranmalı.**
+>
+> **3. Başka bir karakterin klasöründen ödünç alırken IMPORT AYARINA
+> DOKUNMA.** Humanoid klipler kas uzayında saklanıyor, okumak yeterli —
+> avatar yazmak o klipleri sahibi için BOZUYOR.
+>
+> **4. "Eksikse bir yerden bul" mantığı yanlış klibi sessizce yakalıyor.**
+> Doğrusu açık liste: ya kendi klibi, ya açıkça ödünç, ya da YOK.
+>
+> **5. Bir kuralı koyarken KİMİ kapsadığını say.** "Yalnızca koşarken ses"
+> kaçan için doğruydu, canavar için yanlıştı — ve aradaki fark bir hafta
+> boyunca "sebebi bilinmeyen" bir hata olarak durdu.
+>
+> **6. Dünya konumunu BİR KEZ yazmak, ebeveyni hareket eden bir çocukta
+> yetmiyor.** Poz her karede yeniden yazılmalı, yoksa ebeveyn taşınınca
+> çocuk aynı kaydırmayı ikinci kez uyguluyor.
+>
+> **7. Bir sayı istenen etkiyi vermiyorsa, önce onu KIRPAN bir şey olup
+> olmadığına bak.** Fırlatma hızı 11'di ama tavan 9'du; sayıyı büyütmek
+> hiçbir şey değiştirmezdi.
+>
+> **8. Çalıştırmadan ÖNCE simüle et.** Rol eşleşmesi ve döngü kararı, gerçek
+> klip adlarıyla ve koddaki tablonun birebir kopyasıyla offline simüle
+> edildi — üçüncü bir yanlış tur oradan önlendi.
+
+#### Domuz katilin bütün ayar sayıları
+
+Hepsi tek yerde; hangisinin nerede olduğu ÖNEMLİ, çünkü bir kısmı prefaba
+serileşmiş (bölüm 16: koddaki varsayılanı değiştirmek yetmiyor, araç yazıyor).
+
+| Ayar | Değer | Nerede | Araç yazıyor mu |
+|---|---|---|---|
+| Savurma–isabet gecikmesi | 1.0 sn | `CharacterCatalog.hitWindup` | hayır (kod) |
+| Gövde açısı | −30° | `CharacterCatalog.locomotionYawOffset` | hayır (kod) |
+| Ayakta göz payı | +11 unit | `CharacterCatalog.eyeHeightOffset` | hayır (kod) |
+| Eğilmiş göz payı | +12 unit | `CharacterCatalog.duckedEyeHeightOffset` | hayır (kod) |
+| Ödünç rol | `running crawl` | `CharacterCatalog.borrowedRoles` | hayır (kod) |
+| Ceset fırlatma hızı | 17 m/s | `Corpse.HitLaunchSpeed` | hayır (sabit) |
+| Fırlatma yukarı kavisi | 0.45 | `Corpse.HitLaunchRise` | hayır (sabit) |
+| Tavanın gevşek kaldığı süre | 1.3 sn | `Corpse.HitLaunchGrace` | hayır (sabit) |
+| Kurbanın öne çekilme mesafesi | 1.1 m | `MonsterSetup.LaunchForwardOffset` | **EVET** |
+| Kurbanın önde durma süresi | 0.25 sn | `MonsterSetup.LaunchDeathHold` | **EVET** |
+| Yürüme adım aralığı | 2.4 m | `MonsterSetup.MonsterWalkStride` | **EVET** |
+| Yürüme adım sesi | 0.32 | `MonsterSetup.MonsterWalkVolume` | **EVET** |
+| Sopanın duruşu | elle bulundu | `MonsterBatBuilder.TunedPosition/Euler/Scale` | **EVET** |
+| Canlı bedenin silinme gecikmesi | 0.12 sn | `RoundParticipant.launchBodyLinger` | hayır (yeni alan) |
+| Ölüm kamerası | 1.6 sn | `RoundParticipant.deathViewDuration` | hayır (yeni alan) |
+
+---
+
+### 2026-09-23: DÖRT HATA + domuzun koşma klibi
+
+Kullanıcı iki şey bildirdi. İkisi de ölçülerek bulundu, ikisi de tek satırlık
+bir yanlış sayıdan geliyordu.
+
+#### 1. Bütün kaçanlar İÇ İÇE doğuyordu
+
+`RoundManager` bütün kaçanları **tek** çapaya gönderip etrafında
+`runnerSpawnSpread` (**1.6 m**) yarıçaplı bir halkaya diziyordu. O sayı
+koridorun yarı genişliğinin **tam kendisi**: labirentin hücresi 3.2 m
+(`MazeMapBuilder.CellSize`), yarısı 1.6. Yani koridora **dik** duran halka
+yuvaları her seferinde duvarın yüzüne biniyor, 0.55 m'lik kontrol küresi
+onları reddediyor ve yedek yol (`return anchor`) hepsini çapanın üstüne
+yığıyordu.
+
+Sahnedeki gerçek duvar verisiyle simüle edildi — **altı çapanın altısında da**
+2-3 oyuncu üst üste doğuyordu:
+
+| Çapa | Halka yuvaları (1..4) | Çapaya yığılan |
+|---|---|---|
+| Dogum_1 | X · ok · X · ok | 3 kişi |
+| Dogum_2 | ok · X · ok · X | 3 kişi |
+| Dogum_3 | X · ok · X · ok | 3 kişi |
+| Dogum_4 | ok · X · ok · X | 3 kişi |
+| Dogum_5 | ok · X · ok · X | 3 kişi |
+| Dogum_6 | ok · ok · X · ok | 2 kişi |
+
+> **Halkayı büyütmek çözüm DEĞİL.** Koridor dar olduğu sürece HER sabit
+> yarıçap bir duvara denk gelir: 1.6 dike çarpıyor, 3.2 komşu hücreye
+> giriyor. Sabit bir yarıçapla bu sorun çözülmez — aramak gerekiyor.
+
+**İki katmanlı çözüldü:**
+
+| Katman | Ne yapıyor |
+|---|---|
+| **Herkese kendi noktası** | `Doğum Noktalarını Kur (iki harita)` — 8 kaçan noktası ana haritaya, 3 canavar noktası güney kanadına |
+| **Arama (yedek)** | `RoundManager.FreeSpotNear` — sabit halka yerine yarıçapı kademeli büyüten arama; araç hiç çalıştırılmasa bile yığılmayı bitiriyor |
+
+Yedek yol da ölçüldü: aynı altı çapada 4 kaçan artık **hiç üst üste
+gelmiyor**, en yakın çift 1.65 m.
+
+##### Noktalar İKİ haritaya dağılıyor
+
+Kullanıcının isteği: kaçanlar ana haritada, canavar güney kanadında, ikisi de
+kendi noktaları arasında rastgele.
+
+| | Bölge | Nokta | Aralık |
+|---|---|---|---|
+| Kaçan | Ana harita (54.4 m kare) | **8** | en az 9 m |
+| Canavar | Güney kanadı (41.6 m kare) | **3** | en az 11 m |
+
+Bölge sınırları **sahneden ölçülüyor** (`Harita/Zemin` ve
+`Harita/Harita_Genisleme_Guney/Zemin`'in gerçek dünya sınırları, her kenardan
+bir hücre içeri). Koda hiçbir koordinat yazılmadı: harita büyürse aracı
+yeniden çalıştırmak yetiyor.
+
+> **Ayrı harita olması tek başına YETMEDİ.** Kanat ana haritanın hemen
+> güneyinde bitişik: ana haritanın güney kenarındaki bir kaçan noktası
+> (z ≈ −24) ile kanadın kuzey kenarındaki bir canavar noktası (z ≈ −30)
+> arasında ölçümde **10.9 m** kaldı — eski sistemin garantisi 25 m'ydi.
+> Araç artık canavar noktalarını her kaçan noktasından en az **25 m** uzağa
+> koyuyor (`MonsterFromRunners`, `RoundManager.minimumSpawnSeparation` ile
+> aynı sayı). 12 denemede 12/12 tutuyor, gerçekleşen en kötü 25.4 m.
+
+**Rol ADA değil BİLEŞENE yazılı.** Her nokta bir `SpawnPoint` taşıyor.
+Adı okumak (`Dogum_Canavar_2`) cazipti ama bu proje o tuzağa iki kez düştü
+(bölüm 0.1'in `Duvar_3_0`'ı, bölüm 14'ün el kemiği). `NetworkStartPosition`
+de duruyor ve durması gerekiyor: oyuncu **lobide** Mirror'ın seçtiği noktada
+doğuyor, rol ancak tur başlarken belli oluyor (bölüm 11.1) — ikisi farklı
+anların sorusunu cevaplıyor.
+
+**`Ağ Kurulumu` artık noktaları kendi üretmiyor.** İçinde ikinci bir
+yerleştirme kopyası vardı ve farklı davranıyordu (altı işaretsiz nokta, hepsi
+ana haritada): o aracı çalıştırmak yenisinin işini **sessizce geri alırdı**.
+`SpawnPointSetup.Build`'e devredildi — 2026-09-21'in 2. dersi, "aynı hata iki
+yerde varsa biri düzeltilince öbürü aranmalı".
+
+#### 2. Uzak oyuncunun konumu DONUYORDU
+
+Şikâyet: "canavar oyundayken bazen ayak sesleri veya kalp atışı veya ekran
+sarsıntısı gelmiyor; sunucudan mı internetten mi bilemiyorum."
+
+**Sunucudan.** Tek kök sebep, üç belirti.
+
+##### Kök sebep: anlık görüntü tamponu bir gönderim aralığından KÜÇÜK
+
+Mirror'ın formülü (`NetworkClient_TimeInterpolation.cs`):
+
+```
+bufferTime = NetworkServer.sendInterval × bufferTimeMultiplier
+```
+
+Sahnedeki değerler `sendRate = 60` ve `bufferTimeMultiplier = 2`, yani tampon
+**33 ms**. Oyuncunun `NetworkTransform`'u ise `syncInterval = 0.05`, yani konum
+**50 ms**'de bir geliyor.
+
+Tampon bir gönderim aralığından küçük olunca zaman çizgisi en yeni anlık
+görüntüye yetişiyor ve ara değerleyecek bir şey bulamıyor: **uzak oyuncunun
+konumu donuyor**, sonraki paket gelince sıçrıyor. Kusursuz bir LAN'de bile
+oluyor; internette jitter'le çok daha uzun sürüyor.
+
+> **Mirror'ın dinamik ayarı bunu GÖREMİYOR.** `DynamicAdjustment` jitter'in
+> standart sapmasını ölçüyor:
+>
+> ```
+> multiples = (sendInterval + jitterStd) / sendInterval
+> safezone  = multiples + tolerance
+> ```
+>
+> Paketler düzenli aralıklarla geliyorsa jitterStd ≈ 0 ve sonuç yine 2 çıkıyor.
+> Ölçtüğü şey paketlerin **düzensizliği**, iki gönderim hızının
+> **uyuşmazlığı** değil. Yani "dynamicAdjustment açık, kendi halleder"
+> varsayımı yanlıştı.
+
+`LobbyNetwork.ApplySnapshotBuffer` çarpanı oyuncu prefabının **kendi**
+`syncInterval`'inden hesaplıyor (bir tam aralık + bir aralık jitter payı) ve
+yalnızca büyütüyor. Bugün 2 → **4**, yani tampon 33 ms → 67 ms. Sayı sabit
+yazılmadı: biri `syncInterval`'i değiştirirse hata sessizce geri gelirdi.
+
+##### Belirti 1: ayak sesi — birikim siliniyordu
+
+`FootstepAudio` uzak oyuncunun hızını **pozisyon farkından** çıkarıyor
+(bölüm 12). Konumun donduğu karede fark sıfır, yani hız sıfır — ve kod tam
+orada şunu yapıyordu:
+
+```csharp
+if (speed < monsterMinSpeed)
+{
+    distanceSinceStep = 0f;   // birikimi SİLİYOR
+    return;
+}
+```
+
+Sayıyla: canavarın yürüme adımı 2.4 m'de bir çalıyor, 3.81 m/s hızda **0.63
+saniyede bir**, yani 60 FPS'te ~38 kare. O 38 karenin **bir tanesinde** bile
+konum yenilenmezse birikim sıfırlanıyor ve adım hiç çalmıyordu. Bağlantı
+kötüleştikçe sıklaşıyor — "bazen gelmiyor" tam olarak buydu.
+
+İki düzeltme:
+
+- **Hız yumuşatılıyor** (`RemoteSpeedSmoothing` = 0.12 sn). Birkaç karelik
+  donma hızı sıfıra düşürmüyor, gerçek duruş 0.1 sn içinde yine okunuyor.
+  Yerel oyuncuda bu yola hiç girilmiyor, yani kimsenin kendi adımı
+  gecikmiyor.
+- **Sıfırlama gecikmeli** (`stopResetDelay` = 0.35 sn, `ReportTooSlow`).
+  Kuralın niyeti bozulmuyor: duran oyuncu birikimini yine kaybediyor.
+
+##### Belirti 2-3: kalp atışı ve ekran sarsıntısı
+
+İkisi de `ScreenEffects.DreadAt`'ten besleniyor ve o **canavara olan
+mesafeyi** ölçüyor. Donmuş bir konum mesafeyi olduğundan uzak gösteriyor.
+
+Dehşet 16 m'de başlıyor (`DreadFar`). Kovalarken 10.67 m/s giden bir canavarın
+konumu 300 ms donarsa **3.2 m**'lik hata demek: canavar gerçekte menzildeyken
+ekranda hâlâ dışarıda görünüyor ve ne kalp atışı ne sarsıntı geliyor.
+
+Kod tarafında bu ikisinde **hata bulunamadı** — `DreadAt`'in şartları,
+`RoundParticipant.All`'ın istemcide dolması, `heartbeatClip`'in prefabta
+bağlı olması ve `CameraBob.DreadShake`'in çağrılması tek tek doğrulandı.
+Tampon düzelmesi ikisini de düzeltmeli; **oynanarak doğrulanması gerekiyor.**
+
+#### 3. Domuzun koşma klibi değişti, 30°'lik açı KALKTI
+
+Kullanıcı yeni bir koşma klibi getirdi (`Sword And Shield Run`) ve iki şey
+istedi: eski koşma klibi tamamen kalksın, gövde açısı da kalkıp "dümdüz,
+normal" olsun.
+
+| Ne | Nereye |
+|---|---|
+| `domuz katil@Sword And Shield Run.fbx` | `Assets/` kökünden → **`katil domuz animasyon/`** (taranan klasör) |
+| `domuz katil@Standing Run Forward.fbx` | `katil domuz animasyon/` → **`kullanilmayan/`** (taranmayan kardeş klasör) |
+| `locomotionYawOffset` | −30 → **0** |
+
+**Eski klip SİLİNMEDİ, taranan klasörün dışına alındı.** Domuz katil klasörü
+git'te izlenmiyor, yani silmek geri dönüşsüz olurdu. Taranmayan bir kardeş
+klasör aynı sonucu veriyor (araç onu görmüyor) ve fikir değişirse geri almak
+dosyayı taşımak kadar kolay.
+
+> **Alt klasör İŞE YARAMAZDI.** `LoadClips`/`ImportAnimations`
+> `AssetDatabase.FindAssets("t:Model", new[] { folder })` kullanıyor ve o
+> arama **alt klasörlere de iniyor**. Eski klibi `katil domuz
+> animasyon/eski/` altına koymak onu gizlemezdi; klasörün KENDİSİNİN dışına
+> çıkması gerekiyordu.
+
+**Eski klibin kalması yeni klibi ezerdi.** `standard run` rolünün ipuçları
+sırayla deneniyor ve ilki `standing run forward` — yani iki dosya bir arada
+kalsaydı **eski klip her seferinde kazanırdı**, hiçbir yerde hata yazmadan.
+Yeni klip ancak dördüncü ipucuyla (`run`) yakalanıyor.
+
+Çalıştırmadan önce simüle edildi (2026-09-21'in 8. dersi):
+
+| Rol | Seçilen klip | Döngü |
+|---|---|---|
+| crouching idle | `crouch idle` | evet |
+| running crawl | `crouched walking` (kaçandan ödünç) | evet |
+| **standard run** | **`sword and shield run`** | **evet** |
+| walking | `standing walk forward` | evet |
+| idle | `unarmed idle` | evet |
+| attack | `standing melee attack horizontal` | hayır |
+| ıskalama / kill | YOK → durum kurulmuyor | — |
+
+**Yalnızca domuzu etkiliyor.** `MonsterSetup` kostümün kendi klasörünü
+yalnızca `AnimationFolder` doluysa kullanıyor; KUKLA'nın böyle bir alanı yok
+ve ortak setten besleniyor. Yeni klip domuzun klasöründe, yani KUKLA'ya
+ulaşamıyor.
+
+**Açı neden kalkabildi:** −30, eski `Standing Run Forward` ve `Standing Walk
+Forward` kliplerinin "sopayı tutarak" yazılmış olmasını, yani gövdenin gidiş
+yönüne göre yan durmasını telafi ediyordu. Koşma klibi değişince telafi
+edilecek bir yamukluk kalmadı.
+
+Mekanizmanın kendisi **silinmedi**, yalnızca bu kostümde sıfırlandı:
+`PlayerBodyVisual.LateUpdate` açıyı hâlâ okuyor ve sıfırda hiçbir şey
+yapmıyor. Kliplere gömülü bir açı da yok — beşinin de
+`orientationOffsetY: 0` olduğu meta'lardan doğrulandı.
+
+> **Bu araç çalıştırmayı GEREKTİRİYOR:** `Canavar Modelini Kur`. Yeni FBX
+> şu an `avatarSetup: 0` (avatar yok) ve döngü bayrağı yazılmamış durumda;
+> araç onu domuzun avatarına bağlayıp döngüye alıyor ve denetleyiciyi
+> yeniden kuruyor. Çalıştırılmadan domuz koşarken T-poza düşer.
+
+#### 4. Kaçanların koşma/yürüme animasyonu TAKILIYORDU
+
+Şikâyet: "koşma ve yürüme animasyonlarında takılma var, takılıyor kalıyor,
+öyle animasyonsuz koşuyor."
+
+**2. maddenin (donan uzak oyuncu) üçüncü kurbanı.** `CharacterAnimatorBase`
+hızı ve DİKEY hızı pozisyon farkından çıkarıyor (bölüm 14'ün bilinçli
+tercihi: ek ağ trafiği sıfır) — ama farkı **her zaman bir karenin süresine**
+bölüyordu:
+
+```csharp
+float inverseDelta = 1f / Time.deltaTime;      // 16.7 ms
+rawSpeed    = yatayFark * inverseDelta;
+VerticalSpeed = delta.y * inverseDelta;
+```
+
+Konum 20 Hz geliyor, ekran 60 FPS çiziyor: 2 kare donuyor, 3. karede
+yetişiyor. O karenin farkı gerçekte **50 ms**'lik bir hareketi taşıyor ama
+16.7 ms'ye bölünüyor — sonuç **üçe katlanıyor**.
+
+##### Belirti 1: titreyen yürüme/koşma
+
+Simüle edildi. Gerçek hız sabit 7.62 m/s iken `Speed` parametresi:
+
+| | Speed aralığı | Oynatma hızı |
+|---|---|---|
+| Eski | **6.13 – 9.18 m/s** | 1.53× – 2.30× |
+| Yeni | 7.57 – 7.62 m/s | 1.89× – 1.90× |
+
+Karışım ağacı ve ayak kayması ölçeği bu sayıdan besleniyor, yani animasyon
+görünür biçimde hızlanıp yavaşlıyordu. "Takılma" buydu.
+
+##### Belirti 2: havada bayrağı TAKILIP KALIYOR
+
+Asıl kötüsü dikey hızda. Eşikler:
+
+| | `airborne` kuran Y sıçraması | `settleTimer`'ı sıfırlayan |
+|---|---|---|
+| Eski | **33 mm** | **5.8 mm** |
+| Yeni | 100 mm | 17.5 mm |
+
+Yani zıplamak, eğilmek ya da bir basamağa basmak `airborne`'u kuruyordu —
+ve bayrak bir daha **inmiyordu**, çünkü iki çıkış şartı da kapanıyor:
+
+- Birincisi `falling` istiyor ve o yalnızca HIZLI DÜŞÜŞTE kuruluyor.
+- İkincisi (2026-09-05'in emniyeti) dikey hızın 0.12 saniye boyunca 0.35'in
+  altında kalmasını istiyor — ama her ~50 ms'de gelen yetişme karesi 5.8 mm'yi
+  aşan bir değer üretip sayacı sıfırlıyordu. **0.12 saniyelik sessizlik hiç
+  oluşmuyordu.**
+
+Sonuç: kaçan koşarken havada-kalma pozunda donuyor — "animasyonsuz koşuyor".
+
+##### Düzeltme
+
+**Fark artık GEÇEN SÜREYE bölünüyor, bir kareye değil.** Konumun
+değişmediği kareler "durdu" değil "yeni bilgi gelmedi" sayılıyor: süre
+birikiyor ve konum gerçekten değişince fark o süreye bölünüyor. Gerçek
+duruş için `StaleTimeout` (0.25 sn) var — `onlySyncOnChange` açık olduğu
+için duran oyuncu hiç paket göndermiyor ve o olmasaydı son hızında sonsuza
+kadar koşar görünürdü.
+
+**Yerel oyuncuda hiçbir şey değişmiyor:** orada konum her karede gerçekten
+değişiyor, yani bölen zaten bir karelik.
+
+**İkinci emniyet olarak üst sınır kondu** (`RunnerAnimator.airborneTimeout`,
+1.5 sn). Zıplama 0.73 saniye sürüyor ve haritada düşülecek yüksek bir yer
+yok, yani meşru hiçbir uçuş bunu aşmıyor — aşıyorsa hata vardır ve editör/dev
+build'de konsola yazıyor. Asıl düzeltmenin yerine geçmiyor, **arkasında**
+duruyor: bu bayrak 2026-09-05'te BİR KEZ daha takılmıştı ve iki ayrı sebepten
+takılan bir bayrağın üçüncüsü de olabilir.
+
+> **Bu, 4. maddenin BİLDİRİLEN belirtisini açıklamıyordu.** Yukarıdaki iki
+> ölçüm gerçek ve düzeltmeleri yerinde duruyor, ama kullanıcının tarif
+> ettiği şey ("bir saniye yürüyor sonra olduğu yerde donuyor") başka bir
+> sebepten geliyordu — 5. madde. Ders: **ölçtüğün şeyin, BİLDİRİLEN
+> belirtinin sayılarına uyduğunu da doğrula.** "Gerçek bir hata buldum"
+> ile "aranan hatayı buldum" aynı şey değil.
+
+#### 5. Kaçanın yürüme/koşma klibinde DÖNGÜ BAYRAĞI yoktu
+
+Kullanıcı 4. maddedeki düzeltmeden sonra tekrar bildirdi: *"yürüyorum, bir
+saniyeliğine yürüyor, sonra animasyon olduğu yerde duruyor. Koşmada da aynı.
+Sadece yürüme ve koşmada. Bu sorunlar eskiden yoktu, yeni ortaya çıktı."*
+
+Üç ipucu birden aynı yeri gösteriyordu: **sabit bir süre**, **yalnızca
+döngüsel klipler**, ve **gerileme**. Döngü bayrağı kapalı bir klip tam olarak
+böyle davranıyor: bir kez oynar ve son karede donar.
+
+Ölçüm — `git diff`, tahmin değil:
+
+```
+-      lastFrame: 31
+-      loopTime: 1
+-    clipAnimations:   (dolu blok)
++    clipAnimations: []
++    rigImportErrors: "Copied Avatar Rig Configuration mis-match.
++      Transform 'mixamorig:Hips' for human bone 'Hips' not found"
+```
+
+**31 kare / 30 FPS = 1.03 saniye.** Kullanıcının söylediği süre birebir bu.
+
+Altı klibin altısı da bozuktu:
+
+| Klip | Kare | Süre | Beklenen döngü |
+|---|---|---|---|
+| Walking | 31 | 1.03 sn | evet |
+| Running | 19 | 0.63 sn | evet |
+| Crouched Walking | 31 | 1.03 sn | evet |
+| Crouching Idle | 75 | 2.50 sn | evet |
+| Jumping | 57 | 1.90 sn | evet |
+| takedown (ölüm) | 78 | 2.60 sn | **hayır** (tek atımlık) |
+
+Kullanıcının "sadece yürüme ve koşmada" demesi de tutuyor: eğilme klipleri az
+kullanılıyor, `Jumping` zaten tutma pozu, ölüm klibi de zaten döngüsüz olmalı.
+
+##### Hasar 2026-09-20'de olmuştu, üç gün yaşadı
+
+Kaynak biliniyordu: `MonsterSetup` ödünç klasörünü (kaçanın klasörünü) domuz
+katilin avatarıyla yeniden import etmişti. Kod aynı gün düzeltildi
+(`LoadClips` artık salt okunur) ve kullanıcı onarım için `Kaçan Modelini
+Kur`'u çalıştırdı.
+
+**Ama araç onarmadı — ve bunu hiçbir yere yazmadı.** Sebep tek satırda:
+
+```csharp
+ModelImporterClipAnimation[] defaults = importer.defaultClipAnimations;
+```
+
+`defaultClipAnimations` **son BAŞARILI import'u** yansıtıyor, o an
+`importer` üstünde bekleyen ayarları değil. Rig bozuk olduğu için liste boş
+döndü; aşağıdaki `for` döngüsü hiç çalışmadı, tek bir klip ayarı yazılmadı ve
+araç "başarılı" deyip çıktı. Avatarı doğru değere geri yazmıştı — yani rig
+onarıldı, klip ayarları kayıp kaldı.
+
+Zaman damgaları bunu doğruluyor: `Kacan.controller` ve altı meta da
+**2026-09-20 04:05**, yani araç gerçekten çalıştı ve metalar o hâlde kaldı.
+
+##### Düzeltme: geri al + aracı sağlamlaştır
+
+**Altı meta `git checkout HEAD --` ile geri alındı.** Önce `git diff` ile
+hasarın TAMAMININ bu olduğu doğrulandı — altı dosyada değişen tek şey
+`clipAnimations` bloğunun silinmesi ve bayat hata metni; başka hiçbir alan
+değişmemişti. Yani geri almak saf bir onarım, hiçbir kazanım kaybolmuyor.
+(Metalar yine de önce yedeklendi.)
+
+Denetleyici referansları da doğrulandı: `Kacan.controller` klipleri
+`fileID: -203655887218126122` ile gösteriyor ve geri gelen metaların
+`internalID`'si birebir aynı — bağlantılar kopuk değil.
+
+**Her iki kurulum aracı da artık `ClipTakes.Resolve` kullanıyor:** liste boş
+dönerse önce bekleyen rig ayarlarıyla yeniden import ediliyor (araç gerçekten
+kendi kendini onarıyor), hâlâ boşsa **konsola yazıyor**. Sessiz kalması bu
+hatanın üç gün yaşamasının tek sebebiydi.
+
+#### Bu oturumun dersleri
+
+> **1. Koridorda sabit yarıçaplı bir halka kullanma.** Hücre 3.2 m; 1.6
+> dike çarpıyor, 3.2 komşuya giriyor. Yuvayı ARA, sabitleme.
+>
+> **2. Ayrı bölge, otomatik mesafe demek değil.** Güney kanadı ayrı bir
+> harita ama ana haritaya **bitişik**: sınır bölgeleri 11 m'ye kadar
+> yaklaşıyor. Mesafe isteniyorsa açıkça şart koşulmalı.
+>
+> **3. İki gönderim hızı varsa uyuştuklarını DOĞRULA.** `sendRate` 60 ama
+> `NetworkTransform` 20 Hz'di; tampon ikincisini hiç hesaba katmıyordu.
+> "Dinamik ayar halleder" varsayımı yanlıştı — o jitter'i ölçüyor, bu
+> uyuşmazlığı değil.
+>
+> **4. Pozisyon farkından türetilen bir değer, AĞ hızına bağlıdır.**
+> "Hız sıfır" uzak oyuncuda "durdu" demek değil, "paket gelmedi" de
+> olabilir. Böyle bir değere bakıp kalıcı bir şeyi (birikimi) SİLMEK,
+> hatayı bağlantı kalitesine bağlıyor.
+>
+> **4b. Farkı BİR KAREYE bölme — GEÇEN SÜREYE böl.** Aynı kök sebebin en
+> sinsi hâli: değer yanlış değil, ÖLÇEĞİ yanlış oluyor. 20 Hz gelen bir
+> konumu 60 FPS'in kare süresine bölmek her şeyi üçe katlıyor ve eşikli
+> her mekanizmayı (havada bayrağı, adım sesi, dehşet) sessizce bozuyor.
+>
+> **4c. Eşiğe bakan bir sayacı, gürültülü bir değer sıfırlayabilir.**
+> `settleTimer` doğru yazılmıştı ama dikey hız gürültülüydü ve sayaç hiç
+> dolamıyordu. Emniyet mekanizmasının kendisi de ölçülmeli: "yazdım,
+> çalışır" yetmiyor.
+>
+> **5. "Bu eskiden yoktu" cümlesi bir TARİH veriyor — `git diff` çalıştır.**
+> Kaçanın döngü bayrağı üç gündür kayıptı ve `git diff` bunu tek komutta,
+> tartışmasız gösterdi. Gerileme şüphesi varsa kod okumadan ÖNCE diff'e
+> bakılmalı.
+>
+> **6. Belirtinin SAYISI hangi mekanizmayı işaret ediyor, ona bak.**
+> "Bir saniye oynuyor sonra donuyor" bir süre veriyor: 31 kare / 30 FPS =
+> 1.03 sn, yani klibin TAM uzunluğu. Bu, döngü bayrağından başka hiçbir
+> şeye uymuyor. Sayı eşleşmesi teşhisi bir turda kapattı.
+>
+> **7. Bir onarım aracının onardığını DOĞRULA.** `Kaçan Modelini Kur`
+> çalıştı, hata vermedi ve hiçbir şey onarmadı — çünkü okuduğu liste son
+> BAŞARILI import'tan geliyordu ve o import başarısızdı. "Aracı
+> çalıştırdım" ile "araç işini yaptı" aynı şey değil; çıktı ölçülmeli.
+>
+> **5. Doğrulama komutunu da doğrula.** Bu oturumda ikisi yanlış çıktı:
+> `grep -c "NetworkStartPosition"` sahnede **0** döndürdü (sahne script'i
+> GUID ile saklıyor, adla değil) ve `grep -A 1 "m_Name: Sopa"` Transform
+> yerine `m_TagString`'i getirdi — ikincisi bir gün önce belgeye "araç
+> çalıştırılmamış" diye yanlış bir madde yazdırmıştı. Bölüm "OTURUM
+> DEVRİ"ndeki `Zemin_0_0` dersinin üçüncü ve dördüncü tekrarı.
+
+#### Dokunulan dosyalar
+
+| Dosya | Ne değişti |
+|---|---|
+| `Core/SpawnPoint.cs` | **YENİ** — noktanın rolünü taşıyan işaret |
+| `Editor/SpawnPointSetup.cs` | **YENİ** — `Doğum Noktalarını Kur (iki harita)` |
+| `Core/RoundManager.cs` | `ResolveSpawnPoints`, `FreeSpotNear`, `Shuffle`; `RunnerSlot` **silindi** |
+| `Editor/NetworkSetup.cs` | `BuildSpawnPoints` yeni araca devredildi |
+| `Player/FootstepAudio.cs` | Hız yumuşatma + gecikmeli sıfırlama |
+| `UI/LobbyNetwork.cs` | `ApplySnapshotBuffer` |
+
+Derleme: Runtime ve Editor, **sıfır hata**; yeni semboller DLL'de doğrulandı
+ve `RunnerSlot`'un gittiği de doğrulandı.
+
+---
+
+### 2026-09-26: dil denetimi ve oyunun adı
+
+Kullanıcı iki şey istedi: *"oyundaki tüm yazıları gözden geçir, hepsinin
+İngilizce olması lazım; bazı yazılar İngilizce seçeneğinde Türkçe
+gözüküyor"* ve *"ana menüde hâlâ Yakalamaca yazıyor, adımız artık Terminal
+Five."*
+
+#### 1. Ana menü başlığı: TERMINAL FIVE
+
+`MenuSetup.GameTitle` (`private const`) — iki ekranda birden kullanılıyor
+(isim girişi ve ana menü). Tek sabit olması ikisinin ayrışmasını engelliyor;
+menü figürlerinin açısında tam olarak bu yaşanmıştı (bölüm 13).
+
+**`Localization`'a GİRMİYOR, bilerek:** özel isim, iki dilde de aynı.
+
+**İç ad değişmedi** — bölüm 0'ın kuralı hâlâ geçerli, yalnızca kapsamı
+netleşti: değişen şey oyuncunun gördüğü başlık, kodun kendisi değil.
+
+#### 2. Dil denetimi: ÜÇ gerçek boşluk bulundu
+
+Denetim script'le yapıldı (C# string literallerini ayrıştırıp tabloyla
+karşılaştırarak), göz kararıyla değil. Ölçüm:
+
+| | Önce | Sonra |
+|---|---|---|
+| Tablo girdisi | 198 | **201** |
+| `Get`/`Format` ile istenen Türkçe metin | 133 | 133 |
+| **Tabloda karşılığı olmayan** | 0 | **0** |
+
+Yani tablonun kendisi zaten eksiksizdi. Bulunan üç boşluk **hiç
+`Localization`'dan GEÇMEYEN** yazılardı:
+
+| Yazı | Nerede | Neden kaçmış |
+|---|---|---|
+| `KOD YA DA IP ADRESİ` | Katılma ekranı, giriş alanının yer tutucusu | Yer tutucu bir etiket sayılmamış |
+| `Ceset taşınıyor — bırak · basılı tut: fırlat` | Oyun içi nişan yazısı | `PlayerInteractor` doğrudan atıyordu |
+| `NetworkManager yok. Yakalamaca > Ağ Kurulumu (1. adım).` | Lobi durum satırı (×2) | Ham atama |
+
+**Yer tutucu KAYNAĞINDA düzeltildi:** `Loc` çağrısı tek tek çağrı yerlerine
+değil, `MenuSetup.CreateInputField`'ın İÇİNE kondu — böylece ileride eklenen
+her giriş alanı kendiliğinden çevriliyor. Ad alanının yer tutucusu
+`PlayerProfile.DefaultName` ("Player") ve tabloda karşılığı yok; `Get`
+bilinmeyen anahtarı olduğu gibi döndürdüğü için zararsız.
+
+#### 3. Sorun SANILIP olmadığı çıkanlar
+
+Denetimin ilk turları bunları işaretledi, tek tek okununca hepsi sağlam
+çıktı — kaydedilmeleri gerekiyor, yoksa bir dahaki denetim aynı yolu
+yeniden yürür:
+
+| Aday | Neden sorun DEĞİL |
+|---|---|
+| `Ters bakış: kapalı`, `ODALARI YENİLE`, `KAÇAN KOSTÜMÜ` | Paneller her `Refresh`'te `Localization.Get(...)` ile ÜSTÜNE yazıyor |
+| `TUTORIAL'DAN ÇIK` | `BuildPausePanel`'e parametre olarak gidiyor ve orada `Loc(...)` ile bağlanıyor |
+| `Boş bırakırsan "{DefaultName}" olursun…` | Bir alt satırda `Loc(hint, …)` var; `DefaultName` = `"Player"`, yani anahtar tabloyla birebir tutuyor |
+| `süre doldu`, `yanlış yön` (`Terminal`) | Yalnızca `Debug.Log`'a gidiyor, ekranda hiç görünmüyor |
+| `[Header(...)]`, `[Tooltip(...)]`, `MenuItem`, `DisplayDialog` | Editör/Inspector yazısı, oyuncuya gitmiyor |
+
+> ### Denetim komutunun kendisi ÜÇ kez yanlıştı
+>
+> Bu dosyanın tekrar eden dersi bu oturumda da çıktı, bu kez grep'te değil
+> script'te:
+>
+> | Hata | Sonucu |
+> |---|---|
+> | Tablo `{"a","b"}` sanıldı, oysa `["a"] = "b"` | "131 eksik" — **hepsi yanlış alarm** |
+> | Bitişik `"a" + "b"` literalleri birleştirilmedi | İki metin "eksik" göründü, oysa tabloda tamdı |
+> | `Get(x ? "a" : "b")` kalıbında yalnızca İLK dal okundu | İkinci dallar hiç sınanmadı — düzeltilince gerçek sonuç yine 0 çıktı |
+>
+> Ders: **bir denetim "sorun yok" dediğinde, denetimin o sorunu
+> GÖREBİLDİĞİNİ de doğrula.** Üçüncü madde tam olarak buydu: 0 sonucu
+> doğruydu ama o an kanıt değildi, çünkü ölçüm aracı ikinci dalı hiç
+> okumuyordu.
+
+#### 4. İkinci tur: ekran görüntüleriyle gelen altı istek (aynı gün)
+
+Kullanıcı beş ekran görüntüsü gönderdi. Hepsi yapıldı.
+
+##### 4a. Lobiye SEÇENEKLER düğmesi
+
+*"Lobide beklerken belki bir şeyler ayarlamak ister millet."* `KARAKTER`'in
+hemen altına kondu. `MenuController.ShowSettings` geldiği ekranı zaten
+hatırlıyor, yani GERİ ve Esc lobiye dönüyor — ayrı bir "nereye dön" bilgisi
+tutmak gerekmedi.
+
+##### 4b. Karakter ekranı "kostüm" demeyi bıraktı
+
+*"Biz şu an kostüm değil canavarı değiştiriyoruz… ikisini iki ayrı katil
+olarak say."* Haklı: iki canavarın **vuruşu farklı** (KUKLA'nın yakalama
+koreografisi var, domuz kurbanı fırlatıyor) ve ileride ayrı özellikler de
+gelecek. Yani bunlar bir kostüm değil, ayrı oynanışlar.
+
+| | Eskiden | Şimdi |
+|---|---|---|
+| Rol düğmesi (canavar) | `CANAVAR KOSTÜMÜ` | **`KATİL`** / `KILLER` |
+| Rol düğmesi (kaçan) | `KAÇAN KOSTÜMÜ` | **`KAÇAN`** / `RUNNER` |
+| Alt yazı (canavar) | "…yalnızca canavar olursan görünüşün" | "Katili oda sahibi seçiyor. Bu, katil olursan hangisini oynayacağın." |
+| Alt yazı (kaçan) | "Kostüm yalnızca görünüş…" | "Kaçanlar yalnızca görünüş olarak farklı…" |
+
+İki alt yazı artık **aynı şeyi söylemiyor**, bilerek: katiller gerçekten
+farklı, kaçanlar yalnızca görünüş.
+
+> **Lobideki `Canavar: Rastgele` DEĞİŞMEDİ.** Orada seçilen şey kostüm değil,
+> **hangi oyuncunun** canavar olacağı — yani bir rol. Karıştırılmasın diye
+> ayrı bırakıldı; kullanıcı isterse o da `Katil:` olur.
+
+##### 4c. Karakter adları
+
+| | Ad (iki dilde de aynı) |
+|---|---|
+| Kaçan 1 | **Banana Man** |
+| Kaçan 2 | **Unity-chan** |
+| Katil 1 | **The Marionette** |
+| Katil 2 | **The Pig K.** |
+
+**Hiçbir ad tabloya GİRMİYOR:** dördü de özel isim.
+
+**Tamamı büyük harf DEĞİL**, bilerek (kullanıcı isteği): menünün geri kalanı
+aralıklı büyük harf kullanıyor ama bunlar başlık değil, karakter adı.
+Ölçüldü — adın büyük görünmesi metnin kendisindendi: ne TMP'de
+`FontStyles.UpperCase` var ne de kodda `ToUpper`, yani dizeyi değiştirmek
+tek başına yetiyor.
+
+> İlk turda `MUZ ADAM` Türkçe kalıp İngilizce'de `BANANA MAN` oluyordu ve
+> tabloda bir satırı vardı. Kullanıcı aynı gün *"Türkçede de Banana Man
+> olsun"* dedi; ad değişince o satır **ölü** kaldı ve silindi. Hiçbir şey
+> yapmayan bir satır, sonraki okuyana "demek ki bu ad çevriliyor" diye
+> yanlış bilgi verir (bölüm 13'ün renk yolu dersinin aynısı).
+>
+> `CharacterSelectPanel` adı yine de `Localization.Get`'ten geçiriyor. Bugün
+> hiçbir şey yapmıyor ama ekrana giden her yazının o yoldan geçmesi bu
+> projenin kuralı: ileride çevrilecek bir ad eklenirse sessizce Türkçe
+> kalmasın.
+
+`CharacterSelectPanel` adı artık `Localization.Get(costume.Name)` ile
+yazıyor — eskiden ham `costume.Name` idi, yani ad hiçbir dilde değişmiyordu.
+
+> `Costume.Name` editör araçlarının log satırlarında da geçiyor
+> (`MonsterSetup`, `RunnerSetup`); oralarda da yeni adlar görünecek. Kod
+> tarafında hiçbir şey ada göre karar vermiyor, kontrol edildi.
+
+##### 4d. Kapı düğmesinin yazısı — denetimin KÖR NOKTASI
+
+Ekran görüntüsünde düğmeye bakınca `[E] Kapıyı çalıştır` yazıyordu.
+`UseButton.GetPrompt()` **zaten** `Localization.Get`'ten geçiyordu; eksik
+olan tek şey tablo satırıydı.
+
+**Bir önceki denetim bunu neden kaçırdı:** yalnızca `.cs` dosyalarına
+bakıyordu. Bu metin ise SAHNEDE serileşmiş bir alan değeri
+(`UseButton.prompt`, 17 düğmede).
+
+Sahneden ölçülen üç anahtar:
+
+| Anahtar | Kaç yerde | Tabloda mıydı |
+|---|---|---|
+| `Kapıyı çalıştır` | 17 | **HAYIR** → eklendi |
+| `Kapıyı aç` | 11 | evet |
+| `Kapıyı kapat` | 11 | evet |
+
+> Ders: **bir dil anahtarı kodda olmak zorunda değil.** `[SerializeField]`
+> bir metin sahnede/prefabta duruyor ve `Get`'e oradan gidiyor; denetim
+> `.unity` ve `.prefab` dosyalarını da taramalı. Denetim script'ine bu
+> tarama eklendi.
+>
+> Sahne taramasının kendi tuzağı da çıktı: **Unity uzun YAML metinlerini
+> satıra böler**, yani satır bazlı bir okuyucu anahtarı yarısından keser ve
+> "tabloda yok" der. İki yanlış alarm tam olarak buydu.
+
+##### 4e. Diriltme tabelası: numarasız ve dile duyarlı
+
+`DİRİLTME 1` → `DİRİLTME` / `REVIVAL`. Numara kalktı (kullanıcı: "ona gerek
+yok").
+
+**Çalışma anında yazılıyor, araçta değil** (`RevivalStation.BindSign`).
+Sebebi bölüm 23'ün kendi kuralı: `Diriltme Sistemini Kur` sahnede tam iki
+kabin bulunca **hiçbir şey yapmıyor** — kabinler 2026-09-10'da elle taşındı
+ve araç onları bilerek geri almıyor. Yani tabelayı araçtan düzeltmek var
+olan iki kabine HİÇ ulaşmazdı. `Terminal`in durum ışığındaki desenin aynısı
+(bölüm 11.2).
+
+Sonucu: **araç çalıştırmadan düzeliyor** ve sahnedeki yazı "DİRİLTME 1"
+olsa bile ekranda numara görünmüyor.
+
+`RevivalSetup` de artık numarasız kuruyor; `BuildStation`'ın `number`
+parametresi tamamen kalktı (tek kullanıcısı tabelaydı), `TutorialSetup`'taki
+çağrı da güncellendi.
+
+#### 5. `Menü Kur` GEREKİYOR
+
+Sahneye araçla yazılanlar: başlık, giriş alanı yer tutucusu, **lobideki
+SEÇENEKLER düğmesi** ve rol düğmesinin ilk yazısı.
+
+```
+Yakalamaca > Menü Kur
+```
+
+**Araç GEREKMEYENLER** (saf kod, Play yeter): tablo girdilerinin tamamı ·
+`LobbyNetwork`/`PlayerInteractor` düzeltmeleri · karakter adları ·
+karakter ekranının alt yazıları · **diriltme tabelası** (çalışma anında
+yazılıyor, bkz. 4e) · kapı düğmesinin yazısı.
+
+Sahnede hâlihazırda **48** `LocalizedText` bileşeni var (ölçüldü), yani
+araç Loc çağrıları eklendikten sonra çalıştırılmış — kullanıcının gördüğü
+Türkçe yazıların sebebi "araç çalıştırılmamış" DEĞİLDİ.
+
+#### 6. BUILD'in adı: `Yakalamaca.exe` — Product Name'den geliyor
+
+Kullanıcı yeni sürümü itch.io'ya yüklerken fark etti: build hâlâ
+`Yakalamaca.exe` + `Yakalamaca_Data` üretiyor. Menüdeki başlık (`GameTitle`)
+yalnızca EKRANI değiştiriyor, dosya adlarını değil.
+
+Kaynak tek yerde:
+
+```
+ProjectSettings/ProjectSettings.asset
+  companyName: DefaultCompany
+  productName: Yakalamaca      ← exe ve _Data klasörünün adı
+```
+
+##### ELLE yeniden adlandırma ÇÖZÜM DEĞİL
+
+Kullanıcının sezgisi doğruydu ("o zaman galiba bozuluyor ve oyun
+açılmıyor"). Sebep: Unity player'ı **kendi exe adına göre** `<ad>_Data`
+klasörünü arıyor.
+
+| Ne yapılırsa | Sonuç |
+|---|---|
+| Yalnızca exe yeniden adlandırılır | `Terminal Five_Data` aranır, bulunamaz → **açılmaz** |
+| exe VE `_Data` birlikte adlandırılır | Açılır, ama her build'de tekrar gerekir ve unutulur |
+
+İkincisi "çalışıyor" görünse de yanlış: `<ad>_Data/app.info` içindeki ürün
+adı yine `Yakalamaca` kalıyor, yani PlayerPrefs yolu ve pencere başlığı
+değişmiyor. Yani sorun yalnızca yarısı çözülmüş oluyor.
+
+**Doğrusu:** `Edit > Project Settings > Player > Product Name` = `Terminal
+Five`, sonra yeniden build.
+
+##### DİKKAT: PlayerPrefs SIFIRLANIR
+
+Windows'ta PlayerPrefs `HKCU\Software\<companyName>\<productName>` altında
+duruyor. `productName` değişince **kayıtlı her ayar yeni bir yola geçiyor**,
+yani oyuncu için sıfırlanmış görünüyor:
+
+| Kaybolan | Anahtar |
+|---|---|
+| Oyuncu adı | `Oyuncu_Adi` |
+| Dil | `Ayar_Dil` |
+| Fare hassasiyeti / ters bakış | `Ayar_FareHassasiyeti`, `Ayar_TersBakis` |
+| Ses ve korku efekti | `Ayar_SesSeviyesi`, `Ayar_KorkuEfekti` |
+| Sesli sohbetin altısı | `Ses_*` |
+| Kostüm seçimleri | `Kostum_Kacan`, `Kostum_Canavar` |
+| **Tuş atamalarının tamamı** | `KeyBindings.KeyPrefix + …` |
+
+itch.io'dan İLK KEZ indiren biri için fark yok. Etkilenen, eski sürümü
+oynamış olanlar (ve geliştirme makinesi).
+
+**`companyName` de aynı anda değiştirilmeli** (`DefaultCompany` şu an):
+ikisi de aynı kayıt yolunu belirliyor, ayrı zamanlarda değiştirmek
+sıfırlamayı İKİ kez yaşatır.
+
+> **Bu dosya `ProjectSettings.asset`'i ELLE düzenlemedi**, bilerek: Unity
+> açıkken ayarları bellekte tutuyor ve bir sonraki kaydında üstüne yazıyor —
+> `.unity`/`.prefab` kuralının (bölüm 0) aynı ailesi. Unity'nin kendi
+> ekranından değiştirmek tek güvenli yol.
+
+#### Dokunulan dosyalar
+
+| Dosya | Ne değişti |
+|---|---|
+| `Editor/MenuSetup.cs` | `GameTitle` sabiti; `CreateInputField` yer tutucuyu `Loc`'luyor |
+| `UI/Localization.cs` | Üç yeni giriş |
+| `UI/LobbyNetwork.cs` | Durum yazısı `Localization.Get`'ten geçiyor (×2) |
+| `Interaction/PlayerInteractor.cs` | Ceset taşıma ipucu `Localization.Get`'ten geçiyor |
+
+Derleme: Runtime ve Editor **sıfır hata**.
+
+---
+
+### 2026-09-24: domuz katilin KENDİ sesleri ve savrulan sopa
+
+Kullanıcı iki ses dosyası getirdi ve bir de görüntü şikâyeti bildirdi.
+
+#### 1. Saldırı sesleri artık KOSTÜM BAŞINA
+
+Getirilen dosyalar: `sopa sallama ve vurma sesi.mp3` (her savuruşta) ve
+`katil domuz jumpscare.mp3` (yalnızca gerçek isabette).
+
+**Ortak `Bicak_*` kliplerinin yerine GEÇMİYORLAR.** İkisinin de adı domuza
+işaret ediyor ve KUKLA elle saldırıyor — ona sopa savurma sesi koymak her
+turda yanlış bir ses demekti. Kalıp `costumeAttackLocks[]` ile aynı:
+`MonsterAttack.costumeSwingClips[]` / `costumeHitClips[]`, boş eleman ortak
+klibe düşüyor.
+
+| Kostüm | Savurma | İsabet (jumpscare) |
+|---|---|---|
+| KUKLA | `Bicak_Savurma` (ortak) | `Bicak_Isabet` (ortak) |
+| **DOMUZ KATİL** | **`Sopa_Savurma`** | **`Sopa_Isabet`** |
+
+**Hangi kostümün hangi sesi aldığını KATALOG söylüyor**
+(`Costume.AttackSoundPrefix` = `"Sopa"`), araçta sabit indeks yok. "1 numaralı
+kostüm domuz katildir" varsayımı listeye üçüncü bir canavar eklenince sessizce
+yanlış sese bağlanırdı.
+
+> **`??` yine KULLANILMADI.** `CostumeClip` yedeğe düşerken açık `== null`
+> kontrolü yapıyor: Unity `==`'i aşırı yüklüyor ama `??` saf referans
+> eşitliğine bakıp o yüklemeyi atlıyor — boşaltılmış bir klip `??` için
+> "dolu" görünür ve yedek hiç devreye girmezdi. 2026-09-21'in 1. dersi.
+
+**Jumpscare zaten doğru anda çalıyordu.** `RpcHit` sesi, fırlatan canavarın
+erken çıkışından ÖNCE çalıyor — yani domuz katil de duyuluyor. Iskalamada
+`RpcHit` hiç çağrılmıyor, yani "yalnızca öldürünce" şartı zaten mimarinin
+doğal sonucu (bölüm 14).
+
+#### 1b. Seslerin ZAMANI — ikisi de yanlış andaydı (aynı gün, ikinci tur)
+
+Sesler bağlandıktan sonra kullanıcı iki zamanlama düzeltmesi istedi:
+*"jumpscare oyuncuya vurduktan sonra değil yakalandığı anda başlasın; sopayla
+vurma sesi de çok erken geliyor, 1 saniye geç gelsin."*
+
+Sebep domuz katilin kendi akışında: yakalama ile ölüm arasında `hitWindup`
+kadar (**1.0 sn**) boşluk var — kurban savurmanın başında öne çekilip
+kilitleniyor, sopa bir saniye sonra iniyor.
+
+| Ses | Eskiden | Şimdi |
+|---|---|---|
+| **Jumpscare** | 1.00 sn — ölümde (`RpcHit`) | **0.00 sn — yakalamada (`RpcGrabbed`)** |
+| **Sopa sesi** | 0.00 sn — sopa daha havadayken | **1.00 sn — sopa inerken** |
+
+Yani ikisi de yer değiştirdi: korkutma anı yakalamaya, darbe sesi darbeye.
+
+##### Gecikme `hitWindup`'ın KENDİSİ — ikinci bir sayı yazılmadı
+
+`PlayDelayed(clip, volume, ResolveWindup())`. Ayrı bir "ses gecikmesi" alanı
+açılsaydı biri değişince öbürü unutulur ve ses yine kayardı — bu dosyanın
+tekrar eden dersi (diriltme süresi/sınav zamanlaması, bölüm 23).
+
+**Yan etkisi tam istenen şey:** KUKLA'nın `hitWindup`'ı sıfır, yani gecikme
+onda sıfır ve hiçbir şey değişmiyor. Yakalama mekaniği de yalnızca
+`hitWindup > 0` olan kostümlerde kuruluyor, yani `RpcGrabbed` KUKLA'da hiç
+çağrılmıyor ve jumpscare'i eskisi gibi `RpcHit`'ten geliyor. Simüle edildi:
+
+```
+DOMUZ KATIL (windup 1.0)        KUKLA (windup 0)
+  0.00  JUMPSCARE (RpcGrabbed)    0.00  savurma
+  0.00  savurma + yakalama        0.00  SOPA SESI (gecikme yok)
+  1.00  SOPA SESI                 0.00  olum + JUMPSCARE (RpcHit)
+  1.00  olum (RpcHit -> ses YOK)
+```
+
+##### İki ayrıntı
+
+**`RpcHit`'in erken çıkışı artık sesten ÖNCE.** Fırlatan canavarda jumpscare
+yakalamada çaldı; bir saniye sonra ikinci kez duyulmamalı. Sıra değişikliği
+KUKLA'yı etkilemiyor (orada `LaunchesVictim()` yanlış, ses yine çalıyor).
+
+**`RpcGrabbed` sesi kurbanı ÇÖZMEDEN önce çalıyor.** O metodun mevcut erken
+çıkışı (`NetworkClient.spawned` içinde bulunamazsa) yalnızca gövde pozunu
+ilgilendiriyor; sesin kurban referansına ihtiyacı yok ve çözülemeyen bir
+kurban yüzünden jumpscare'in kaçması gereksiz bir kırılganlık olurdu.
+
+> **`AudioSource.PlayDelayed` KULLANILMADI.** O, kaynağın KENDİ klibini
+> çalıyor; bu kaynak ise ayak sesiyle paylaşılıyor (bölüm 12) ve araya giren
+> bir adım sesi gecikmeli çalmayı bozardı. `PlayOneShot` gecikme almadığı
+> için zamanlama `MonsterAttack`'in kendi `Update`'inde tutuluyor —
+> `TickLock` ile aynı yerde, aynı gerekçeyle: tur biterse "yolda olan" ses
+> asılı kalmasın.
+
+Kullanıcı seslerin üst üste binmesini açıkça onayladı ("sesler karışabilir,
+bunda sorun yok"), yani ikisini birbirinden ayırmak için ek bir kural
+konmadı.
+
+#### 1c. Gövde darbesi: ceset düşme sesi vuruş anında da (üçüncü tur)
+
+Kullanıcı: *"bizde yere düşme sesi var ölü bedenler için, o sesi de tam
+sopayla adama vurduğunda çıkarsın."*
+
+**Yeni dosya üretilmedi** — istenen zaten var olan `Ceset_Dusme` klibi.
+`MonsterAttack.impactClip` onu `Sesleri Yerleştir` üzerinden alıyor; iki
+farklı bileşenin (Corpse ve MonsterAttack) aynı klibi göstermesinde sakınca
+yok, ikisi de "bir gövde bir şeye çarptı" anını anlatıyor.
+
+Domuz katilin ses zaman çizgisi artık şöyle:
+
+| An | Ses |
+|---|---|
+| 0.00 sn — yakalama | **Jumpscare** (`Sopa_Isabet`) |
+| 1.00 sn — sopa iniyor | **Sopa sesi** (`Sopa_Savurma`) + **darbe** (`Ceset_Dusme`) |
+| 1.25 sn — ceset uçuyor | — |
+| sonra — ceset duvara/yere çarpınca | **düşme** (`Ceset_Dusme`, `Corpse`'un kendi yolu) |
+
+`Ceset_Dusme` iki kez duyuluyor ve bu bilinçli: biri **sopanın gövdeye**
+inmesi, öbürü **gövdenin yere** inmesi.
+
+##### Ölçüt `CarriesBat`, `LaunchesVictim` DEĞİL
+
+İkisi de bugün yalnızca domuz katilde doğru, yani hangisini seçtiğimiz şu an
+hiçbir şeyi değiştirmiyor. Ama aynı soruyu sormuyorlar:
+
+| Bayrak | Sorduğu |
+|---|---|
+| `CarriesBat` | Gövdeye çarpan bir alet var mı |
+| `LaunchesVictim` | Kurban uçuyor mu |
+
+Darbe sesinin sorusu birincisi. Sopalı ama fırlatmayan bir üçüncü canavar
+geldiğinde `LaunchesVictim` sessizce yanlış cevap verirdi — üstelik satır
+`RpcHit`'in erken çıkışının yanlış tarafında kalırdı. Bu yüzden ses
+**erken çıkıştan ÖNCE** duruyor: iki yol da (fırlatan ve yakalama
+koreografisi olan) aynı darbeyi duyuyor.
+
+> Bu, 2026-09-21'in 5. dersinin aynısı: **bir kuralı koyarken KİMİ
+> kapsadığını say.** "Yalnızca koşarken ses" kaçan için doğruydu canavar için
+> yanlıştı ve bir hafta sürdü; burada aynı hata iki bayrağın karıştırılmasıyla
+> gelirdi.
+
+KUKLA hiç etkilenmiyor: `CarriesBat` yanlış, ses hiç çalmıyor ve `RpcHit`'in
+geri kalanı (jumpscare + yakalama animasyonu) eskisi gibi işliyor.
+
+#### 2. Sopa savruluyordu — DÖRT tur sürdü, birincisi GERİ ALINDI
+
+Şikâyet: *"domuzun elinde tuttuğu sopa çok hareket ediyor, koşarken"* — ve
+netleştirmesi: *"çok sola sağa yukarı aşağı gidiyor ve çok seri oluyor, onu
+azaltmanı istiyorum, sopa için sadece, domuzun animasyonlarını bozmadan."*
+
+##### Birinci deneme: animasyon oynatma hızı — REDDEDİLDİ
+
+Ölçüm doğruydu: oynatma hızı `hız / clipRunSpeed` ve ortak tavan 1.6;
+canavarın taban koşusu 7.24 m/s, klip 4 m/s, yani oran 1.81 → domuz katil
+koşarken animasyonu **her zaman tavanda**, authored hızın %60 üstünde
+oynuyordu. Tavanı 1.15'e çekmek elin (ve sopanın) hızını %28 düşürüyordu.
+
+**Ama animasyonun KENDİSİNİ bozuyordu:** bacaklar 6.4 m/s yerine 4.6 m/s
+ilerliyor, ayak kayması %12'den **%36**'ya çıkıyordu. Kullanıcı "animasyonları
+bozmadan" deyince yol tamamen geri alındı — `Costume.RunPlaybackScale`,
+`CharacterAnimatorBase.RunPlaybackCap` ve `MonsterAnimator`'daki ezme
+**silindi**, mekanizma da bırakılmadı.
+
+> **Reddedilen bir kaldıraç kodda BIRAKILMAZ.** Bölüm 5'in dersi: bir teşhis
+> çürüdüğünde onun için yapılan değişiklikler de geri alınmalı
+> (`indirectScale`/`albedoBoost` kalıntısı sonraki sorunun sebebi olmuştu).
+> Duran ama kullanılmayan bir tavan, ileride yine yanlış yerden çekilirdi.
+
+##### İkinci deneme: sopanın KENDİ dönüşünü süzmek — çalışan çözüm
+
+`Player/BatSway.cs`: sopanın dünya dönüşünü alçak geçiren bir süzgeçten
+geçiriyor. **Animasyona hiç dokunmuyor** — kemikler aynen oynuyor, yalnızca
+sopa geriden geliyor.
+
+**Yalnızca DÖNÜŞ süzülüyor, konum değil.** Sopanın pivotu topuz ucunda (mesh
+yerel Y'de 0→1 uzanıyor) ve elin hemen dibinde; dönüşü süzüp konumu olduğu
+gibi bırakmak sopayı sapından çivili tutuyor, yalnızca ucu gecikiyor. Konum
+da süzülseydi sopa elin dışına kayardı.
+
+##### Süzgeç HIZLI hareketi kesiyor, yavaşı geçiriyor
+
+Şikâyetin kendisi "çok seri"ydi ve alçak geçiren süzgeç tam bunu hedefliyor.
+Zaman alanında simüle edildi (k = 8, zaman sabiti 125 ms, sopa 0.78 m):
+
+| Hareket | Periyot | El | Sopa | Ucun yolu | Azalma |
+|---|---|---|---|---|---|
+| **Koşma (oynatma 1.6×)** | 0.39 sn | 40° | 17.8° | 1.09 → **0.49 m** | **%55** |
+| Koşma (oynatma 1.0×) | 0.63 sn | 40° | 25.0° | 1.09 → 0.68 m | %37 |
+| Yürüme | 0.63 sn | 25° | 15.6° | 0.68 → 0.43 m | %37 |
+| **Saldırı savurması** | 2.40 sn | 65° | 65.3° | 1.78 → 1.78 m | **%0** |
+
+Yani koşudaki savrulma yarıdan fazla kesiliyor, **saldırının okunabilirliği
+ise hiç bozulmuyor** — o hareket yavaş, süzgeç onu olduğu gibi geçiriyor.
+Bu yüzden ayrıca "yalnızca koşarken çalış" diye bir durum kontrolü
+eklenmedi: gereksiz bir bağ olurdu ve frekans ayrımı işi zaten yapıyor.
+
+##### İki emniyet
+
+| Alan | Değer | Ne için |
+|---|---|---|
+| `maxLagDegrees` | 60° | Sopa hedefin bu kadarından fazla gerisinde kalamıyor — uzun bir duraklamadan sonra elden kopmuş görünmesin |
+| `snapDegrees` | 90° | Bu kadar büyük sıçramalarda süzgeç ATLANIYOR: ışınlanma (tur başı, yakalama) ve kostüm değişimi bir karede 180°'ye varan fark üretiyor, onu yumuşatmak sopayı havada döndürürdü |
+
+`OnEnable` de süzgeci sıfırlıyor: gövde kostüm değişiminde kapatılıp
+açılıyor ve eski dönüşle devam etmek sopayı bir kare yanlış yerde
+gösterirdi.
+
+##### Üçüncü tur: süzgeç YANLIŞ ÇERÇEVEDEYDİ — oyuncunun dönüşünü de yutuyordu (2026-09-26)
+
+Kullanıcı süzgeci oynadı ve yumuşatmayı onayladı — *"güzel, sopa çok
+hareketli değil şu an"* — ama yeni bir şey bildirdi: *"sağa sola, arkamı
+döndüğümde sopa benle gelmiyor; geliyor da elime göre gelmiyor, o yüzden
+elimde gözükmüyor."*
+
+**Sebep: süzgeç DÜNYA dönüşünü süzüyordu** ve o dönüş iki ayrı şeyi birden
+taşıyor — animasyonun el hareketi VE oyuncunun kendi dönüşü. Süzgeç ikisini
+ayırt edemiyor, yani fare dönüşünü de yumuşatıyordu.
+
+Ölçüldü (sopanın ELDEN sapması, k = 8, sopa 0.78 m):
+
+| Durum | Dünya uzayı | Gövde uzayı |
+|---|---|---|
+| Durarak koşma | 17.6° — 0.24 m | 17.6° — 0.24 m |
+| 90° dönüş / 0.6 sn | 33.6° — 0.45 m | **17.6°** |
+| 180° dönüş / 0.4 sn | **59.9° — 0.78 m** | **17.6°** |
+| 180° flick / 0.2 sn | **60.0° — 0.78 m** | **17.6°** |
+| 360° tarama / 1 sn | 58.8° — 0.77 m | **17.6°** |
+
+Yani **her normal dönüş `maxLagDegrees` tavanına (60°) çarpıyordu** ve
+sopanın ucu tam **bir sopa boyu** elden uzakta kalıyordu. "Elimde
+gözükmüyor" tam olarak bu.
+
+**Düzeltme: hedef gövde uzayına çevrilip orada süzülüyor**, sonra geri
+dünyaya taşınıyor. Oyuncu dönünce çerçeve de döndüğü için gövdeye göre
+duruş hiç değişmiyor: sopa dönüşe **katı bir bütün** olarak katılıyor.
+Süzülen tek şey animasyonun eli.
+
+**Yumuşatma hiç azalmadı** — tablonun ilk satırı, yani şikâyet edilen koşu
+savrulması, iki sürümde de aynı. Kullanıcının iki isteği ("elime göre
+gelsin" + "çok sağa sola gitmesin") çelişmiyordu; çelişen şey süzgecin
+çerçevesiydi.
+
+**Çerçeve gövde kökü** (`Animator`'ı taşıyan obje), oyuncu kökü değil:
+`PlayerBodyVisual.LateUpdate` gövde köküne bir yaw payı yazıyor
+(`locomotionYawOffset`) ve o bir gövde duruşu, el savrulması değil — yani
+çerçevenin İÇİNDE kalması gerekiyor. Sıralama zaten doğru: o metot
+varsayılan sırada, `BatSway` 100'de.
+
+**Yan kazanç: ışınlanma artık süzgeci hiç ilgilendirmiyor.** Tur başı ve
+yakalama ışınlaması çerçeveyi de sopayı da birlikte taşıyor, aradaki
+gövde-uzayı farkı sıfır. `snapDegrees` geriye yalnızca animasyonun sert
+kesilmesi için duruyor.
+
+**Tavan da daraldı: 60° → 35°.** Gerekçesi düşmüştü — 60, dünya uzayındaki
+dönüş gecikmesine göre seçilmişti. Gövde uzayında ölçülen en büyük gerçek
+gecikme **16.8°** (koşma; yürüme 9.1°, saldırı savurması 9.4°), yani tavan
+artık normal oyunda hiç devreye girmiyor ve yalnızca emniyet olarak duruyor.
+Bölüm 14'ün dersi: *bir sayının gerekçesi düştüğünde sayıyı da gözden
+geçir.*
+
+> ### Ayarlar prefaba SERİLEŞMİŞ — araç artık onları yazıyor
+>
+> Burada ve `MonsterBatBuilder`'da bir süre şu yazıyordu: *"ayarlar kodda
+> duruyor, araç yazmıyor; bileşen yeni eklendiği için varsayılanlar zaten
+> geçerli."* **Bir gün sonra yanlış oldu:** kullanıcı `Canavar Modelini
+> Kur`'u çalıştırdı, bileşen prefaba girdi ve `maxLagDegrees` orada **60**
+> olarak dondu. Ölçüldü:
+>
+> ```
+> grep -n -A 12 "<BatSway GUID>" Assets/_Prefabs/NetworkPlayer.prefab
+>   followSharpness: 8
+>   maxLagDegrees: 60      ← koddaki 35 buraya HİÇ ulaşmıyor
+>   snapDegrees: 90
+> ```
+>
+> Yani 35'i yalnızca koda yazmak ekranda hiçbir şey değiştirmezdi (bölüm
+> 16). `MonsterBatBuilder.ApplySwaySettings` artık üç alanı da her
+> çalıştırmada `SerializedObject` ile yazıyor — sopanın DURUŞU zaten aynı
+> gerekçeyle her çalıştırmada yeniden yazılıyordu.
+>
+> **Sayılar `BatSway`'de `public const` olarak duruyor**, araçta değil: iki
+> yerde tutulan bir sayı, biri değişince öbürünün unutulması demek (menü
+> figürlerinin açısında tam olarak bu yaşandı, bölüm 13).
+>
+> Ders: **"bu bileşen henüz prefabta yok, o yüzden serileşme tuzağı
+> işlemiyor" cümlesinin ÖMRÜ bir araç çalıştırması kadar.** Serileşen bir
+> alana geçici bir gerekçeyle güvenme.
+
+##### Dördüncü tur: süzgeç KENDİ ÇIKTISINI okuyordu (2026-09-26, aynı gün)
+
+Kullanıcı: *"sopayla her birini öldürdüğümde sopanın açısı değişiyor."*
+
+**Hatayı süzgecin kendisi üretiyordu.** Sopa el kemiğinin ÇOCUĞU ve biz her
+karede onun dünya dönüşünü yazıyoruz — yani `localRotation` artık authored
+duruş değil, BİZİM geçen kareki çıktımız. Sonraki kare hedefi
+`transform.rotation`'dan okuyunca süzgeç kendi çıktısıyla besleniyordu.
+
+Ölçüldü:
+
+| | Geri beslemeli | Düzeltilmiş |
+|---|---|---|
+| Sopaya 30° sapma ver, el SABİT, 2 sn bekle | **30° kalıyor** | 0° |
+| 1 öldürmeden sonra kalıcı sapma | 2.9° | 0° |
+| 5 öldürme | 14.6° | 0° |
+| 10 öldürme | **29.1°** | 0° |
+
+Sebebi tek cümlede: el sabitken hedef `h · (h⁻¹ · çıktı)` = **çıktının
+kendisi**, yani hata özdeş olarak sıfır ve sopayı doğru duruşa çeken
+**hiçbir geri getirme kuvveti yok**. Savurmanın gidiş ve dönüş yolu birebir
+aynı olmadığı için (takip hareketi) her savurma küçük bir kalıntı bırakıyor
+ve kalıntılar birikiyor.
+
+> **Tek eksenli bir savurmayla bu hata GÖRÜNMÜYOR.** İlk üç simülasyon
+> denemesi 0.0° döndürdü, çünkü aynı eksen etrafındaki dönüşler yer
+> değiştirebiliyor ve tam aynı yoldan dönen bir savurma kendini
+> götürüyor. Hata ancak çok eksenli ve aynı yoldan dönmeyen bir savurmada
+> ortaya çıkıyor. Ders: **kuaterniyon hatalarını tek eksende test etme** —
+> orada her şey komütatif ve hata saklanıyor.
+
+Hedef artık `hand.rotation · baseLocal` ile ÜRETİLİYOR (`baseLocal` =
+prefabtaki authored duruş, `Awake`'te okunuyor): girdinin çıktıyla ilgisi
+kalmadı ve tek denge noktası authored duruş.
+
+##### Sönüm yeniden ayarlandı: k 8 → 4
+
+Hatalı döngünün bir yan etkisi daha vardı: **her şeyi frekanstan bağımsız
+%87.5 kısıyordu.** Yani kullanıcının "güzel, çok hareketli değil" dediği
+sönüm, belgelenen alçak geçiren süzgeç DEĞİLDİ.
+
+| k | Koşmada kalan | Saldırıda kalan | En büyük gecikme |
+|---|---|---|---|
+| 8 | %45 | %95 | 16.7° |
+| **4** | **%24** | **%84** | 18.8° |
+| 3 | %18 | %75 | 19.2° |
+| (hatalı döngü) | %12.5 | %12.5 | — |
+
+k=8'le bırakmak sopayı birden **3.6 kat** daha çok savırtırdı. `k = 4`
+onaylanan hisse yakın duruyor ve saldırının okunabilirliğini de koruyor.
+
+##### Duruş ("yan durmalı") — önce bu düzeltme ÖLÇÜLMELİ
+
+Kullanıcı aynı mesajda *"vururken veya idle dururken sopa düz durmamalı, yan
+durmalı"* dedi. **Duruş bilerek DEĞİŞTİRİLMEDİ**, çünkü kanıt onu işaret
+etmiyor:
+
+- `TunedEuler` **2026-09-20'de kullanıcının KENDİSİ** Play modunda gözle
+  ayarlayıp verdiği sayı; o gün kabul edilmişti.
+- `BatSway` **2026-09-24'te** geldi ve duruş şikâyeti ilk kez ondan sonra
+  çıktı.
+- Yukarıdaki hata tam olarak "sopanın açısı yavaş yavaş kayıyor" üretiyor.
+
+Yani duruşu şimdi değiştirmek, **bozuk kanıta göre ayar yapmak** olurdu —
+bu dosyanın en pahalı dersi (2026-09-14'ün "mesafe" teşhisi). Düzeltme
+oynandıktan sonra hâlâ düz duruyorsa duruş gerçekten değişmeli.
+
+**Play modunda ayarlamak artık ÇALIŞIYOR.** Süzgeç her karede dönüşü yazdığı
+için Inspector'dan çevirmek normalde işe yaramazdı; `BatSway` artık dışarıdan
+gelen bir değişikliği fark edip (bizim yazdığımızdan farklıysa) yeni duruşu
+benimsiyor. Beğenilen sayı `MonsterBatBuilder.TunedEuler`'a yazılır.
+
+**Ayarlamak tek sayı:** `BatSway.DefaultFollowSharpness` (4). Büyütmek sopayı
+ele daha sıkı yapıştırıyor, küçültmek daha çok geciktiriyor. Prefaba
+serileşiyor, yani değiştirince `Canavar Modelini Kur` gerekiyor — ya da Play
+sırasında Inspector'dan canlı denenip beğenilen sayı koda yazılıyor
+(bölüm 25'in kendi notu).
+
+
+#### 3. Yakalanma ışınlanması YALNIZCA domuzda — KUKLA'da başka bir yol var
+
+Kullanıcı sordu: *"bu yakalanınca canavarın önüne ışınlanma iki katilde de
+var değil mi?"* Koddan ölçüldü: **hayır.** İkisi de kurbanı canavarın önünde
+gösteriyor ama mekanizmaları ayrı.
+
+| | KUKLA | DOMUZ KATİL |
+|---|---|---|
+| `hitWindup` | **0** (varsayılan) | 1.0 sn |
+| Oyuncu ışınlanıyor mu | **HAYIR** | evet (`ServerBeginGrab`) |
+| Kurban kilitleniyor mu | hayır | evet (`TargetGrabbed`) |
+| Kurbanı öne getiren şey | `PlayerBodyVisual.ApplyDeathPose` — yalnızca GÖVDE, ölüm klibi boyunca | gerçek ışınlanma, savurmanın başında |
+
+Ayrım `MonsterAttack`'in tek satırında: `if (windup > 0f) { ServerBeginGrab(...) }`,
+değilse doğrudan `ReportCaught` + `RpcHit`. KUKLA'nın kataloğunda `hitWindup`
+hiç verilmemiş, yani 0.
+
+Yani KUKLA'da ışınlanma yok; kurban öldüğü yerde kalıyor ve yalnızca görsel
+gövdesi `killerNetId` üzerinden canavarın üstüne oturtuluyor (bölüm 17).
+**Oynanışta ikisi benzer görünüyor**, o yüzden "kuklada da var sanırım"
+tamamen makul bir izlenim — ama kod tarafında ortak bir yol yok.
+
+#### 4. KUKLA'da kurbanın yere düşmesi yarım saniye GEÇ geliyordu
+
+Kullanıcı: *"yakalanan kişinin yere düşme animasyonu canavarın saldırı
+animasyonuna yarım saniye falan geç kalıyor, onu çok az hızlandır."*
+
+**Kullanıcının iki gözlemi klibin içindeki düşüş anını çözdü.** Ham klipte
+(1.0×) fark ~1.0 sn, bugünkü 1.7×'te ~0.5 sn — iki denklem, iki bilinmeyen:
+
+| | Değer |
+|---|---|
+| Klip | 2.60 sn (78 kare @30, meta'dan ölçüldü — kırpılmamış) |
+| Kurbanın yere değmesi | **1.21 sn** (klibin %47'si) |
+| Canavarın yıkma anı | **0.21 sn** |
+
+##### Sadece hızlandırmak YETMİYOR — tavanı var
+
+Düşüş klibin %47'sinde olduğu için hızlandırmanın kazanabileceği en fazla
+şey 0.71 sn ve ona ancak sonsuz hızda ulaşılıyor:
+
+| Hız | Düşüş anı | Kazanç |
+|---|---|---|
+| 1.7 (eski) | 0.71 sn | — |
+| 2.0 | 0.61 sn | 0.11 sn |
+| 3.0 | 0.41 sn | 0.31 sn |
+| 6.0 | 0.20 sn | **0.51 sn** — ama klip 0.43 sn'de biter, komik |
+
+Yani "yarım saniye" isteği hıza SIĞMIYOR. Kullanıcı zaten "çok az
+hızlandır" demişti; 6× o cümlenin tam tersi olurdu.
+
+##### İkinci kaldıraç: klibe daha İLERİDEN girmek
+
+`RunnerSetup.DeathEntryOffset` (0.30) — geçişin `offset`'i, yani klibin ilk
+%30'u (0.78 sn hazırlık kısmı) atlanıyor. Hareketin kendi temposu hiç
+bozulmuyor, yalnızca daha ileriden başlıyor.
+
+| Hız | Kaydırma | Düşüş | Kazanç |
+|---|---|---|---|
+| **2.0** | **0.30** | **0.22 sn** | **0.50 sn** |
+
+Sonuç kurbanın yere değmesini canavarın yıkma anına (0.21 sn) oturtuyor.
+Hız 1.7 → 2.0, yani **%18**'lik küçük bir artış — istenen "çok az
+hızlandır".
+
+**Bedeli bir sıçrama:** kurban ilk karede ayakta değil, devrilmeye başlamış
+görünüyor. O anda gövde zaten canavarın önüne oturtuluyor
+(`ApplyDeathPose`), yani ortada başka bir sıçrama da var. Göze batarsa
+`DeathEntryOffset` küçültülür.
+
+##### Domuz bundan HİÇ etkilenmiyor
+
+Kullanıcı "daha elleme domuzu" dedi; doğrulandı:
+`RoundParticipant.DeathHold` içinde `if (!launching) runnerAnimator.PlayDeath();`
+— fırlatan canavarda ölüm klibi **hiç oynamıyor**, kurban o anki poziyle
+ragdoll'a geçiyor. Yani `DeathSpeed` ve `DeathEntryOffset` yalnızca KUKLA
+yolunda işliyor.
+
+#### Araç çalıştırması
+
+| Araç | Ne için | Durum |
+|---|---|---|
+| `Sesleri Yerleştir` | İki ses `_Audio` altına taşınıp prefaba bağlanıyor | **ÇALIŞTIRILDI** (2026-09-24) |
+| `Canavar Modelini Kur` | Sopaya `BatSway` bileşenini takıyor | **ÇALIŞTIRILDI** (2026-09-25) — prefabta ölçüldü |
+| `Canavar Modelini Kur` (tekrar) | Yeni sönümü (`followSharpness` 8 → 4) ve daralan tavanı (60 → 35) prefaba yazıyor | **GEREKİYOR** (2026-09-26) — prefabta hâlâ 8 duruyor; yazılmazsa sopa olması gerekenden 3.6 kat çok savrulur |
+| `Kaçan Modelini Kur` | Ölüm klibinin hızını (2.0) ve giriş kaydırmasını (0.30) denetleyiciye yazıyor | **GEREKİYOR** (2026-09-26) — **`Canavar Modelini Kur`'DAN SONRA**: kaçanın ölüm klibi canavarın `kill` klibiyle aynı süreye kırpılıyor (bölüm 10) |
+
+Doğrulama — **ad aramak İŞE YARAMAZ**, prefab bileşeni script GUID'iyle
+saklıyor (bu oturumun üç yanlış komutunun aynı ailesi, 3. madde). Önce
+GUID'i `.meta`'dan al, sonra prefabda ara:
+
+```
+grep -o "guid: [a-f0-9]*" Assets/_Scripts/Player/BatSway.cs.meta
+```
+
+```
+grep -c "<o guid>" Assets/_Prefabs/NetworkPlayer.prefab
+```
+
+`.meta` dosyası Unity script'i içe aktardıktan sonra oluşuyor; ondan önce
+bu komut dosya bulamaz.
+
+#### Dokunulan dosyalar
+
+| Dosya | Ne değişti |
+|---|---|
+| `Core/CharacterCatalog.cs` | `AttackSoundPrefix`; domuz girişi |
+| `Core/MonsterAttack.cs` | Kostüm klip dizileri + `CostumeClip` yedeği; `PlayDelayed`/`TickPendingSound` ile ses zamanlaması |
+| **`Player/BatSway.cs`** | **YENİ** — sopanın dönüşünü GÖVDE uzayında süzen alçak geçiren filtre |
+| `Editor/MonsterBatBuilder.cs` | Bileşeni takıyor + `ApplySwaySettings` ile ayarlarını prefaba yazıyor |
+| `Editor/AudioImportSetup.cs` | İki yeni ad + `WireCostumeAttackClips` + `impactClip` |
+
+> `Player/CharacterAnimatorBase.cs` ve `Player/MonsterAnimator.cs` bu
+> oturumda bir ara değişti (`RunPlaybackCap`) ve **tamamen geri alındı** —
+> tabloda bir süre yanlış duruyorlardı. Bugün ikisinde de bu işe ait net bir
+> değişiklik YOK. Ders, bölüm 5'in kendi dersinin devamı: geri alınan bir
+> değişiklik **belgeden de** geri alınmalı, yoksa dosya olmayan bir
+> mekanizmayı işaret ediyor.
+
+Derleme: Runtime ve Editor **sıfır hata**, yeni semboller DLL'de doğrulandı
+(`ResolveFrame`, `DefaultMaxLagDegrees`, `ApplySwaySettings`).
+
+> **Doğrulama komutu burada da bir kez yanlış çıktı.** `grep -c
+> "maxLagDegrees" Assembly-CSharp-Editor.dll` **0** döndürüyor ve bu, string
+> DLL'de olmadığı anlamına GELMİYOR: .NET metadata'sında sembol adları UTF-8
+> ama **string literalleri UTF-16** (`#US` yığını). Doğrusu baytı UTF-16
+> aramak:
+>
+> ```
+> python -c "print(b'maxLagDegrees'.decode().encode('utf-16-le') in open('Assembly-CSharp-Editor.dll','rb').read())"
+> ```
+>
+> `SerializedObject.FindProperty` yanlış bir ada çağrılsa null döner ve
+> `NullReferenceException` atardı, yani bu doğrulama gerçekten gerekliydi:
+> üç ad da hem DLL'de hem prefabın serileşmiş alanlarında birebir eşleşiyor.
+
+---
+
+### 2026-09-23: OTURUM DEVRİ — yeni oturum buradan başlasın
 
 Bu başlık, bir sonraki oturumun **ilk okuyacağı yer**. 6700 satırlık dosyayı
 baştan sona taramadan "ne bitti, ne bekliyor, neye dokunulmaz" cevabını
 veriyor. Bir iş kapandıkça buradan silinmeli — bu bölüm ancak güncel kaldığı
 sürece işe yarar.
 
-> **Kullanıcının bugünkü ifadesi: "hatamız yok."** Yani oyun şu an çalışır
-> durumda ve bilinen bir arıza YOK. Yeni oturum bir hata avıyla değil,
-> aşağıdaki **doğrulama** ve **açık iş** listeleriyle başlamalı. Bir şikâyet
-> gelirse de önce ÖLÇ — bu dosyanın en pahalı dersi, tahminle yazılan bir
-> düzeltmenin yanlış sorunu "çözüp" asıl sebebi geciktirmesi (bkz. izleyici
-> ayak sesi, 2026-09-14).
+> ### Hata raporu GELDİ, iki madde de KAPANDI (2026-09-23)
+>
+> Kullanıcı iki hata bildirdi: **kaçanlar iç içe doğuyordu** ve **canavar
+> oyundayken ayak sesi / kalp atışı / ekran sarsıntısı bazen gelmiyordu.**
+> İkisi de ölçülerek bulundu ve düzeltildi — tam kayıt hemen yukarıdaki
+> **"2026-09-23: İKİ HATA"** başlığında.
+>
+> **BEKLEYEN ARAÇ KALMADI (2026-09-24).** Üçü de çalıştırıldı ve
+> sahne/prefab/meta dosyalarından doğrulandı — ölçüm tablosu 3. maddede.
+> Geriye yalnızca **oynanarak doğrulama** kaldı (2. madde).
+>
+> **Sırada kullanıcının bildireceği yeni bir konu var:** domuz katilin
+> "ufak animasyon sorunları". Ayrıntısı HENÜZ GELMEDİ.
+>
+> Yeni bir şikâyet gelince **önce ÖLÇ.** Bu dosyanın en pahalı dersi, tahminle yazılan
+> bir düzeltmenin yanlış sorunu "çözüp" asıl sebebi geciktirmesi. İki somut
+> örnek: izleyici ayak sesi (2026-09-14'te mesafe sanıldı, yanlıştı — gerçek
+> sebep 2026-09-21'de bulundu) ve "menü odası kurulmadı" (2026-09-13'te
+> teşhis kondu, 2026-09-20'de doğrulama KOMUTUNUN yanlış olduğu anlaşıldı).
+>
+> Ölçmenin üç hazır yolu: **Editor.log**
+> (`C:\Users\TR\AppData\Local\Unity\Editor\Editor.log` — istisnaların TAM
+> yığını orada), **sahne/prefab dosyasından grep**, ve **Unity'siz derleme**
+> (hafıza notu `unity-teshis-ve-derleme`).
+>
+> **Doğrulama KOMUTUNUN kendisini de doğrula.** 2026-09-23'te iki komut
+> birden yanlış çıktı: `grep -c "NetworkStartPosition"` sahnede **0**
+> döndürdü (sahne script'i GUID ile saklıyor, adla değil — noktaların
+> hepsinde bileşen vardı) ve `grep -A 1 "m_Name: Sopa"` Transform yerine
+> `m_TagString`'i getirip bu dosyaya bir gün önce "araç çalıştırılmamış"
+> diye YANLIŞ bir madde yazdırdı. `Zemin_0_0` dersinin üçüncü ve dördüncü
+> tekrarı: **yanlış bir doğrulama komutu, olmayan bir arıza üretir.**
 
-#### 1. En son ne yapıldı: retro görünüm, dört tur (2026-09-19)
+#### 1. En son ne yapıldı: İKİ HATA DÜZELTİLDİ (2026-09-23)
+
+| Hata | Gerçek sebep | Düzeltme |
+|---|---|---|
+| Bütün kaçanlar iç içe doğuyor | Halka yarıçapı (1.6 m) koridorun yarı genişliğinin tam kendisi; dik yuvalar hep duvara biniyor ve yedek yol herkesi çapaya yığıyordu | Herkese kendi noktası (`Doğum Noktalarını Kur`) + sabit halka yerine arama (`FreeSpotNear`) |
+| Canavarın ayak sesi / kalp atışı / ekran sarsıntısı bazen gelmiyor | Anlık görüntü tamponu (33 ms) `NetworkTransform`'un gönderim aralığından (50 ms) küçük → uzak oyuncunun konumu donuyor | Tampon prefabın kendi `syncInterval`'inden hesaplanıyor + ayak sesi birikimi ağ donmasında silinmiyor |
+
+Ayrıntının tamamı **"2026-09-23: İKİ HATA"** başlığında.
+
+##### Ondan önce: İKİNCİ CANAVAR — domuz katil (2026-09-21)
+
+Ayrıntının tamamı yukarıdaki **"2026-09-21: İKİNCİ CANAVAR"** başlığında.
+Özet:
+
+| Parça | Durum |
+|---|---|
+| **Domuz katil kostümü** | Canavar tarafı çoklu kostüme geçti; iki gövde, iki denetleyici, menüde iki figür |
+| **Prosedürel beyzbol sopası** | Model dosyası yok, lathe ile üretiliyor; sağ el kemiğine takılı, tamamen görsel |
+| **Kendi öldürme mekaniği** | Yakalama koreografisi yok: kurban savurmanın başında öne çekilip kilitleniyor, sopa inince ölüp 17 m/s ile uçuyor |
+| **Canavarın ayak sesi** | Artık her hızda duyuluyor (kaçan değişmedi) — 2026-09-14'ten beri açık olan gizem buydu |
+| **30° gövde açısı** | Yalnızca başkalarının ekranında; canavarı oynayan kendi gövdesini düz görüyor |
+| **Ölüm kamerası** | Ölen oyuncu 1.6 sn kendi kamerasında kalıyor |
+
+Dokunulan dosyalar: `CharacterCatalog` · `Corpse` · `MonsterAttack` ·
+`RoundManager` · `RoundParticipant` · `SpectatorController` ·
+`CharacterAnimatorBase` · `FootstepAudio` · `PlayerBodyVisual` ·
+`PlayerController` · `MenuStage` · `MenuStageSetup` · `MonsterSetup` ·
+**`MonsterBatBuilder`** (yeni).
+
+Derleme: Runtime ve Editor, **sıfır hata**, yeni semboller DLL'de doğrulandı.
+
+##### Ondan önce: retro görünüm, dört tur (2026-09-19)
 
 | Tur | Kullanıcı ne dedi | Ne yapıldı |
 |---|---|---|
@@ -727,6 +2363,18 @@ muhtemelen aşağıdaki satırın kendisidir.
 
 | Ne | Nereden geldi | Nasıl doğrulanır |
 |---|---|---|
+| **Ölüm kamerasının öldürene dönmesi** | 2026-09-26 | Öl, 1.6 sn boyunca canavara bakıyor musun — özellikle KUKLA'da ve ona sırtın dönükken |
+| **Kaçanların ayrı noktalarda doğması** | 2026-09-23 | **Önce `Doğum Noktalarını Kur`** (bkz. 3. madde), sonra dolu kadroyla bir tur |
+| **Canavarın güney kanadında doğması** | 2026-09-23 | aynı araç |
+| **Canavarın ayak sesi artık kesilmiyor** | 2026-09-23 | iki makine — tercihen kötü bir bağlantıda |
+| **Kalp atışı ve ekran sarsıntısının kesilmemesi** | 2026-09-23 | iki makine; kod tarafında hata bulunamadı, tampon düzelmesine bağlı |
+| **Sopanın yeni duruşu** | 2026-09-21 | araç çalıştırıldı (2026-09-22), Play yeter |
+| **Yürüme adım temposu ve sesi** | 2026-09-21 | aynı |
+| **Ceset fırlatma gücü** (9 → 17) | 2026-09-21 | araç gerekmiyor, Play yeter |
+| **Canlı bedenin erken silinmesi** (0.12 sn) | 2026-09-21 | aynı |
+| **Yakalanan bedenin ANINDA öne gelmesi** | 2026-09-21 | aynı — ağ gecikmesi altında da denenmeli (iki makine) |
+| **30°'nin yönü** ve canavarın kendi gövdesinin düz durması | 2026-09-21 | iki makine ya da host + build |
+| **Canavarın ayak sesi** (yürüme/eğilme) | 2026-09-21 | iki makine — kendi adımını zaten duyuyorsun |
 | Retro **İnce'nin varsayılan açılması**, menünün 2×2 hâli, F10 etiketi | 2026-09-19, 4. tur | Play — ama Game penceresi **"Play Maximized"** ya da oyun tam ekran olmalı (810 satırın altında pikselleme kendiliğinden kapanıyor) |
 | Tutorial: ölü botun yanındaki kapsülün gitmesi, terminal ekranının çizilmesi, Esc'nin duraklatma açması | 2026-09-17, 2. tur | Ana menü → NASIL OYNANIR |
 | Tutorial'ın baştan sona bitirilmesi (terminal → diriltme → çıkış) | 2026-09-16 | aynı |
@@ -739,7 +2387,130 @@ Fener kısma (1.95) ve 64 renk seviyesi 3. ve 4. tur oynanışında ekrandaydı;
 kullanıcı ayrıca şikâyet etmedi ama **açıkça da onaylamadı** — "sorun yok" ile
 "beğenildi" aynı şey değil.
 
-#### 3. Bekleyen ARAÇ çalıştırması YOK — üçü de çalıştırıldı (2026-09-20)
+#### 3. ARAÇLAR: üçü de çalıştırıldı ve DOĞRULANDI (2026-09-24)
+
+| Araç | Ne kurdu | Ölçülen |
+|---|---|---|
+| `Doğum Noktalarını Kur` | Rol işaretli doğum noktaları | **8 kaçan + 3 canavar**, eski rolsüz `Dogum_N` sıfır |
+| `Canavar Modelini Kur` | Domuzun yeni koşma klibi | `Canavar_1.controller` yeni klibin GUID'ini gösteriyor; klip `loopTime: 1`, humanoid, avatarı bağlı |
+| `Sesleri Yerleştir` | Domuzun kendi sesleri | `_Audio/Sopa_Savurma.mp3` + `Sopa_Isabet.mp3`; prefabta `costumeSwingClips[1]`, `costumeHitClips[1]` ve `impactClip` dolu |
+
+> ### DOĞRULAMA KOMUTU YİNE YANLIŞTI — bu oturumda ÜÇÜNCÜ kez
+>
+> Burada şu yazıyordu ve **her zaman 0 döndürüyor**:
+>
+> ```
+> grep -c "Sword And Shield Run" Assets/_Art/Models/Canavar/Canavar_1.controller
+> ```
+>
+> Sebep tanıdık: **denetleyici klibi ADIYLA değil GUID'iyle saklıyor.**
+> Komut 0 döndürdüğü için "araç çalıştırılmamış" diye okundu — oysa araç
+> 2026-09-23 22:44'te çalışmış ve yeni klibi bağlamıştı.
+>
+> Doğrusu GUID'i klibin `.meta`'sından alıp denetleyicide aramak:
+>
+> ```
+> grep -o "guid: [a-f0-9]*" "Assets/_Art/Models/domuz katil/katil domuz animasyon/domuz katil@Sword And Shield Run.fbx.meta" | head -1
+> grep -c "<o guid>" Assets/_Art/Models/Canavar/Canavar_1.controller
+> ```
+>
+> **Bu oturumun üç yanlış komutu aynı aileden:**
+>
+> | Komut | Neden yanlış |
+> |---|---|
+> | `grep -c "NetworkStartPosition" …unity` | Sahne script'i GUID'le saklıyor |
+> | `grep -A 1 "m_Name: Sopa" …prefab` | Transform ayrı YAML bloğunda |
+> | `grep -c "Sword And Shield Run" …controller` | Denetleyici klibi GUID'le saklıyor |
+>
+> Ortak ders: **Unity varlıkları birbirini ADLA değil GUID'le gösteriyor.**
+> Bir referansı doğrularken önce "bu dosya karşıyı nasıl gösteriyor" diye
+> sor — ad geçiyorsa `m_Name`, geçmiyorsa GUID.
+
+##### 3a. `Doğum Noktalarını Kur (iki harita)` — ÇALIŞTIRILDI
+
+```
+Yakalamaca > Doğum Noktalarını Kur (iki harita)
+```
+
+Sahnedeki altı nokta (`Dogum_1..6`) **rolsüz ve altısı da ana haritada**.
+Araç onları silip yerine 8 kaçan noktası (ana harita) + 3 canavar noktası
+(güney kanadı) kuruyor, her birine rolünü yazıyor.
+
+Çalıştırılmazsa oyun **bozulmuyor**: `RoundManager` eski tek-çapa yoluna
+düşüyor ve konsola bir uyarı yazıyor. İç içe doğma orada da düzeltildi
+(`FreeSpotNear`), ama kaçanlar yine aynı köşede toplanıyor ve canavar güney
+kanadında doğmuyor.
+
+Doğrulama — bu komut **11** döndürmeli:
+
+```
+grep -c "m_Name: Dogum_" Assets/_Scenes/SampleScene.unity
+```
+
+Rol dağılımı için (8 kaçan / 3 canavar):
+
+```
+grep -c "m_Name: Dogum_Kacan_" Assets/_Scenes/SampleScene.unity
+grep -c "m_Name: Dogum_Canavar_" Assets/_Scenes/SampleScene.unity
+```
+
+> **Bu noktalar `new GameObject` ile kuruluyor**, prefab örneğiyle değil —
+> yani adları gerçekten `m_Name` satırında. Menü odasındaki
+> (`value: Zemin_0_0`) tuzak burada YOK. Bir kurulum aracının çıktısını
+> doğrularken önce **`new GameObject` mi `InstantiatePrefab` mi**
+> kullandığına bak.
+
+##### 3b. `Canavar Modelini Kur` — ÇALIŞTIRILDI (2026-09-23 22:44)
+
+Domuzun **yeni koşma klibi** için. Araç klibi domuzun avatarına bağladı ve
+döngüye aldı; ölçüldü:
+
+| Alan | Değer |
+|---|---|
+| `animationType` | 3 (Humanoid) |
+| `avatarSetup` | 2 (CopyFromOther) |
+| `loopTime` | **1** |
+| `lastFrame` | 18 (19 kare ≈ 0.63 sn çevrim) |
+
+Denetleyici de yeni klibin GUID'ini gösteriyor, eskisine **sıfır** referans
+kaldı — yani taşınan `Standing Run Forward` gerçekten devre dışı.
+
+##### 3c. `Sesleri Yerleştir` — ÇALIŞTIRILDI (2026-09-24)
+
+İki dosya `Assets/` kökünden `_Audio` altına taşınıp adlandırıldı
+(`Sopa_Savurma.mp3`, `Sopa_Isabet.mp3`) ve prefaba bağlandı:
+
+```
+costumeSwingClips: [null (KUKLA), Sopa_Savurma]
+costumeHitClips:   [null (KUKLA), Sopa_Isabet]
+impactClip:        Ceset_Dusme
+impactVolume:      0.9
+```
+
+KUKLA'nın yuvaları **bilerek boş** — ortak `Bicak_*` kliplerine düşüyor.
+
+##### Önceki tur (2026-09-22) — `Canavar Modelini Kur` sopa için çalıştırıldı
+
+Burada bir süre "sopanın yeni duruşu prefaba girmedi, araç çalıştırılmalı"
+yazıyordu. **YANLIŞTI ve sebebi yanlış doğrulama komutuydu**
+(`grep -A 1 "m_Name: Sopa"` Transform'u değil `m_TagString`'i getiriyor).
+Prefab 2026-09-22 22:27'de yazılmış ve üç ayar da içinde — ölçüldü:
+
+| Ayar | Kodda | Prefabta |
+|---|---|---|
+| Sopa konumu | `-0.053, 0.1234, -0.0324` | aynı |
+| Sopa ölçeği | `0.8292655` | aynı |
+| Sopa dönüşü | `7.353, -193.051, 97.261` | `7.353, 166.949, 97.261` (aynı açı) |
+| `monsterWalkStride` | 2.4 | 2.4 |
+| `monsterWalkVolume` | 0.32 | 0.32 |
+
+Doğru komut:
+
+```
+grep -n -A 12 "m_Name: Sopa" Assets/_Prefabs/NetworkPlayer.prefab | grep -E "LocalPosition|LocalScale|LocalRotation"
+```
+
+##### Önceki tur (2026-09-20) — üç araç çalıştırıldı ve doğrulandı
 
 Kullanıcı üç aracı sırayla çalıştırdı; sahne ve prefab dosyalarından
 doğrulandı:
@@ -782,16 +2553,30 @@ doğrulandı:
 |---|---|---|
 | 1 | **Denge — canavar çok güçlü** | Beş kişilik testte bir saat boyunca hiç kaçış olmadı. Kullanıcı "oyun tam çıkana kadar muhtemelen oturmayacak" diyor: tek seferde kapanacak bir madde değil. **Kullanıcıdan sayısal ayrıntı gelmeden denge sayılarına dokunma** |
 | 2 | **Oda gizliliği (herkese açık / gizli)** | Henüz YAZILMADI. Gizli oda listede görünmemeli ama kodla katılma çalışmaya devam etmeli — `EOSLobby`'nin arama/izin mantığı okunmadan tahmin yürütme |
-| 3 | **Canavarın karşı hamlesi** + **özelliği olan ikinci canavar** | Diriltme bugün tek taraflı bir kazanç (bölüm 23). İkisi TEK çözümde birleşebilir (kalan iş 0 ve 8) |
+| 3 | **Canavarın karşı hamlesi** (diriltmeye karşı) | ~~özelliği olan ikinci canavar~~ **YAPILDI** (2026-09-21, domuz katil). Kalan: diriltme hâlâ tek taraflı bir kazanç — canavar kabini kilitleyemiyor, cesedi taşıyamıyor, işlemi kesemiyor (bölüm 23). **ÜÇÜNCÜ bir canavarın özelliği olarak tasarlanabilir**, artık altyapı hazır |
 | 4 | **Çıkış engeli havada duruyor** | Ölçüldü: iki çıkışta da `Engel` ve sahanlık duvarları yerden **1.5–4.5 m** arasında, canavarın kapsülü 1.37 m → altından geçebilir, yani "canavar çıkıştan geçemez" kuralı muhtemelen bozuk. **`Terminal ve Çıkış Kur` ÇÖZÜM DEĞİL** — çıkışları baştan kurar ve kullanıcının güney kanadına taşıdığı `Cikis_*_1`'i geri alır |
 | 5 | **Test tuşları yayınlanan build'de aktif** | `RoundManager.HandleTestKeys` `#if UNITY_EDITOR \|\| DEVELOPMENT_BUILD` ile korunmuyor; host turda [3]'e basarsa kendini eliyor |
-| 6 | **Geçici teşhis logu hâlâ duruyor** | `Player/FootstepAudio.cs:295`, `[SesTeşhis]` satırı. İzleyicinin canavar adımını duymaması netleşince **SİLİNMELİ**; kalıcı log olarak bırakılmadı |
+| 6 | ~~**Geçici teşhis logu**~~ | **KAPANDI** (2026-09-21). `[SesTeşhis]` logu silindi: "izlerken canavarın adımı bazen duyulmuyor" gizeminin sebebi bulundu — 2026-09-13'te konan "yalnızca koşarken ses" kuralı canavarı da kapsıyordu ve köşe dönüşlerinde hız eşiğin altına düşüyordu |
 | 7 | **EOS: aynı anda iki oda kurulunca ikincisi listede görünmüyor** | `RelayLobby` ve paketin `EOSLobby`'si satır satır okundu, **kod hatası bulunamadı**. Kalan iki açıklama kod dışı (arama indeksinde gecikme / "aynı cihaz = aynı kimlik"). Yeniden test tarifi "Sıradaki adımlar"da |
 | 8 | **`EosApiKey.asset` client secret** | Depo GİZLİ kaldığı sürece sorun yok. Herkese açılmadan ÖNCE Epic'ten anahtar yenilenmeli — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
 | 9 | **Unity-Chan lisansı (UCL)** | Kullanıcı kararı: bilerek EN SONA, oyun tam çıkarken |
 | 10 | Teknik borç: **kapıdan vuruş** · **çıkış engelinin adanmış sunucu farkı** | Bölüm 16'nın sonunda; host modunda oynandığı için bugün görünmüyor |
 
-#### 5. Git: HEPSİ KAYIT ALTINDA (2026-09-20)
+#### 5. Git: 2026-09-21'in İŞİ KAYIT ALTINDA DEĞİL
+
+2026-09-23'te ölçüldü: son commit **`79c79b1`** (2026-09-20), çalışma ağacında
+**40'tan fazla yol** değişmiş ya da yeni. Yani hem ikinci canavarın tamamı
+(14 C# dosyası, `MonsterBatBuilder.cs`, sopa mesh'i ve materyali,
+`Canavar_1.controller`, domuz katil klasörü) hem de 2026-09-23'ün iki hata
+düzeltmesi (`SpawnPoint.cs`, `SpawnPointSetup.cs` ve dört değişmiş dosya) —
+**yalnızca diskte.**
+
+- `git checkout -- .` ve `git reset --hard` şu an **geri alma değil, silme**
+  komutu. Çalıştırma, önerme.
+- Kayıt almak kullanıcının kararı. **İzin alınmadan commit ya da push YOK.**
+- Bir önceki push'un ayrıntısı hemen aşağıda.
+
+##### Önceki push (2026-09-20)
 
 Kullanıcı izin verdi; **93 yol commit'lenip GitHub'a push edildi**
 (`github.com/samequik/yaklamaca`, **gizli** depo). Aynı push 2026-09-08'den
@@ -830,11 +2615,74 @@ kurulum aracının sahne çıktısı.
   — metin modunda yazıldığı için AGENTS.md CRLF çıkıyor, yani HEAD'deki hâliyle
   aynı kalıyor ve diff küçük oluyor.
 - **`Assets/unity-chan!` commit'e hiç girmiyor** (216 MB, `.gitignore`).
-- **İç ad `YAKALAMACA` değişmiyor.** Yayın adı *Terminal Five*, ama kullanıcı
-  yalnızca yeni adı bildirdi; yeniden adlandırma istemedi.
+- **İç ad `YAKALAMACA` değişmiyor** — ama **ekranda görünen ad artık
+  *TERMINAL FIVE*** (2026-09-26, kullanıcı istedi). İkisi ayrı şeyler:
+  menü öğeleri (`Yakalamaca > …`), sınıf/klasör adları ve git deposu aynı
+  kalıyor; değişen yalnızca ana menüdeki başlık
+  (`MenuSetup.GameTitle`).
 - **Anlatım:** sade Türkçe, adım adım, kanıtla. Kısa "şuna bas" talimatı
   kullanıcıyı kızdırıyor; kriz anında önce verinin güvende olduğunu ÖLÇEREK
   göster.
+
+---
+
+### 2026-09-27: YOL HARİTASI — kullanıcının sıradaki dört isteği
+
+Kullanıcı 0.3'ü yayınladıktan sonra sıradaki işleri saydı. **Hiçbiri henüz
+yazılmadı**; buraya karara bağlanmadan önce bilinmesi gerekenlerle birlikte
+alındı.
+
+| # | İş | Durum |
+|---|---|---|
+| 1 | **Mini harita** — çevredeki dar pencere, bakışa göre dönen | **YAZILDI** (bu oturum), gizli duruyor |
+| 2 | **Yeni harita** | Fikir aşamasında |
+| 3 | **Domuz katile kostüm** | Fikir aşamasında |
+| 4 | **Haritada canlı konum** | Fikir — ağ tarafı DİKKAT ister, aşağı bak |
+| 5 | **Perk sistemi** — "isteyen belli yerleri görebilsin" | Fikir aşamasında |
+
+#### 3'ün özel durumu: artık "kostüm" başka bir şey
+
+2026-09-26'da karakter ekranı "kostüm" demeyi bıraktı: KUKLA ve DOMUZ KATİL
+artık **iki ayrı katil** (vuruşları farklı). Yani "domuza kostüm" demek
+bundan sonra gerçekten bir GÖRÜNÜM varyantı demek — üçüncü bir katil değil.
+
+Altyapı buna hazır: `CharacterCatalog.Monsters` bir dizi ve gövdeler
+`PlayerBodyVisual.monsterBodies` dizisinde. Ama bugün **katil = gövde =
+oynanış** birebir eşleşiyor; aynı katilin iki görünüşü istenirse o eşleşmeyi
+ayırmak gerekiyor (bir "katil" satırı + altında "görünüm" listesi). Bu, veri
+modelinde gerçek bir değişiklik — tek satırlık bir ekleme değil.
+
+#### 4 ve 5 aynı duvara çarpıyor: bilgi sızıntısı
+
+Bölüm 4'ün kuralı: **istemciye görmesi gerekmeyen bilgiyi gönderme.** Bugün
+canavarın konumu yalnızca karanlıkla ve sisle gizleniyor, veri seviyesinde
+DEĞİL — yani değiştirilmiş bir istemci muhtemelen şu an bile duvar ardındaki
+canavarı görebiliyor.
+
+Bunun sonucu doğrudan: **"canavarı haritada gören perk" bugünkü senkrona
+yaslanarak yazılamaz.** Doğrusu izlerin yolunu TERSİNE çevirmek — sunucu
+canavarın konumunu yalnızca o perke sahip kaçana özel bir `TargetRpc` ile
+göndersin.
+
+| Ne gösterilecek | Ağ maliyeti |
+|---|---|
+| Terminal / ceset / diriltme kabini | **Sıfır** — sabit sahne objeleri, senkrona bile gerek yok |
+| Diğer kaçanların konumu | **Sıfır** — `NetworkTransform` ile zaten herkeste |
+| **Canavarın konumu** | **Gerçek sunucu işi** — özel mesaj gerekiyor |
+
+2026-09-14'te tartışılan "kaçan rolleri + çok bilgili mini harita" fikri ve
+kullanıcının "karşılıklı görünürlük" önerisi (canavarı gören kaçan canavar
+tarafından da görülüyor) bu dosyada zaten duruyor — perk sistemi
+tasarlanırken oradan başlanmalı, sıfırdan değil.
+
+#### Kayıt sırası (kullanıcı kararı, 2026-09-27)
+
+1. Mini harita **gizlendi** (tek satır, geri alması kolay)
+2. **Commit** alınıyor — bir haftalık iş nihayet kayıt altına giriyor
+3. **GitHub'a push** kullanıcı tarafından yapılıyor
+
+Gerekçe kullanıcının kendi cümlesi: mini harita yeni bir özellik, kayıt
+alınmadan önce **başka yerleri bozmasın.**
 
 ---
 
@@ -1069,9 +2917,60 @@ karşı yeni bir aracı. Ölçülmedi.
 
 ### Mini harita: SADE sürüm YAPILDI (2026-09-14) — çok rollü fikir hâlâ not
 
-> **2026-09-16: GİZLENDİ.** Kullanıcı istediği gibi bulmadı; `MiniMapView.Awake`
-> paneli kapatıyor. Aşağıdakilerin hepsi hâlâ geçerli, geri açmak o tek satırı
-> silmek.
+> ### 2026-09-27: YENİDEN YAZILDI — ama HÂLÂ GİZLİ
+>
+> Kullanıcı 2026-09-16'da "karışık" deyip kapattırmıştı (`MiniMapView.Awake`
+> paneli kapatıyordu). **Ölçüldü ve haklıydı:**
+>
+> | | Eski | Yeni |
+> |---|---|---|
+> | Panel | 150 px | **210 px** |
+> | Gösterilen alan | **~54 × 96 m — haritanın TAMAMI** | **26 m'lik pencere** (≈8 hücre) |
+> | 3.2 m'lik koridor hücresi | **4 piksel** | **~24 piksel** |
+> | Yön | sabit (Pac-Man) | **bakışa göre DÖNÜYOR** |
+> | İşaret | nokta | **ok** (prosedürel sprite) |
+>
+> Yani sorun tasarım tercihinde değil ÖLÇEKTEYDİ: bir koridoru dört piksele
+> sıkıştırmak okunacak bir şey bırakmıyor.
+>
+> **Nasıl döndürülüyor: tek bir kap.** Duvar kareleri `mapRoot`'un altında
+> SABİT duruyor (araç bir kez yerleştiriyor). Her kare yalnızca kabın kendisi
+> döndürülüp kaydırılıyor:
+>
+> * `localRotation` = oyuncunun yaw'ı → baktığı yön yukarı geliyor
+> * `anchoredPosition` = döndürülmüş konumunun negatifi → kendisi tam ortada
+>
+> Sıra ÖNEMLİ: kaydırmanın da döndürülmüş olması gerekiyor, yoksa harita
+> oyuncunun etrafında yay çiziyor. Elle sınandı — yaw 0 ve yaw 90 için
+> ileri yöndeki bir duvar iki durumda da pencerenin tam üstüne düşüyor.
+>
+> **Kendi Canvas'ı var, bilerek.** Bir `RectTransform`'u oynatmak bulunduğu
+> Canvas'ın TAMAMINI yeniden gruplatıyor; bu canvas menünün ve HUD'ın hepsini
+> taşıyor. İç içe bir `Canvas` mini haritayı ayırıyor, yani her kare yeniden
+> gruplanan şey yalnızca duvar kareleri oluyor.
+>
+> **Ok prosedürel üretiliyor** (`MenuSetup.GetOrCreateArrowSprite` →
+> `Assets/_Art/UI/MiniHarita_Ok.png`). TMP'nin üçgen karakterine güvenmek
+> riskliydi: varsayılan atlas yalnızca temel Latin kapsıyor ve eksik karakter
+> boş kutuya dönüyor (bölüm 20'nin kendi dersi). Sopa mesh'i ve materyaliyle
+> aynı alışkanlık.
+>
+> **Ayarlamak iki sayı** (`MenuSetup`): `MinimapSize` (210) ve
+> `MinimapMetersAcross` (26 — pencerenin kaç metre gösterdiği). İkisi de
+> sahneye araçla yazılıyor, yani değiştirince `Menü Kur` gerekiyor.
+>
+> **HÂLÂ GİZLİ, bilerek (kullanıcı kararı).** `MiniMapView.Awake` paneli
+> yine kapatıyor: mini harita yeni bir özellik ve kayıt alınana kadar
+> çalışan hiçbir şeyi etkilememesi isteniyor. **Açmak o tek satırı silmek**
+> — başka hiçbir şey gerekmiyor.
+>
+> Yani yeni tasarım henüz OYNANARAK GÖRÜLMEDİ: kod ve kurulum hazır, panel
+> kapalı.
+>
+> **`Menü Kur` GEREKİYOR** — panel sahneye araçla kuruluyor.
+>
+> Aşağıdaki "sade sürüm" notları hâlâ geçerli: yalnızca KENDİ konumun
+> gösteriliyor, ek ağ verisi yok.
 
 Kullanıcı önce elaborate bir fikir istedi (aşağıda, "Fikir" başlığı altında
 duruyor — HENÜZ YAPILMADI), sonra en sade hâlini istedi ve **o yazıldı**:
@@ -1223,7 +3122,7 @@ istasyonu turkuaz (bölüm 23), takım arkadaşı nötr bir renk.
 | 5 | **`EosApiKey.asset` client secret** | Depo **GİZLİ** olduğu sürece sorun yok. Herkese açık yapmadan önce Epic'ten **anahtar yenilenmeli** — dosyayı silmek yetmiyor, anahtar git geçmişinde (bölüm 24) |
 | 6 | ~~**Menü ve ayarlar arayüzü**~~ | **YAPILDI** (2026-09-12, bölüm 13). Görsel dil dokuz ekranda, korku efekti kaydırıcısı seçeneklerde. **Sahneye girmesi için `Menü Kur` çalıştırılmalı** |
 | 7 | ~~**Korku ekran efektleri**~~ | **YAPILDI** (2026-09-10, bölüm 25). Vinyet, gren, renk ayrışması, renk kaybı; canavar yaklaştıkça artıyor. Paket eklenmedi. Ayarlardaki kaydırıcı da geldi (2026-09-12) |
-| 8 | **Kostüm sistemi ÇALIŞIYOR, ikinci canavar kaldı** | **YAPILDI** (2026-09-12, bölüm 13): katalog, çoklu gövde, lobiden seçim, canlı önizleme, kostüme göre ceset. İki kaçan kostümü var (muz adam, Unity-chan); üçüncüsü bir satır ve üç araç çalıştırmak. **Kalan: özelliği olan ikinci canavar** — kostüm DEĞİL, oynanış: `MovementProfile` zaten canavarı ayrı tutuyor (bölüm 1). **Madde 0'daki açık soruyla birleştirilebilir:** diriltmeyi kesen hamle o canavarın özelliği olursa iki iş tek çözümle kapanır |
+| 8 | ~~**Kostüm sistemi ve ikinci canavar**~~ | **İKİSİ DE YAPILDI.** Kostüm sistemi 2026-09-12 (bölüm 13), **ikinci canavar 2026-09-21**: domuz katil kendi kliplerini, kendi sopasını ve kendi öldürme mekaniğini taşıyor — yani bir kostüm DEĞİL, gerçekten ayrı bir oynanış. Canavar tarafı artık çoklu kostüm, üçüncüsü bir katalog satırı + bir araç çalıştırmak. **Kalan tek şey madde 0'ın sorusu:** diriltmeyi kesen bir karşı hamle |
 | 9 | ~~**Menü arka planı**~~ | **YAPILDI** (2026-09-12, bölüm 13). Kaçan ve canavar menünün arkasında duruyor; ayrı bir kamera hedef dokuya çiziyor. Yeni modeller gelince aynı sahneye eklenecek |
 | 10 | **Unity-Chan Lisansı (UCL) kontrolü** | **Kullanıcı kararı (2026-09-14): bilerek EN SONA bırakıldı** — oyun TAM çıkarılırken yapılacak, şimdi değil. Karakter oyunda canavar tarafından yakalanıp öldürülüyor; UCL'nin şiddet/imaj kısıtlarına uyup uymadığı ve kredilerde isim/logo zorunluluğu kontrol edilmeli. Sorun çıkarsa çözüm kostümü menüden gizlemek — kod ve gövde dizisi zaten dizi tabanlı, tek kostümü kaldırmak `CharacterCatalog.Runners`'dan bir satır silmek kadar basit |
 
@@ -2131,7 +4030,8 @@ yazma alışkanlığı, haritayı istediğin zaman sıfırdan üretebilmeni sağ
 | Atmosfer Kur | Tavan, lambalar, sis, ortam ışığı |
 | Haritayı Giydir (SciFi Kit) | Küplerin üstünü kit modelleriyle kaplar |
 | Harita Süsle (prop dağıt) | Duvar diplerine varil/kasa dağıtır — `Hedef` alanı boşsa ana Harita'yı süsler/siler, doldurulursa (ör. yeni kanat) yalnızca o objeyi (bkz. aşağı) |
-| Ağ Kurulumu (1. adım) | Oyuncu prefabı + NetworkManager + doğum noktaları |
+| Ağ Kurulumu (1. adım) | Oyuncu prefabı + NetworkManager + doğum noktaları (noktaları artık aşağıdaki araca devrediyor) |
+| **Doğum Noktalarını Kur (iki harita)** | Kaçan noktalarını ana haritaya, canavar noktalarını güney kanadına dağıtır (bkz. 2026-09-23) |
 | EOS Kurulumu (relay) | EOS transport'unu ve lobi servisini kurar, lobiye bağlar; hiçbir şey silmiyor |
 | Menü Kur | Menü, lobi, ayarlar, tuş atamaları, karakter seçimi ve menü arkasındaki sahne (bkz. bölüm 13) |
 | Terminal ve Çıkış Kur | 5 terminali duvarlara, 2 çıkışı en uzak iki gediğe kurar |

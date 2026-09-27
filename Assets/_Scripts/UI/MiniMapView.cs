@@ -2,80 +2,136 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Sol üstteki mini haritanın çalışma anı parçası: kendi konumunu haritaya
-/// göre bir noktaya çevirip rolüne göre renklendiriyor.
+/// Sol üstteki mini harita: çevrendeki dar bir pencereyi gösteriyor ve
+/// **baktığın yöne göre dönüyor** — yukarısı her zaman ilerisi.
 ///
-/// **Sabit yönlü — Pac-Man tarzı.** İzlenen bakışa göre DÖNMÜYOR, harita hep
-/// aynı yöne bakıyor.
+/// ### Neden yeniden yazıldı (2026-09-27)
 ///
-/// **Yalnızca KENDİ konumun gösteriliyor, bilerek.** 2026-09-14'te
-/// tartışılan "kaçan rolleri + çok bilgili mini harita" fikrinin (CLAUDE.md)
-/// en sade hâli: terminal, takım arkadaşı, ceset ya da canavarın yeri YOK.
-/// O yüzden o fikirdeki denge/sızıntı sorularının hiçbiri burada geçerli
-/// değil — zaten bildiğin kendi konumunu görmek kimseye bir avantaj
-/// vermiyor, hiçbir yeni ağ verisi de gerektirmiyor (konum zaten
-/// `NetworkTransform` ile senkron, bölüm 4).
+/// İlk sürüm TÜM haritayı 150 pikselin içine sığdırıyordu ve kullanıcı
+/// "karışık" bulup kapattırmıştı (2026-09-16). Ölçüldü ve haklıydı: harita
+/// ~54 × 96 m, yani 3.2 m'lik bir koridor hücresi ekranda **4 piksel**
+/// kalıyordu — okunacak bir şey yok. Üstelik sabit yönlüydü (Pac-Man tarzı),
+/// yani koridorda hangi yöne baktığını haritadan çıkaramıyordun.
 ///
-/// Duvar konumları ve harita sınırları (`worldMin`/`worldMax`) çalışma
-/// anında değil, **kurulumda** (`Yakalamaca > Menü Kur` →
-/// `MenuSetup.BuildMinimap`) sahneden ÖLÇÜLÜP yazılıyor — elle
-/// değiştirilmemeli. Harita büyürse (yeni bir kanat gelirse) `Menü Kur`
-/// yeniden çalıştırılınca sınırlar kendiliğinden güncellenir.
+/// Şimdi iki şey birden değişti: pencere DAR (çevrendeki birkaç koridor) ve
+/// harita seninle DÖNÜYOR.
+///
+/// ### Nasıl çalışıyor: tek bir kap döndürülüyor
+///
+/// Duvar kareleri `mapRoot`'un altında SABİT duruyor — `Menü Kur` onları bir
+/// kez yerleştiriyor ve çalışma anında hiçbiri kıpırdamıyor. Her kare
+/// yalnızca kabın kendisi döndürülüp kaydırılıyor:
+///
+/// * `localRotation` = oyuncunun yaw'ı → baktığın yön yukarı geliyor
+/// * `anchoredPosition` = döndürülmüş konumunun NEGATİFİ → kendin tam ortada
+///
+/// 242 kareyi tek tek hesaplamak yerine ebeveyni oynatmak, aynı sonucu bir
+/// transform yazısıyla veriyor.
+///
+/// ### Ek ağ verisi YOK
+///
+/// Yalnızca KENDİ konumun gösteriliyor — terminal, takım arkadaşı, ceset ya
+/// da canavarın yeri yok. 2026-09-14'te tartışılan "çok bilgili mini harita"
+/// fikrinin denge ve sızıntı soruları (bölüm 4'ün "istemciye görmesi
+/// gerekmeyen bilgiyi gönderme" kuralı) burada hiç doğmuyor: zaten bildiğin
+/// kendi konumunu çiziyoruz.
+///
+/// ### Ölçüler kurulumda yazılıyor
+///
+/// `worldOrigin` ve `pixelsPerMeter` `Menü Kur` (`MenuSetup.BuildMinimap`)
+/// tarafından sahneden ÖLÇÜLÜP yazılıyor; elle değiştirilmemeli. Harita
+/// büyürse aracı yeniden çalıştırmak yetiyor.
 /// </summary>
 public class MiniMapView : MonoBehaviour
 {
-    [SerializeField] private Vector2 worldMin;
-    [SerializeField] private Vector2 worldMax;
-    [SerializeField] private RectTransform drawArea;
-    [SerializeField] private RectTransform selfDot;
-    [SerializeField] private Image selfDotImage;
+    [Tooltip("Duvar karelerini taşıyan kap. Her karede döndürülüp kaydırılan " +
+        "TEK obje bu.")]
+    [SerializeField] private RectTransform mapRoot;
 
-    [SerializeField] private Color runnerColor = new Color(0.30f, 0.85f, 0.40f, 1f);
-    [SerializeField] private Color monsterColor = new Color(0.88f, 0.28f, 0.22f, 1f);
+    [Tooltip("Pencerenin ortasında duran ok. Harita döndüğü için okun kendisi " +
+        "hiç dönmüyor — yukarısı zaten ilerisi.")]
+    [SerializeField] private RectTransform selfMarker;
+
+    [SerializeField] private Image selfMarkerImage;
+
+    [Tooltip("Harita uzayının dünya başlangıcı (X, Z). Kurulum yazıyor.")]
+    [SerializeField] private Vector2 worldOrigin;
+
+    [Tooltip("Bir dünya metresinin kaç piksel olduğu. Kurulum yazıyor; " +
+        "pencerenin kaç metre gösterdiğini bu belirliyor.")]
+    [SerializeField] private float pixelsPerMeter = 7.4f;
+
+    [SerializeField] private Color runnerColor = new Color(0.34f, 0.88f, 0.46f, 1f);
+    [SerializeField] private Color monsterColor = new Color(0.92f, 0.30f, 0.24f, 1f);
 
     /// <summary>
-    /// Demo geri bildiriminden sonra GEÇİCİ olarak kapatıldı (2026-09-16):
-    /// istenen görünüme henüz oturmadı ve karışık duruyor. `MiniMapView` bu
-    /// panelin KENDİSİNE ekli (bkz. `MenuSetup.BuildMinimap` — panel arka
-    /// planı, çerçeve, duvar noktaları ve kendi noktan hepsi bu objenin
-    /// altında), yani objeyi burada kapatmak hepsini birden gizliyor. Sahneyi
-    /// yeniden kurmaya gerek yok; tasarım oturunca bu satır kaldırılacak.
+    /// Dünya konumunu (X, Z) harita uzayına çevirir.
+    ///
+    /// `MenuSetup.BuildMinimap` duvarları yerleştirirken de AYNI metodu
+    /// çağırıyor — iki yerde ayrı ayrı yazılan bir dönüşüm, biri değişince
+    /// öbürünün sessizce kayması demek olurdu.
+    /// </summary>
+    public static Vector2 WorldToMapPoint(Vector3 worldPosition, Vector2 worldOrigin,
+        float pixelsPerMeter)
+    {
+        return new Vector2(
+            (worldPosition.x - worldOrigin.x) * pixelsPerMeter,
+            (worldPosition.z - worldOrigin.y) * pixelsPerMeter);
+    }
+
+    /// <summary>
+    /// **GEÇİCİ OLARAK KAPALI (2026-09-27, kullanıcı kararı).** Mini harita
+    /// yeni bir özellik; kayıt alınana kadar çalışan hiçbir şeyi
+    /// etkilememesi için panel kapatılıyor.
+    ///
+    /// `MiniMapView` panelin KENDİSİNE ekli (gövde, çerçeve, pencere, duvar
+    /// kareleri ve ok hepsi bu objenin altında), yani objeyi burada kapatmak
+    /// hepsini birden gizliyor. Sahneyi yeniden kurmaya gerek yok.
+    ///
+    /// **Açmak için bu satırı sil** — başka hiçbir şey gerekmiyor.
+    ///
+    /// Bölüm 20'nin "kendi objesini kapatan bileşen kendini bir daha
+    /// açamaz" dersine takılmıyor: burada istenen tam olarak kalıcı kapanma.
     /// </summary>
     private void Awake() => gameObject.SetActive(false);
 
     /// <summary>
-    /// Dünya konumunu (X, Z) çizim alanı içinde YEREL bir noktaya çevirir.
-    /// `MenuSetup.BuildMinimap` duvar noktalarını çizerken de AYNI formülü
-    /// kullanıyor — iki yerde aynı matematiği ayrı ayrı yazmamak için tek,
-    /// paylaşılan bir metot.
+    /// `LateUpdate`, çünkü oyuncunun dönüşünü `PlayerController` `Update`'te
+    /// yazıyor: bir kare bayat bir açıyla çizmemek için sonra okunuyor.
     /// </summary>
-    public static Vector2 WorldToMapPoint(Vector3 worldPosition, Vector2 worldMin, Vector2 worldMax,
-        Vector2 areaSize)
-    {
-        Vector2 span = worldMax - worldMin;
-        float normX = span.x > 0.01f ? Mathf.InverseLerp(worldMin.x, worldMax.x, worldPosition.x) : 0.5f;
-        float normZ = span.y > 0.01f ? Mathf.InverseLerp(worldMin.y, worldMax.y, worldPosition.z) : 0.5f;
-
-        return new Vector2((normX - 0.5f) * areaSize.x, (normZ - 0.5f) * areaSize.y);
-    }
-
     private void LateUpdate()
     {
-        if (drawArea == null || selfDot == null)
+        if (mapRoot == null)
             return;
 
         RoundParticipant local = RoundParticipant.Local;
-        if (local == null)
-        {
-            selfDot.gameObject.SetActive(false);
+        bool hasLocal = local != null;
+
+        if (selfMarker != null)
+            selfMarker.gameObject.SetActive(hasLocal);
+
+        // Oyuncu yokken (lobi açılırken, tur arası) haritayı olduğu yerde
+        // bırakıyoruz: son kareyi donmuş göstermek, bir anda başka bir yere
+        // sıçramasından iyi.
+        if (!hasLocal)
             return;
-        }
 
-        selfDot.gameObject.SetActive(true);
-        selfDot.anchoredPosition = WorldToMapPoint(
-            local.transform.position, worldMin, worldMax, drawArea.rect.size);
+        Vector2 point = WorldToMapPoint(local.transform.position, worldOrigin, pixelsPerMeter);
 
-        if (selfDotImage != null)
-            selfDotImage.color = local.Role == RoundRole.Monster ? monsterColor : runnerColor;
+        // Yaw'ı OLDUĞU GİBİ yazmak doğru yönü veriyor. Unity'de ileri yön
+        // (sin ψ, cos ψ), yani harita uzayında +X'ten (90° − ψ) açıda; onu
+        // yukarıya (90°) taşımak için tam ψ kadar döndürmek gerekiyor.
+        Quaternion spin = Quaternion.Euler(0f, 0f, local.transform.eulerAngles.y);
+
+        mapRoot.localRotation = spin;
+
+        // Kendi konumunu pencerenin ortasına getiren kaydırma. Dönüş kabın
+        // KENDİ pivotu etrafında olduğu için kaydırmanın da döndürülmüş
+        // olması gerekiyor — sırayı ters çevirmek haritayı yay çizdirirdi.
+        Vector3 centred = spin * new Vector3(-point.x, -point.y, 0f);
+        mapRoot.anchoredPosition = new Vector2(centred.x, centred.y);
+
+        if (selfMarkerImage != null)
+            selfMarkerImage.color = local.Role == RoundRole.Monster ? monsterColor : runnerColor;
     }
 }

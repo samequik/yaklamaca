@@ -123,6 +123,57 @@ public class RoundParticipant : NetworkBehaviour
     /// <summary>Ceset bu kostümü kopyalıyor: öldüğün kostümde yatmalısın.</summary>
     public int RunnerCostume => runnerCostume;
 
+    public int MonsterCostume => monsterCostume;
+
+    /// <summary>
+    /// Seçili kostümün göz hizası paylarını hareket koduna iletir.
+    ///
+    /// Yalnızca CANAVAR kostümlerinin payı var: kaçan gövdeleri zaten hull
+    /// boyuna normalleniyor (`RunnerSetup.ResolveScale`, bölüm 13), yani
+    /// kamera kendiliğinden kafa hizasına düşüyor. Canavarda o normalleme
+    /// üstüne 1.30 çarpanı biniyor ve model başına telafi gerekiyor.
+    /// </summary>
+    private void RefreshEyeOffsets()
+    {
+        if (playerController == null)
+            return;
+
+        if (role != RoundRole.Monster)
+        {
+            playerController.SetCostumeEyeOffsets(0f, 0f);
+            return;
+        }
+
+        CharacterCatalog.Costume costume = CharacterCatalog.Monster(monsterCostume);
+        playerController.SetCostumeEyeOffsets(
+            costume.EyeHeightOffset, costume.DuckedEyeHeightOffset);
+    }
+
+    /// <summary>
+    /// Bu kaçanı öldüren canavar, kurbanı FIRLATAN cinsten mi?
+    ///
+    /// Öldüren `killerNetId` ile zaten taşınıyor (bölüm 17), kostümü de onun
+    /// kendi SyncVar'ında — yani her istemci aynı cevabı kendi hesaplıyor,
+    /// ek bir mesaj gerekmiyor (bölüm 4).
+    ///
+    /// Öldüren bilinmiyorsa (test tuşuyla eleme) false: normal ölüm akışı.
+    /// </summary>
+    private bool KillerLaunchesVictim()
+    {
+        if (killerNetId == 0)
+            return false;
+
+        Transform killer = ResolveKiller();
+
+        if (killer == null)
+            return false;
+
+        RoundParticipant participant = killer.GetComponent<RoundParticipant>();
+
+        return participant != null
+            && CharacterCatalog.Monster(participant.MonsterCostume).LaunchesVictim;
+    }
+
     /// <summary>Test botu mu — rol dağıtımı buna bakıyor.</summary>
     public bool IsBot => isBot;
 
@@ -134,6 +185,13 @@ public class RoundParticipant : NetworkBehaviour
 
     /// <summary>Tur ortasında katıldığı için bu turda sahada değil.</summary>
     public bool IsSpectating => spectating;
+
+    /// <summary>
+    /// Daha ölüm kamerasında mı? Doluyken izleyici moduna geçilmiyor.
+    /// Diriltilince (`ApplyAlive(true)`) sıfırlanıyor — dirilen biri bir
+    /// önceki ölümünün sayacıyla kilitli kalmamalı.
+    /// </summary>
+    public bool InDeathView => Time.time < deathViewUntil;
 
     /// <summary>Lobide hazır mı. Bot her zaman hazır sayılıyor.</summary>
     public bool IsReady => isBot || isReady;
@@ -183,7 +241,175 @@ public class RoundParticipant : NetworkBehaviour
         "yani ikisi iç içe geçmeli. Ayrılırlarsa buradan ince ayar yapılır.")]
     [SerializeField] private float deathForwardOffset;
 
+    [Tooltip("FIRLATAN canavarlar için (Costume.LaunchesVictim): beden kaç " +
+        "saniye canavarın ÖNÜNDE durup sonra cesede dönüşüp uçuyor.\n\n" +
+        "İlk sürüm 0.12 sn'ydi ve gözle görülmüyordu: kurban canavarın önüne " +
+        "oturuyor ama aynı karede uçup gidiyordu. Bu pencere 'sopayı orada " +
+        "yiyor' anını okunur kılıyor — çok uzatmak ise ölümü ağırlaştırır.")]
+    [SerializeField] private float launchDeathHold = 0.25f;
+
+    [Tooltip("FIRLATAN canavarlar için: kurbanın canavarın kaç metre ÖNÜNE " +
+        "oturtulacağı. Normal yakalamada 0 (iki karakter iç içe geçiyor), " +
+        "burada sopa mesafesi kadar önde durması gerekiyor.")]
+    [SerializeField] private float launchForwardOffset = 1.1f;
+
+    [Tooltip("FIRLATAN canavarlar için: ceset doğduktan sonra CANLI beden kaç " +
+        "saniye daha sahnede kalıyor.\n\nSıfır olamaz — ceset spawn mesajının " +
+        "istemcilere ulaşması için küçük bir örtüşme gerekiyor, yoksa ortada " +
+        "hiçbir beden olmayan bir boşluk oluşuyor. Ama uzun da olmamalı: " +
+        "normal ölümdeki 0.5 sn burada iki bedeni yan yana gösteriyordu " +
+        "(ceset çoktan uçmuşken canlı beden hâlâ duruyor).")]
+    [SerializeField] private float launchBodyLinger = 0.12f;
+
+    [Tooltip("Öldükten sonra kaç saniye KENDİ kameranda kalıyorsun. Sıfırdan " +
+        "büyükse izleyici moduna geçiş o kadar gecikiyor — nasıl öldüğünü " +
+        "görebilesin diye. Sıfır yapmak eski davranışa döndürür (anında geçiş).")]
+    [SerializeField] private float deathViewDuration = 1.6f;
+
+    /// <summary>
+    /// Ölüm anından itibaren `deathViewDuration` saniye boyunca dolu.
+    /// `SpectatorController` buna bakıp kamerayı koparmayı erteliyor.
+    ///
+    /// Ağdan GELMİYOR, gelmesi de gerekmiyor: `alive` zaten SyncVar ve hook'u
+    /// her istemcide çalışıyor, yani herkes kendi sayacını kendi başlatıyor
+    /// (bölüm 4'ün "aynı bilgiyi ikinci kez gönderme" kuralı). Zaten yalnızca
+    /// ÖLENİN kendi istemcisinde okunuyor.
+    /// </summary>
+    private float deathViewUntil;
+
     private bool dying;
+
+    /// <summary>Bu ölüm FIRLATAN bir canavardan mı geldi (bkz. KillerLaunchesVictim).</summary>
+    private bool launching;
+
+    // Yakalayan canavar ve mesafesi. Poz her karede bunlardan yeniden
+    // yazılıyor (bkz. HoldGrabPose); null olunca bırakılıyor.
+    private Transform grabKiller;
+    private float grabDistance;
+
+    /// <summary>
+    /// Sunucu cesedi doğururken okuyor: doğruysa gövde fırlatılacak.
+    /// `launching` her istemcide aynı hesaplanıyor, yani sunucununki de doğru.
+    /// </summary>
+    public bool DeathLaunches => launching;
+
+    /// <summary>
+    /// Kurbanı canavarın önünde **kilitler**: yakalandığı andan sopa inene
+    /// kadar hareket edemiyor.
+    ///
+    /// Hareket istemci otoriteli (bölüm 4), yani sunucudan konum yazmak
+    /// sahibinin bir sonraki güncellemesinde eziliyor — kilidin de SAHİBİNDE
+    /// kurulması gerekiyor. `ServerPlaceAt`'in `TargetRpc` kullanmasıyla aynı
+    /// gerekçe.
+    ///
+    /// Terminalin ve canavarın saldırısının kullandığı odak mekanizmasının
+    /// aynısı (`BeginFocus`): girdi kesiliyor, bakış çiviliyor, hareket
+    /// kodunun sürtünme/ivme akışına hiç dokunulmuyor.
+    /// </summary>
+    /// <summary>
+    /// Yakalanan kurbanın GÖVDESİNİ canavarın önüne oturtur — gerçek
+    /// ışınlamayı beklemeden.
+    ///
+    /// ### Neden ayrıca gerekiyor
+    ///
+    /// `ServerPlaceAt` doğru çalışıyor ama İKİ ağ turu sürüyor: sunucu
+    /// kurbana `TargetRpc` yolluyor, kurban ışınlanıyor, sonra onun
+    /// `NetworkTransform`'u yeni konumu herkese taşıyor. Canavar kurbanı
+    /// ancak ikinci turdan sonra önünde görüyor — koşarken yakalanan biri
+    /// "bedenim uzakta kaldı" diye görünüyordu.
+    ///
+    /// Gövde kökü ağda HİÇ YOK (bölüm 17): her istemci canavarın zaten
+    /// bildiği konumundan aynı sonucu kendi hesaplıyor, yani bu tek turda
+    /// oluyor ve ek trafik tek bir netId.
+    ///
+    /// Gerçek ışınlama yine yapılıyor — kamera ve çarpışma ona bağlı. Bu
+    /// yalnızca GÖRÜNTÜYÜ öne alıyor.
+    /// </summary>
+    public void ClientApplyGrabPose(Transform killer, float distance)
+    {
+        if (bodyVisual == null || killer == null)
+            return;
+
+        launching = true;
+
+        // HATIRLANIYOR, çünkü tek sefer yazmak YETMİYOR — bkz. HoldGrabPose.
+        grabKiller = killer;
+        grabDistance = distance;
+
+        HoldGrabPose();
+    }
+
+    /// <summary>
+    /// Yakalama pozunu HER KAREDE yeniden yazıyor.
+    ///
+    /// ### Neden tek sefer yetmiyor
+    ///
+    /// `ApplyDeathPose` gövdenin **dünya** konumunu yazıyor, ama gövde oyuncu
+    /// kökünün ÇOCUĞU: dünya konumu yazılınca Unity içeride bir yerel
+    /// kaydırma hesaplıyor. Kök o an hâlâ kurbanın koştuğu yerde duruyor,
+    /// yani kaydırma kocaman oluyor.
+    ///
+    /// Sonra gerçek ışınlama (`ServerPlaceAt`, iki ağ turu) KÖKÜ canavarın
+    /// önüne taşıyor — ve gövde o kaydırmayı **ikinci kez** uyguluyor,
+    /// böylece hedefin iki katı kadar öteye fırlıyor.
+    ///
+    /// Beden ancak ölüm anında (`hitWindup` sonrası) poz yeniden yazılınca
+    /// yerine oturuyordu; oynanışta "yakalandı bilgisi geliyor ama beden bir
+    /// saniye geç geliyor" diye görülen şey buydu.
+    ///
+    /// Her karede yazmak kökün nerede olduğunu tamamen önemsiz kılıyor:
+    /// gövde canavarın önüne ÇİVİLENİYOR ve ışınlama gelene kadar orada
+    /// kalıyor.
+    ///
+    /// Tekrar çağırmak güvenli: `ApplyDeathPose` ilk iş olarak
+    /// `ClearDeathPose` ile özgün yerel duruşu geri koyuyor, yani her karede
+    /// aynı özgün değeri yeniden yakalıyor — birikme yok.
+    /// </summary>
+    private void HoldGrabPose()
+    {
+        if (grabKiller == null || bodyVisual == null)
+            return;
+
+        bodyVisual.ApplyDeathPose(grabKiller, grabDistance, matchScale: false);
+    }
+
+    private void LateUpdate()
+    {
+        HoldGrabPose();
+    }
+
+    /// <summary>Yakalama düştü (canavar öldü, tur bitti): gövde yerine dönüyor.</summary>
+    public void ClientClearGrabPose()
+    {
+        grabKiller = null;
+
+        if (bodyVisual != null && alive)
+            bodyVisual.ClearDeathPose();
+    }
+
+    [TargetRpc]
+    public void TargetGrabbed(float duration)
+    {
+        if (playerController == null)
+            return;
+
+        playerController.BeginFocus(0f, 0f, stopMomentum: true);
+
+        // Güvenlik ağı: canavar yakalama ile ölüm arasında elenirse ya da tur
+        // biterse kurban sonsuza kadar kilitli kalmamalı. Ölüm normal yoldan
+        // gelirse zaten kontrolcü kapanıyor ve bu sayaç önemsizleşiyor.
+        CancelInvoke(nameof(ReleaseGrab));
+        Invoke(nameof(ReleaseGrab), duration + 0.5f);
+    }
+
+    private void ReleaseGrab()
+    {
+        if (playerController != null && alive)
+            playerController.EndFocus();
+    }
+
+    /// <summary>Öldüren canavarın transform'u; bilinmiyorsa null.</summary>
+    public Transform KillerTransform => killerNetId == 0 ? null : ResolveKiller();
     private Coroutine deathRoutine;
 
     private PlayerController playerController;
@@ -369,6 +595,8 @@ public class RoundParticipant : NetworkBehaviour
 
     private void ApplyCostume()
     {
+        RefreshEyeOffsets();
+
         if (bodyVisual != null)
             bodyVisual.SetCostume(runnerCostume, monsterCostume);
     }
@@ -637,6 +865,10 @@ public class RoundParticipant : NetworkBehaviour
 
         MovementProfile profile = newRole == RoundRole.Monster ? monsterProfile : runnerProfile;
         playerController.ApplyMovementProfile(profile);
+
+        // Profil payı ROLE, kostüm payı MODELE bağlı — ikincisi profilden
+        // sonra yazılmalı, yoksa rol değişimi onu sıfırlanmış bırakırdı.
+        RefreshEyeOffsets();
     }
 
     private void ApplyAlive(bool value)
@@ -649,9 +881,14 @@ public class RoundParticipant : NetworkBehaviour
         wasAlive = value;
 
         if (justDied)
+        {
+            deathViewUntil = Time.time + deathViewDuration;
             BeginDeathHold();
+        }
         else if (value)
         {
+            deathViewUntil = 0f;
+            grabKiller = null;
             CancelDeathHold();
             if (bodyVisual != null) bodyVisual.SetFirstPerson(isLocalPlayer);
         }
@@ -679,8 +916,16 @@ public class RoundParticipant : NetworkBehaviour
     /// </summary>
     private void BeginDeathHold()
     {
-        if (role != RoundRole.Runner || escaped
-            || runnerAnimator == null || deathHoldDuration <= 0f)
+        if (role != RoundRole.Runner || escaped)
+            return;
+
+        launching = KillerLaunchesVictim();
+
+        // Normal yol animatöre bağlı: ölüm klibi oynamayacaksa tutmanın da
+        // anlamı yok. Fırlatan canavarda klip HİÇ oynamıyor (kullanıcı:
+        // "kaçan normal idle animasyonuyla duracak"), o yüzden animatör
+        // şartı yalnızca normal yola uygulanıyor.
+        if (!launching && (runnerAnimator == null || deathHoldDuration <= 0f))
             return;
 
         CancelDeathHold();
@@ -698,7 +943,14 @@ public class RoundParticipant : NetworkBehaviour
             bodyVisual.SetFirstPerson(false);
 
         RefreshBodyState();
-        runnerAnimator.PlayDeath();
+
+        // Fırlatan canavarda ölüm klibi OYNAMIYOR: kurban o an hangi pozdaysa
+        // (koşuyor, duruyor) onunla ragdoll'a geçiyor. Kullanıcının istediği
+        // bu — hazırlıklı bir koreografi değil, ani bir darbe. Ragdoll zaten
+        // o anki pozu kopyalıyor, yani koşarken vurulan havada koşar gibi
+        // uçuyor.
+        if (!launching)
+            runnerAnimator.PlayDeath();
 
         // Canavar bir kare sonra çözülebiliyorsa bir kez daha deniyoruz: nesne
         // henüz spawn sırasındaysa ilk denemede bulunamayabilir.
@@ -708,7 +960,7 @@ public class RoundParticipant : NetworkBehaviour
             TryApplyDeathPose();
         }
 
-        yield return new WaitForSeconds(deathHoldDuration);
+        yield return new WaitForSeconds(launching ? launchDeathHold : deathHoldDuration);
 
         // Gövde kalıcı bir cesede dönüşüyor — TAM BURADA, ClearDeathPose'dan
         // ÖNCE: `ApplyDeathPose`'un konumlandırdığı poz (canavarın önünde diz
@@ -733,10 +985,16 @@ public class RoundParticipant : NetworkBehaviour
         // Kısa bir bekleme, spawn mesajının makul bir gecikmede her
         // istemciye ulaşmasına yetiyor — `Corpse.BuildVisual` ayrıca
         // kopyasını koşulsuz `SetActive(true)` yapıyor (ikinci bir güvenlik).
-        yield return new WaitForSeconds(0.5f);
+        //
+        // FIRLATMADA çok daha kısa: orada ceset doğar doğmaz uçuyor, yani
+        // 0.5 saniyelik örtüşme "ceset havada ama canlı beden hâlâ yerde"
+        // olarak GÖRÜNÜYOR. Normal ölümde beden zaten canavarın altında
+        // yatıyor ve örtüşme göze çarpmıyor.
+        yield return new WaitForSeconds(launching ? launchBodyLinger : 0.5f);
 
         dying = false;
         deathRoutine = null;
+        grabKiller = null;
 
         if (bodyVisual != null)
             bodyVisual.ClearDeathPose();
@@ -772,7 +1030,16 @@ public class RoundParticipant : NetworkBehaviour
         if (killer == null)
             return false;
 
-        bodyVisual.ApplyDeathPose(killer, deathForwardOffset);
+        // Fırlatan canavarda kurban canavarın İÇİNDE değil ÖNÜNDE duruyor:
+        // ortada iç içe geçmesi gereken eşli bir klip yok, sopa uzaktan
+        // vuruyor (kullanıcı: "vururken kurbanın bedeni tam onun önünde
+        // olsun").
+        // Fırlatan canavarda ölçek eşlemesi KAPALI: o eşleme eşli yakalama
+        // koreografisi için var (bölüm 10), burada koreografi yok ve kurbanı
+        // %18 büyütmek yalnızca görünür bir sıçrama üretirdi.
+        bodyVisual.ApplyDeathPose(killer,
+            launching ? launchForwardOffset : deathForwardOffset,
+            matchScale: !launching);
         return true;
     }
 
