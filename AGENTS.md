@@ -2415,10 +2415,21 @@ Sıra önemli:
 
 #### 9. Git durumu
 
-Bu oturumun sonunda **her şey commit'lenip GitHub'a push edildi**
-(`github.com/samequik/yaklamaca`, **gizli** depo). Yani:
+Bu oturumun sonunda **her şey commit'lendi**: `cc23622`, 1941 yol
+(`github.com/samequik/yaklamaca`, **gizli** depo).
 
-* `git checkout -- .` ve `git reset --hard` artık **gerçekten geri alma
+> **PUSH HENÜZ YAPILMADI.** Commit yerel; gönderme adımı oturumun izin
+> katmanı tarafından durduruldu. Kullanıcı şunu kendisi çalıştıracak:
+>
+> ```
+> git push origin main
+> ```
+>
+> Yeni bir oturum açıldığında **önce bunu kontrol et**:
+> `git log --oneline origin/main..main` boş dönmüyorsa gönderilmemiş
+> commit var demektir.
+
+* Çalışma ağacı temiz, yani `git checkout -- .` artık **gerçekten geri alma
   komutu** — son kayıt güncel.
 * Bir sonraki oturum temiz bir çalışma ağacıyla başlıyor.
 
