@@ -20,6 +20,8 @@ public static class PlayerProfile
     private const string InvertLookKey = "Ayar_TersBakis";
     private const string RunnerCostumeKey = "Kostum_Kacan";
     private const string MonsterCostumeKey = "Kostum_Canavar";
+    private const string RunnerPerkKey = "Perk_Kacan";
+    private const string MonsterPerkKey = "Perk_Katil";
     private const string HorrorKey = "Ayar_KorkuEfekti";
 
     public const float DefaultSensitivity = 2f;
@@ -52,6 +54,39 @@ public static class PlayerProfile
         set
         {
             PlayerPrefs.SetInt(MonsterCostumeKey, CharacterCatalog.SanitizeMonster(value));
+            PlayerPrefs.Save();
+        }
+    }
+
+    /// <summary>
+    /// Seçilen KAÇAN perki (bkz. <see cref="PerkCatalog"/>).
+    ///
+    /// Kostümle aynı sınıftan bir cihaz tercihi ve aynı gerekçeyle burada:
+    /// oyuncu prefabtan doğduğu için bir sahne nesnesine yazmak her turda
+    /// varsayılana dönerdi. Turdaki karşılığı `RoundParticipant`'ın
+    /// SyncVar'ı.
+    ///
+    /// **İki ayrı seçim, çünkü rolü sunucu dağıtıyor** (bölüm 11.1): oyuncu
+    /// hangi rolde olacağını seçemiyor, o yüzden ikisini de önceden
+    /// seçiyor.
+    /// </summary>
+    public static int RunnerPerk
+    {
+        get => PerkCatalog.SanitizeRunner(PlayerPrefs.GetInt(RunnerPerkKey, 0));
+        set
+        {
+            PlayerPrefs.SetInt(RunnerPerkKey, PerkCatalog.SanitizeRunner(value));
+            PlayerPrefs.Save();
+        }
+    }
+
+    /// <summary>Seçilen KATİL perki. Katilin bedava terminal görüşünün ÜSTÜNE geliyor.</summary>
+    public static int MonsterPerk
+    {
+        get => PerkCatalog.SanitizeMonster(PlayerPrefs.GetInt(MonsterPerkKey, 0));
+        set
+        {
+            PlayerPrefs.SetInt(MonsterPerkKey, PerkCatalog.SanitizeMonster(value));
             PlayerPrefs.Save();
         }
     }

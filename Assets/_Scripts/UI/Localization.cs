@@ -388,5 +388,44 @@ public static class Localization
         // aynı yazılıyor. (`MUZ ADAM` bir süre burada çevriliyordu; ad 2026-09-26'da
         // Türkçe'de de BANANA MAN oldu ve satır ÖLDÜ, o yüzden silindi —
         // hiçbir şey yapmayan bir satır sonraki okuyanı yanıltıyor.)
+
+        // ---------- Perkler (bkz. PerkCatalog) ----------
+        //
+        // Perk ADLARI özel isim DEĞİL, betimleyici: çevriliyorlar.
+        // `PERK` başlığı tabloya girmiyor — iki dilde de aynı yazılıyor ve
+        // hiçbir şey yapmayan bir satır sonraki okuyanı yanıltır.
+        //
+        // "Geçit Sezgisi" iki listede de var (kaçan ve katil) ve metni
+        // birebir aynı, yani tek satır ikisini birden çeviriyor.
+        ["Perk yok"] = "No perk",
+        ["Harita slotun boş."] = "Your map slot is empty.",
+
+        ["Terminal Sezgisi"] = "Terminal Sense",
+        ["Bitmemiş terminaller mini haritanda — yalnızca pencerenin içinde."] =
+            "Unfinished terminals on your minimap — only inside the window.",
+
+        ["Geçit Sezgisi"] = "Passage Sense",
+        ["Kapılar ve eğilme geçitleri mini haritanda — yalnızca pencerenin içinde."] =
+            "Doors and crouch passages on your minimap — only inside the window.",
+
+        ["Kurtarıcı"] = "Rescuer",
+        ["Ölen arkadaşların haritanın her yerinden; ceset taşırken kabinler de."] =
+            "Fallen teammates from anywhere on the map; revival pods too while carrying.",
+
+        ["Karşılıklı İz"] = "Mutual Trace",
+        ["Katili mini haritanda görüyorsun — ama o da seni görüyor."] =
+            "You see the killer on your minimap — but they see you too.",
+
+        ["Alarm Takibi"] = "Alarm Tracker",
+        ["Terminalde hata yapan kaçanın yeri 10 saniye görünüyor."] =
+            "A runner who slips at a terminal shows for 10 seconds.",
+
+        ["Ceset Takibi"] = "Body Tracker",
+        ["Ceset taşıyan kaçan mini haritanda — bıraktığı an kayboluyor."] =
+            "A runner carrying a body shows on your minimap — gone the moment they drop it.",
+
+        ["Son Nefes"] = "Last Breath",
+        ["Bir kaçanı öldürünce ona en uzak kaçan 10 saniye görünüyor."] =
+            "After a kill, the runner farthest from them shows for 10 seconds.",
     };
 }

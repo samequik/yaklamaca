@@ -1191,10 +1191,64 @@ public class RoundManager : NetworkBehaviour
         // yani "ölünce düş" ile "dirilince düşme" bir arada tutulamazdı —
         // biri diğerini yalanlardı. İndirim artık yalnızca oyundan
         // AYRILMADA uygulanıyor (bkz. ServerUnregister): o kalıcı.
+        ServerPingFarthestRunner(victim, killer);
+
         Debug.Log($"{victim.DisplayName} yakalandı. Sahada {aliveRunnerCount} kaçan kaldı, " +
             $"gereken terminal {requiredTerminals}.");
 
         ServerCheckRoundEnd();
+    }
+
+    /// <summary>
+    /// Katil perki "Son Nefes": öldürülen kaçana EN UZAK kaçanın yeri bir
+    /// süre görünüyor.
+    ///
+    /// **Hesap sunucuda**, çünkü tetikleyen olay sunucu kararı ve "en uzak"
+    /// sorusu bütün kaçanların konumunu bilmeyi gerektiriyor; süreyi
+    /// istemcide tutmak da değiştirilmiş bir istemcide süresiz radar demek
+    /// olurdu (bölüm "PERK SİSTEMİ").
+    ///
+    /// Kurban bu noktada ÇOKTAN ölü (`ServerSetAlive(false)` yukarıda
+    /// çağrılıyor), yani aşağıdaki `IsAlive` kontrolü onu kendiliğinden
+    /// dışarıda bırakıyor — ayrı bir "kurbanı atla" şartı gerekmedi.
+    ///
+    /// Mesafe karesi karşılaştırılıyor; karekök almanın sıralamaya hiçbir
+    /// etkisi yok.
+    /// </summary>
+    [Server]
+    private void ServerPingFarthestRunner(RoundParticipant victim, RoundParticipant killer)
+    {
+        if (victim == null || killer == null)
+            return;
+
+        if (!killer.HasPerk(PerkEffect.KatilEnUzakKacan))
+            return;
+
+        RoundParticipant farthest = null;
+        float best = -1f;
+
+        foreach (RoundParticipant participant in participants)
+        {
+            if (participant == null || participant.Role != RoundRole.Runner)
+                continue;
+
+            if (!participant.IsAlive || participant.IsEscaped || participant.IsSpectating)
+                continue;
+
+            float distance =
+                (participant.transform.position - victim.transform.position).sqrMagnitude;
+
+            if (distance <= best)
+                continue;
+
+            best = distance;
+            farthest = participant;
+        }
+
+        // Sahada başka kaçan kalmadıysa gösterilecek bir şey yok; tur da
+        // zaten bitmek üzere.
+        if (farthest != null)
+            killer.TargetPerkPing(farthest.netId, killer.ActivePerk.Duration);
     }
 
     /// <summary>Kaçan çıkıştan geçti — kurtuldu.</summary>

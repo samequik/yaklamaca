@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 
@@ -225,6 +226,22 @@ public class Terminal : NetworkBehaviour, IInteractable
     }
 
     /// <summary>
+    /// Sahnedeki bütün terminaller. Katilin mini haritası (bölüm 13) bunları
+    /// nokta olarak çiziyor.
+    ///
+    /// **`FindObjectsOfType` DEĞİL, kayıt defteri.** Mirror sunucu açılınca
+    /// sahnedeki `NetworkIdentity`'leri kendisi aktifleştiriyor (bölüm 4),
+    /// yani lobide terminaller daha kapalı olabiliyor — o anda yapılan bir
+    /// tarama boş bir liste önbelleğe alır ve bir daha hiç dolmazdı.
+    /// `RoundParticipant.All` ile aynı desen.
+    /// </summary>
+    public static IReadOnlyList<Terminal> All => all;
+
+    private static readonly List<Terminal> all = new List<Terminal>();
+
+    private void OnEnable() => all.Add(this);
+
+    /// <summary>
     /// Terminalin hoparlörünü bulur, yoksa kurar. Işıkla aynı gerekçe
     /// (`GetOrCreateStateLight`): terminaller elle yerleştirildi ve onlara
     /// dokunan bir editör aracı yok.
@@ -302,6 +319,8 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// </summary>
     private void OnDisable()
     {
+        all.Remove(this);
+
         // Ekran kaydı da bırakılıyor: panel yok olan bir terminale bakmaya
         // devam ederse tur bittikten sonra ekranda asılı kalır.
         if (ActiveLocal == this)
@@ -648,7 +667,19 @@ public class Terminal : NetworkBehaviour, IInteractable
             RoundParticipant monster = manager != null ? manager.ServerFindMonster() : null;
 
             if (monster != null && monster.connectionToClient != null)
+            {
                 TargetTerminalAlarm(monster.connectionToClient, transform.position);
+
+                // Katil perki "Alarm Takibi": hatayı yapan KAÇANIN yeri de
+                // gidiyor, süresi katalogdan.
+                //
+                // `activeUserNetId` burada hâlâ dolu: `ServerApplyLock` onu
+                // sıfırlamıyor (sıfırlama ayrı yollarda, bkz. ServerRelease).
+                // Yani hatayı yapanı aramak için ayrı bir alan tutmak
+                // gerekmedi.
+                if (activeUserNetId != 0 && monster.HasPerk(PerkEffect.KatilHataYapan))
+                    monster.TargetPerkPing(activeUserNetId, monster.ActivePerk.Duration);
+            }
         }
 
         Debug.Log($"{name} kilitlendi ({reason}).");
@@ -1196,7 +1227,13 @@ public class Terminal : NetworkBehaviour, IInteractable
     /// bayrağı da denendi ve kaldırıldı: hiçbir yerde okunmuyordu, ağda
     /// boşuna yer kaplayan bir SyncVar'dı.
     /// </summary>
-    private bool AlarmActive => locked && NetworkTime.time < lockAlarmEndTime;
+    /// <summary>
+    /// Kaçanın HATASIYLA kurulan kilidin ötme penceresi. Canavarın kendi
+    /// kurduğu kilitte `lockAlarmEndTime` sıfır kalıyor (bölüm 11.4), yani
+    /// burası yalnızca "biri terminalde hata yaptı" demek — mini haritadaki
+    /// yanıp sönmenin ölçütü de bu.
+    /// </summary>
+    public bool AlarmActive => locked && NetworkTime.time < lockAlarmEndTime;
 
     private void UpdateAlarmLevel()
     {

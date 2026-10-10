@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Mirror;
 using UnityEngine;
 
@@ -35,6 +36,20 @@ public class ExitGate : NetworkBehaviour
     [SerializeField] private ExitLock exitLock;
 
     private bool doorOpened;
+
+    /// <summary>
+    /// Sahnedeki bütün çıkışlar. Katilin mini haritası çıkış AÇILDIKTAN
+    /// sonra bunları nokta olarak çiziyor (bölüm 13).
+    ///
+    /// Kayıt defteri, tarama değil — gerekçesi `Terminal.All` ile aynı.
+    /// </summary>
+    public static IReadOnlyList<ExitGate> All => all;
+
+    private static readonly List<ExitGate> all = new List<ExitGate>();
+
+    private void OnEnable() => all.Add(this);
+
+    private void OnDisable() => all.Remove(this);
 
     private void Update()
     {

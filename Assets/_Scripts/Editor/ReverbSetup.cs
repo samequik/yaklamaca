@@ -39,7 +39,29 @@ public static class ReverbSetup
     private const string MapName = "Harita";
     private const string PlayerPrefabPath = "Assets/_Prefabs/NetworkPlayer.prefab";
 
+    private const string FloorName = "Zemin";
+
+    /// <summary>
+    /// Haritanın hiç bulunamadığı durumda kullanılan yarıçap. Ana haritanın
+    /// ölçüsü — kanat hesaba katılmıyor, çünkü bu yola ancak sahne bozuksa
+    /// düşülüyor.
+    /// </summary>
     private const float FallbackSpan = 54.4f;
+
+    /// <summary>
+    /// Bölge yarıçapına eklenen pay (m). İki işi var: zemin sınırları
+    /// DİKEYDE tavanı (3 m) kapsamıyor, ve haritanın kenarındaki bir oyuncu
+    /// tam sınırda kalmamalı.
+    /// </summary>
+    private const float ZoneMargin = 3f;
+
+    /// <summary>
+    /// `minDistance / maxDistance` oranı. Yankı `minDistance`'a kadar TAM
+    /// güçte, oradan `maxDistance`'a doğru sönüyor — yani haritanın tamamı
+    /// `minDistance`'ın içinde kalmalı ve sönme bölgesi dışarıda kalan pay
+    /// olmalı. Oran eski sürümden aynen korundu.
+    /// </summary>
+    private const float MinMaxRatio = 0.75f;
 
     /// <summary>
     /// Kaynağın dibindeki yankı oranı. Sıfır değil — kendi ayak sesin de
@@ -67,8 +89,10 @@ public static class ReverbSetup
         Selection.activeGameObject = zone.gameObject;
 
         Debug.Log(
-            $"Mağara yankısı kuruldu. Bölge yarıçapı {zone.maxDistance:0.#} m — " +
-            "labirentin tamamını kaplıyor.\n" +
+            $"Mağara yankısı kuruldu. Bölge merkezi {zone.transform.position} — " +
+            $"yankı {zone.minDistance:0.#} m'ye kadar TAM güçte, {zone.maxDistance:0.#} m'de " +
+            "susuyor. Merkez ve yarıçap haritanın zeminlerinden ölçülüyor, yani " +
+            "güney kanadı da kapsam içinde.\n" +
             $"{sceneSources} sahne kaynağı ve {prefabSources} oyuncu prefabı kaynağı " +
             $"mesafe eğrisine bağlandı ({NearReverbMix} → {FarReverbMix}).\n\n" +
             "Ayarlamak için: sahnedeki '" + ZoneName + "' objesini seç. " +
@@ -96,21 +120,37 @@ public static class ReverbSetup
             Undo.RegisterCreatedObjectUndo(zoneObject, "Mağara Yankısı");
         }
 
-        zoneObject.transform.position = Vector3.zero;
-
         AudioReverbZone zone = zoneObject.GetComponent<AudioReverbZone>();
         if (zone == null)
             zone = Undo.AddComponent<AudioReverbZone>(zoneObject);
 
         Undo.RecordObject(zone, "Mağara Yankısı");
+        Undo.RecordObject(zoneObject.transform, "Mağara Yankısı");
 
-        float span = FindMapSpan();
+        // Bölge KÜRE: merkezi ve yarıçapı haritanın gerçek sınırlarından
+        // çıkıyor. Dinleyici labirentin her yerinde `minDistance`'ın içinde
+        // olmalı — dışında kalan yerde yankı tamamen susuyor.
+        if (TryFindMapBounds(out Bounds bounds))
+        {
+            zoneObject.transform.position = bounds.center;
 
-        // Dinleyici labirentin her yerinde bölgenin tam içinde olmalı: minDistance
-        // "yankının tam güçte olduğu" yarıçap. Haritanın köşesi merkeze span/2 · √2
-        // uzaklıkta, ona da pay bırakıyoruz.
-        zone.minDistance = span * 0.75f;
-        zone.maxDistance = span;
+            // `extents.magnitude` = merkezden köşeye uzaklık, yani sınır
+            // kutusunun tamamını kapsayan en küçük küre.
+            float radius = bounds.extents.magnitude + ZoneMargin;
+            zone.minDistance = radius;
+            zone.maxDistance = radius / MinMaxRatio;
+        }
+        else
+        {
+            Debug.LogWarning(
+                $"Mağara Yankısı: '{MapName}' altında '{FloorName}' bulunamadı, " +
+                $"yedek yarıçap ({FallbackSpan} m) kullanılıyor. Güney kanadı " +
+                "kapsam dışı kalabilir.");
+
+            zoneObject.transform.position = Vector3.zero;
+            zone.minDistance = FallbackSpan * MinMaxRatio;
+            zone.maxDistance = FallbackSpan;
+        }
 
         // Özel değerleri yazabilmek için önce User'a geçmek şart; başka bir
         // hazır ayar seçiliyken Unity aşağıdaki atamaları görmezden gelir.
@@ -152,14 +192,87 @@ public static class ReverbSetup
         return zone;
     }
 
-    private static float FindMapSpan()
+    /// <summary>
+    /// Haritanın gerçek sınırları: kökün ALTINDAKİ bütün `Zemin` objelerinin
+    /// dünya sınırlarının birleşimi.
+    ///
+    /// ### Neden böyle: bölge 2026-09-13'ten beri kanadı kapsamıyordu
+    ///
+    /// Eski sürüm tek satırdı — `map.transform.Find("Zemin").localScale.x`,
+    /// yani YALNIZCA ana haritanın zemini (54.4 m) — ve bölgeyi dünya
+    /// orijinine koyuyordu. Güney kanadı o tarihte eklendi ve bu araç onu hiç
+    /// görmedi. Ölçüldü: kanadın güney köşeleri orijine **71.9 m**, yani
+    /// `maxDistance`'ın (54.4) dışında — oyuncu oraya yürüyünce yankı
+    /// TAMAMEN kesiliyordu ("güney kısmında sesler normal geliyor").
+    ///
+    /// Artık `GetComponentsInChildren` ile bütün bölgelerin zeminleri
+    /// toplanıyor: ana harita, güney kanadı ve iki çıkış sahanlığı. Harita
+    /// büyürse aracı yeniden çalıştırmak yetiyor — koda hiçbir koordinat
+    /// yazılmadı (`SpawnPointSetup` ve `MenuSetup.BuildMinimap` ile aynı
+    /// alışkanlık).
+    ///
+    /// **Ölçü `Renderer.bounds`'tan, `localScale`'den DEĞİL.** İki sebep:
+    /// `bounds` dünya uzayında (kanat `Harita`'nın ÇOCUĞU, yani yerel ölçek
+    /// tek başına yanlış cevap verir) ve renderer şartı `Giydirme/Zemin` gibi
+    /// aynı adı taşıyan boş GRUP objelerini kendiliğinden eliyor.
+    /// </summary>
+    private static bool TryFindMapBounds(out Bounds bounds)
     {
-        GameObject map = GameObject.Find(MapName);
-        if (map == null)
-            return FallbackSpan;
+        bounds = new Bounds();
 
-        Transform floor = map.transform.Find("Zemin");
-        return floor != null ? floor.localScale.x : FallbackSpan;
+        GameObject map = FindMapRoot();
+        if (map == null)
+            return false;
+
+        bool any = false;
+
+        foreach (Transform child in map.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.name != FloorName)
+                continue;
+
+            Renderer renderer = child.GetComponent<Renderer>();
+            if (renderer == null)
+                continue;
+
+            if (any)
+            {
+                bounds.Encapsulate(renderer.bounds);
+            }
+            else
+            {
+                bounds = renderer.bounds;
+                any = true;
+            }
+        }
+
+        return any;
+    }
+
+    /// <summary>
+    /// Harita kökünü SAHNE KÖKLERİ arasında arar, `GameObject.Find` ile
+    /// değil.
+    ///
+    /// Sebebi bölüm 0.1'in `Duvar_3_0` dersi: sahnede `Harita` adında İKİ
+    /// obje olabiliyor — gerçek harita ve mini haritanın karo kabı
+    /// (`MenuSetup.BuildMinimap`). `GameObject.Find` hangisini döndüreceğini
+    /// garanti etmiyor ve UI kabını yakalasaydı bu araç sessizce yedek
+    /// yarıçapa düşerdi. Kap 2026-09-28'de `HaritaKabi` diye yeniden
+    /// adlandırıldı, ama kök taraması bu aracı çakışmadan tamamen bağımsız
+    /// kılıyor.
+    ///
+    /// `GetRootGameObjects` kapalı kökleri de veriyor (bölüm 13'ün
+    /// "`GameObject.Find` kapalı objeyi bulmuyor" dersi).
+    /// </summary>
+    private static GameObject FindMapRoot()
+    {
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            if (root.name == MapName)
+                return root;
+        }
+
+        return null;
     }
 
     // ---------- Eğri ----------

@@ -137,6 +137,17 @@ public class Corpse : NetworkBehaviour, IInteractable
     /// </summary>
     private float throwClampSpeed;
     private int playerMask;
+    /// <summary>
+    /// Sahnedeki cesetler. Tarama (`FindObjectsOfType`) yerine kayıt defteri,
+    /// `Terminal.All` ve `RoundParticipant.All` ile aynı gerekçe: ceset bir ağ
+    /// objesi ve istemcide ne zaman doğacağı belli değil, o anda yapılan bir
+    /// tarama boş liste alıp bir daha hiç dolmayabilir.
+    /// </summary>
+    public static IReadOnlyList<Corpse> All => all;
+
+    /// <summary>Cesedi taşıyan oyuncunun netId'si; 0 ise taşınmıyor.</summary>
+    public uint CarrierNetId => carrierNetId;
+
     public uint VictimNetId => victimNetId;
     public uint StationNetId => stationNetId;
     public string VictimName => victimName;

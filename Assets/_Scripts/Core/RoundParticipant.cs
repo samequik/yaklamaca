@@ -104,6 +104,91 @@ public class RoundParticipant : NetworkBehaviour
     private int monsterCostume;
 
     /// <summary>
+    /// Seçilen KAÇAN perki (bkz. <see cref="PerkCatalog"/>).
+    ///
+    /// **Hook YOK, bilerek:** kostümün aksine perkin uygulanacak bir görseli
+    /// yok. Perki okuyan kod (mini harita, sunucudaki süreli tetikler) her
+    /// karede ya da olay anında soruyor, yani değer değişince yapılacak bir
+    /// iş bulunmuyor.
+    ///
+    /// **Senkron yine de şart:** kaçan perk 4 karşılıklı — katilin de
+    /// "bu kaçan beni görüyor mu" diye sorması gerekiyor, ve süreli katil
+    /// perkleri sunucuda çalışıyor.
+    /// </summary>
+    [SyncVar] private int runnerPerk;
+
+    /// <summary>Seçilen KATİL perki. Gerekçesi yukarıdakiyle aynı.</summary>
+    [SyncVar] private int monsterPerk;
+
+    /// <summary>
+    /// Bu katılımcının O ANKİ rolüne göre aktif perki.
+    ///
+    /// Rol tur başında dağıtıldığı için iki seçimden hangisinin geçerli
+    /// olduğunu ancak burada bilebiliyoruz — çağıranların `Role`'a bakıp
+    /// kendi seçmesi, aynı kararı her perk için tekrar yazmak olurdu.
+    /// </summary>
+    public PerkCatalog.Perk ActivePerk => Role == RoundRole.Monster
+        ? PerkCatalog.Monster(monsterPerk)
+        : PerkCatalog.Runner(runnerPerk);
+
+    /// <summary>Bu katılımcı şu an o perki mi taşıyor.</summary>
+    public bool HasPerk(PerkEffect effect) => ActivePerk.Effect == effect;
+
+    /// <summary>
+    /// Süreli katil perklerinin işaret ettiği oyuncu — **yalnızca YEREL.**
+    ///
+    /// SyncVar DEĞİL, bilerek: bu bilgi tek bir oyuncuya ait ve yalnızca
+    /// onun ekranını ilgilendiriyor. SyncVar olsaydı "katil şu an kimi
+    /// görüyor" bilgisi bütün istemcilere gider ve bölüm 4'ün kuralını
+    /// (istemciye görmesi gerekmeyen bilgiyi gönderme) doğrudan delerdi.
+    ///
+    /// Süre de burada tutuluyor, yani `TargetPerkPing` tek seferlik bir
+    /// mesaj: sunucu "şu kişi, şu kadar saniye" diyor ve bir daha
+    /// konuşmuyor.
+    /// </summary>
+    private uint perkPingNetId;
+
+    private float perkPingUntil;
+
+    /// <summary>
+    /// Perkin şu an işaret ettiği oyuncu; süre dolduysa ya da hedef
+    /// kaybolduysa null.
+    ///
+    /// Süre `Time.time` ile ölçülüyor, `NetworkTime` ile değil: bu tamamen
+    /// yerel bir görüntü ve ağ saatiyle hizalanacak bir şey yok.
+    /// </summary>
+    public RoundParticipant PerkPingTarget
+    {
+        get
+        {
+            if (perkPingNetId == 0 || Time.time > perkPingUntil)
+                return null;
+
+            foreach (RoundParticipant participant in all)
+            {
+                if (participant != null && participant.netId == perkPingNetId)
+                    return participant;
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Sunucu, süreli bir perkin hedefini sahibine bildiriyor.
+    ///
+    /// **Hesap sunucuda yapılmak ZORUNDA:** tetikleyen olaylar (terminalde
+    /// hata, öldürme) sunucu kararı ve süreyi istemcide başlatmak,
+    /// değiştirilmiş bir istemcide süresiz radar demek olurdu.
+    /// </summary>
+    [TargetRpc]
+    public void TargetPerkPing(uint targetNetId, float duration)
+    {
+        perkPingNetId = targetNetId;
+        perkPingUntil = Time.time + Mathf.Max(0f, duration);
+    }
+
+    /// <summary>
     /// Lobide hazır işaretledi mi. Tur başlatma şartı — sunucu hepsini hazır
     /// görmeden başlatmıyor.
     /// </summary>
@@ -402,9 +487,22 @@ public class RoundParticipant : NetworkBehaviour
         Invoke(nameof(ReleaseGrab), duration + 0.5f);
     }
 
+    /// <summary>
+    /// Yakalama kilidini açar.
+    ///
+    /// **`alive` ŞARTI YOKTU ve emniyet ağını kendi amacına karşı
+    /// çalıştırıyordu** (2026-10-10). Yakalamanın TAMAMININ amacı kurbanın
+    /// ölmesi: sayaç dolduğunda kurban çoktan ölü oluyor, yani `alive` yanlış
+    /// ve `EndFocus` HİÇ çağrılmıyordu. `isFocused` `PlayerController`'da
+    /// duruyor ve oyuncu objesi turdan tura yaşıyor — bayrak sonsuza kadar
+    /// açık kalıyordu.
+    ///
+    /// Ölü bir oyuncuda `EndFocus` zaten zararsız: kontrolcü kapalı, metot
+    /// yalnızca bir bool indiriyor.
+    /// </summary>
     private void ReleaseGrab()
     {
-        if (playerController != null && alive)
+        if (playerController != null)
             playerController.EndFocus();
     }
 
@@ -525,6 +623,9 @@ public class RoundParticipant : NetworkBehaviour
 
         // Kostüm de öyle: cihazda saklı, sunucu bilmiyor.
         PushCostume();
+
+        // Perk de aynı sınıftan.
+        PushPerks();
     }
 
     /// <summary>Adı sunucuya bildirir. Sunucu temizleyip SyncVar'a yazar.</summary>
@@ -589,6 +690,56 @@ public class RoundParticipant : NetworkBehaviour
     {
         runnerCostume = CharacterCatalog.SanitizeRunner(runner);
         monsterCostume = CharacterCatalog.SanitizeMonster(monster);
+    }
+
+    /// <summary>
+    /// Perk seçimini sunucuya bildirir. Kostümden AYRI bir komut: ikisi
+    /// farklı ekranlarda ve farklı anlarda değişiyor, tek komutta
+    /// birleştirmek birini değiştirirken öbürünü de göndermek demek olurdu.
+    /// </summary>
+    public void PushPerks()
+    {
+        if (isLocalPlayer)
+            CmdSetPerks(PlayerProfile.RunnerPerk, PlayerProfile.MonsterPerk);
+    }
+
+    /// <summary>
+    /// Perki sunucuya yazar. Sunucu indeksi **temizliyor** — kostümle aynı
+    /// gerekçe: değiştirilmiş bir istemci listenin dışında bir sayı
+    /// yollarsa dizi sınırı hatası üretirdi.
+    ///
+    /// **Tur başladıktan sonra perk DEĞİŞMİYOR.** Perk maç başında seçiliyor
+    /// ve maç sonuna kadar sabit kalıyor (kullanıcı kararı, 2026-09-28);
+    /// kontrol olmasaydı oyuncu tam ölüm anında perk değiştirip aynı turda
+    /// iki perkin faydasını birden alabilirdi.
+    ///
+    /// **Ölçüt faz DEĞİL, bu katılımcının turda OYNUYOR olması.**
+    /// `phase == Playing` tek başına yanlış olurdu: `PushPerks`
+    /// `OnStartLocalPlayer`'dan çağrılıyor ve TUR ORTASINDA katılan biri için
+    /// o an tam da `Playing` oluyor — düz bir faz kontrolü onun perkini
+    /// sessizce 0'da bırakırdı ve sebebi hiçbir yerde görünmezdi. Geç katılan
+    /// izleyici olup `RoundRole.None` taşıdığı için
+    /// (`RoundManager.ServerRegister`) buradan geçiyor ve seçtiği perkle bir
+    /// sonraki tura giriyor.
+    ///
+    /// `Ended` fazında da kabul ediliyor: tur çözülmüş, perkin artık
+    /// yapabileceği bir şey yok ve hemen ardından lobi açılıyor.
+    ///
+    /// Ret SESSİZ ve bugün bu yeterli: seçim ekranı tur ortasında hiç
+    /// açılamıyor (duraklatma menüsünde KARAKTER yok), yani reddedilecek bir
+    /// çağrı pratikte yalnızca değiştirilmiş bir istemciden gelir.
+    /// </summary>
+    [Command]
+    private void CmdSetPerks(int runner, int monster)
+    {
+        RoundManager manager = RoundManager.Instance;
+
+        if (manager != null && manager.Phase == RoundPhase.Playing
+            && role != RoundRole.None)
+            return;
+
+        runnerPerk = PerkCatalog.SanitizeRunner(runner);
+        monsterPerk = PerkCatalog.SanitizeMonster(monster);
     }
 
     private void OnCostumeChanged(int oldValue, int newValue) => ApplyCostume();
@@ -1124,6 +1275,27 @@ public class RoundParticipant : NetworkBehaviour
     /// <summary>Hareket ve etkileşim. Ölende anında kapanıyor.</summary>
     private void SetControlActive(bool value)
     {
+        // Kontrol geri verilirken odak kilidi KOŞULSUZ açılıyor.
+        //
+        // `BeginFocus` hareketi, yatay bakışı ve dikey bakışı BİRDEN kesiyor;
+        // yakalamada sınırlar SIFIR veriliyor, yani kurban mouse'unu bile
+        // çeviremiyor. Bayrak `PlayerController`'da duruyor ve oyuncu objesi
+        // TURDAN TURA yaşıyor — yani ölüm anında temizlenmeyen bir kilit,
+        // dirilen ya da bir sonraki tura kaçan olarak giren oyuncuyu donmuş
+        // başlatıyordu (2026-10-10 hata raporu).
+        //
+        // Kilidi kuran BEŞ yol var (yakalama, terminal, çıkış kilidi,
+        // diriltme kabini, canavarın saldırısı) ve her biri kendi çıkışını
+        // kendi temizliyor. Ama "oyuncu tam o anda ölürse" hepsinde ayrı bir
+        // kaçak yolu demek; burası tek ÇIKIŞ noktası: kontrolü geri alan
+        // herkes odaksız başlıyor.
+        //
+        // Her karede çalışmıyor — `RefreshBodyState` yalnızca SyncVar
+        // hook'larından geliyor (alive / escaped / spectating / rol), yani
+        // terminal başındaki bir oyuncunun odağı buradan asla bozulmuyor.
+        if (value && playerController != null)
+            playerController.EndFocus();
+
         // Çarpışma kutusu ayrı: Behaviour[] dizisine giremiyor (yukarıdaki
         // alan yorumu). Elenince kapanmazsa görünmez ama katı bir engel
         // olarak koridorda kalır.

@@ -58,6 +58,27 @@ public class CharacterSelectPanel : MonoBehaviour
 
     [SerializeField] private Button nextButton;
 
+    [Header("Perk")]
+    [Tooltip("Seçili perkin adı.")]
+    [SerializeField] private TMP_Text perkLabel;
+
+    [Tooltip("Perkin tek satırlık açıklaması — ad tek başına ne yaptığını söylemiyor.")]
+    [SerializeField] private TMP_Text perkSummaryLabel;
+
+    [Tooltip("Perkin sembolü. Görsel YOKSA gizleniyor — boş bir Image beyaz " +
+        "çizdiği için ekranda anlamsız bir kare bırakır ve oynayan onu " +
+        "'bozuk' diye okur (bölüm 13'ün kostüm renk kutusu dersi).")]
+    [SerializeField] private Image perkIcon;
+
+    [Tooltip("Perk sembolleri, PerkEffect SIRASINDA. 'Menü Kur' " +
+        "Assets/_Art/UI/Perk/<PerkEffect adı>.png dosyalarından dolduruyor; " +
+        "dosyası olmayan perkin yuvası boş kalıyor.")]
+    [SerializeField] private Sprite[] perkIcons;
+
+    [SerializeField] private Button perkPreviousButton;
+
+    [SerializeField] private Button perkNextButton;
+
     [Header("Durum")]
     [SerializeField] private TMP_Text statusLabel;
 
@@ -89,6 +110,40 @@ public class CharacterSelectPanel : MonoBehaviour
     public void Previous() => Step(-1);
 
     public void Next() => Step(1);
+
+    public void PerkPrevious() => StepPerk(-1);
+
+    public void PerkNext() => StepPerk(1);
+
+    /// <summary>
+    /// Perk listesinde dolaşır. Kostümle AYNI rol anahtarını kullanıyor
+    /// (`monsterMode`): ekranın üstündeki KAÇAN/KATİL düğmesi hem kostümü
+    /// hem perki birlikte çeviriyor.
+    ///
+    /// İkisini ayrı düğmelere bağlamak "kaçan kostümü + katil perki" gibi
+    /// anlamsız bir karışım gösterebilirdi.
+    /// </summary>
+    private void StepPerk(int delta)
+    {
+        if (monsterMode)
+        {
+            PlayerProfile.MonsterPerk =
+                PerkCatalog.Step(PerkCatalog.MonsterPerks, PlayerProfile.MonsterPerk, delta);
+        }
+        else
+        {
+            PlayerProfile.RunnerPerk =
+                PerkCatalog.Step(PerkCatalog.RunnerPerks, PlayerProfile.RunnerPerk, delta);
+        }
+
+        // Kostümdeki gerekçenin aynısı: odadaysak kadro anında görüyor, oda
+        // yoksa `Local` null ve seçim yine cihazda duruyor.
+        RoundParticipant local = RoundParticipant.Local;
+        if (local != null)
+            local.PushPerks();
+
+        Refresh();
+    }
 
     private void Step(int delta)
     {
@@ -159,6 +214,8 @@ public class CharacterSelectPanel : MonoBehaviour
         if (nextButton != null)
             nextButton.interactable = many;
 
+        RefreshPerk();
+
         if (statusLabel == null)
             return;
 
@@ -177,5 +234,73 @@ public class CharacterSelectPanel : MonoBehaviour
         statusLabel.SetText(Localization.Get(monsterMode
             ? "Katili oda sahibi seçiyor. Bu, katil olursan hangisini oynayacağın."
             : "Kaçanlar yalnızca görünüş olarak farklı: hız, boy ve menzil aynı."));
+    }
+
+    /// <summary>
+    /// Perk satırını tazeler.
+    ///
+    /// **Tek slot ve o slot HARİTA slotu** (bölüm "PERK SİSTEMİ"): burada
+    /// yalnızca bir seçim var, listeden hangisi seçilirse o. İleride başka
+    /// türde bir slot açılırsa burası ikinci bir satır kazanır — perkin
+    /// kendi `Slot` alanı zaten hangisine ait olduğunu söylüyor.
+    /// </summary>
+    private void RefreshPerk()
+    {
+        PerkCatalog.Perk[] list =
+            monsterMode ? PerkCatalog.MonsterPerks : PerkCatalog.RunnerPerks;
+
+        int index = monsterMode
+            ? PerkCatalog.SanitizeMonster(PlayerProfile.MonsterPerk)
+            : PerkCatalog.SanitizeRunner(PlayerProfile.RunnerPerk);
+
+        PerkCatalog.Perk perk = list[index];
+
+        if (perkLabel != null)
+            perkLabel.SetText(Localization.Get(perk.Name));
+
+        if (perkSummaryLabel != null)
+            perkSummaryLabel.SetText(Localization.Get(perk.Summary));
+
+        ApplyPerkIcon(perk.Effect);
+
+        // Kostümdeki kuralın aynısı: tek girişlik listede yön düğmeleri
+        // KAPALI — basılabilir görünüp hiçbir şey yapmayan bir düğme "bozuk"
+        // diye okunuyor.
+        bool many = list.Length > 1;
+
+        if (perkPreviousButton != null)
+            perkPreviousButton.interactable = many;
+
+        if (perkNextButton != null)
+            perkNextButton.interactable = many;
+    }
+
+    /// <summary>
+    /// Perkin sembolünü uygular.
+    ///
+    /// **Görseli olmayan perkte `Image` KAPATILIYOR.** `Image`'in varsayılanı
+    /// beyaz, yani boş bir yuva ekranda anlamsız bir beyaz kare bırakır —
+    /// bölüm 13'te kostüm renk göstergesinde tam olarak bu yaşandı ve
+    /// kullanıcı onu "bozuk" diye okudu. Yuvanın kapladığı YER duruyor
+    /// (düzen hiç değişmiyor), yalnızca kutu çizilmiyor; semboller
+    /// geldiğinde satır kaymıyor.
+    ///
+    /// Dizi `PerkEffect` SIRASINDA, perkin listedeki indeksinde değil:
+    /// liste yeniden sıralanırsa semboller kaymasın — `PerkCatalog`'un kendi
+    /// kuralı ("oynanış `Effect`'e bakıyor, İNDEKSE değil").
+    /// </summary>
+    private void ApplyPerkIcon(PerkEffect effect)
+    {
+        if (perkIcon == null)
+            return;
+
+        int slot = (int)effect;
+
+        Sprite sprite = perkIcons != null && slot >= 0 && slot < perkIcons.Length
+            ? perkIcons[slot]
+            : null;
+
+        perkIcon.sprite = sprite;
+        perkIcon.enabled = sprite != null;
     }
 }

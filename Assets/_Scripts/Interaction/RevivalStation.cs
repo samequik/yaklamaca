@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Mirror;
 using TMPro;
 using UnityEngine;
@@ -69,6 +70,15 @@ public class RevivalStation : NetworkBehaviour, IInteractable
     private AudioSource audioSource;
     private MaterialPropertyBlock block;
     public static RevivalStation ActiveLocal { get; private set; }
+
+    /// <summary>
+    /// Sahnedeki diriltme kabinleri. `Terminal.All` ile aynı desen ve aynı
+    /// gerekçe: Mirror sahne objelerini sunucu açılınca aktifleştiriyor, yani
+    /// o andan önce yapılan bir tarama boş liste alıp önbelleğe yazardı.
+    /// </summary>
+    public static IReadOnlyList<RevivalStation> All => all;
+
+    private static readonly List<RevivalStation> all = new List<RevivalStation>();
     public Transform BodyAnchor => bodyAnchor != null ? bodyAnchor : transform;
     public float Progress => Mathf.Clamp01(elapsed / Mathf.Max(duration, 0.1f));
     public float Remaining => Mathf.Max(0, duration - elapsed);
@@ -140,11 +150,16 @@ public class RevivalStation : NetworkBehaviour, IInteractable
             if (wanted != null) audioSource.Play();
         }
     }
-    private void OnEnable() => Localization.Changed += ApplySignText;
+    private void OnEnable()
+    {
+        Localization.Changed += ApplySignText;
+        all.Add(this);
+    }
 
     private void OnDisable()
     {
         Localization.Changed -= ApplySignText;
+        all.Remove(this);
         ReleaseLocal();
     }
 

@@ -68,7 +68,11 @@ public static class MenuSetup
     // İlk sürüm 150 pikselin içine ~54 × 96 m'lik haritanın TAMAMINI
     // sıkıştırıyordu: 3.2 m'lik bir koridor hücresi 4 piksele düşüyor ve
     // okunmuyordu. Kullanıcı "karışık" deyip kapattırmıştı (2026-09-16).
-    private const float MinimapSize = 210f;
+    //
+    // 210 → 240 (2026-09-27, kullanıcı: "çok ufak büyüt"). `MinimapMetersAcross`
+    // DEĞİŞMEDİ, yani pencere yine 26 m gösteriyor — büyüyen şey ölçek:
+    // hücre 24 → 27 piksel. Değiştirince `Menü Kur` gerekiyor.
+    private const float MinimapSize = 240f;
     private const float MinimapMargin = 16f;
 
     /// <summary>Gövde ile pencere arasındaki iç boşluk (çerçeve payı).</summary>
@@ -81,10 +85,30 @@ public static class MenuSetup
     /// </summary>
     private const float MinimapMetersAcross = 26f;
 
-    private const float MinimapPlayerDotSize = 16f;
+    /// <summary>
+    /// Ortadaki ok. Panelle birlikte oranını koruyor (16 × 240/210 ≈ 18),
+    /// yoksa büyüyen haritanın içinde küçülmüş gibi dururdu.
+    /// </summary>
+    private const float MinimapPlayerDotSize = 18f;
     private static readonly Color MinimapBackgroundColor = new Color(0.03f, 0.03f, 0.04f, 0.78f);
     private static readonly Color MinimapWallColor = new Color(0.55f, 0.52f, 0.50f, 1f);
     private static readonly Color MinimapRunnerColor = new Color(0.30f, 0.85f, 0.40f, 1f);
+
+    /// <summary>
+    /// Katilin haritasındaki terminal/çıkış noktasının çapı (piksel).
+    /// 12 px ≈ 1.4 m — hücrenin (27 px) yarısından küçük, yani duvarların
+    /// arasında kaybolmuyor ama koridoru da kapatmıyor.
+    /// </summary>
+    private const float MinimapMarkerSize = 12f;
+
+    /// <summary>Bitmemiş terminal — terminalin boştaki mavisiyle aynı aile.</summary>
+    private static readonly Color MinimapTerminalColor = new Color(0.38f, 0.72f, 1f, 1f);
+
+    /// <summary>Kaçanın hata yaptığı terminal; nokta yanıp sönüyor.</summary>
+    private static readonly Color MinimapAlarmColor = new Color(1f, 0.32f, 0.26f, 1f);
+
+    /// <summary>Açılmış çıkış kapısı.</summary>
+    private static readonly Color MinimapExitColor = new Color(1f, 0.84f, 0.32f, 1f);
 
     [MenuItem("Yakalamaca/Menü Kur")]
     private static void Build()
@@ -570,11 +594,18 @@ public static class MenuSetup
     }
 
     /// <summary>
-    /// Sol üst köşede sabit yönlü (Pac-Man tarzı, izlenen bakışla DÖNMEYEN)
-    /// kuş bakışı mini harita. Yalnızca KENDİ konumun gösteriliyor —
-    /// terminal/takım arkadaşı/ceset/canavar yeri YOK, bilerek (bkz.
-    /// `MiniMapView`'in sınıf yorumu — 2026-09-14'te tartışılan çok-rollü
-    /// fikrin en sade hâli).
+    /// Mini haritayı kurar: gövde, çerçeve, kırpma penceresi, duvar kareleri
+    /// ve ortadaki ok.
+    ///
+    /// Sol üst köşede, çevrendeki dar bir pencereyi gösteriyor ve **baktığın
+    /// yöne göre DÖNÜYOR** — yukarısı her zaman ilerisi. Yalnızca KENDİ
+    /// konumun var; terminal/takım arkadaşı/ceset/canavar yeri YOK, bilerek
+    /// (bkz. `MiniMapView`'in sınıf yorumu — 2026-09-14'te tartışılan
+    /// çok-rollü fikrin en sade hâli).
+    ///
+    /// Duvarlar **bir kez** yerleştiriliyor ve çalışma anında hiç
+    /// kıpırdamıyor; `MiniMapView` yalnızca onları taşıyan kabı döndürüp
+    /// kaydırıyor.
     ///
     /// Gerçek bir üstten kamera + RenderTexture KURULMUYOR, bilerek: harita
     /// tavanlı (bölüm 3, 3 m) — üstten bakan bir kamera tavanı görürdü.
@@ -587,14 +618,6 @@ public static class MenuSetup
     /// (`Harita`, `Harita_Genisleme_Guney`) kapsanmış `Transform.Find`
     /// zinciriyle. Harita büyürse (yeni bir kanat gelirse) `Menü Kur`
     /// yeniden çalıştırılınca sınırlar kendiliğinden güncellenir.
-    /// </summary>
-    /// <summary>
-    /// Mini haritayı kurar: gövde, çerçeve, kırpma penceresi, duvar kareleri
-    /// ve ortadaki ok.
-    ///
-    /// Duvarlar **bir kez** yerleştiriliyor ve çalışma anında hiç
-    /// kıpırdamıyor; `MiniMapView` yalnızca onları taşıyan kabı döndürüp
-    /// kaydırıyor.
     /// </summary>
     private static void BuildMinimap(Transform parent)
     {
@@ -645,7 +668,12 @@ public static class MenuSetup
         // Harita kabı NOKTA boyutunda (sizeDelta sıfır): dönüş kendi
         // pivotunda olsun ve haritanın toplam boyunu burada hesaplamak
         // gerekmesin diye.
-        GameObject mapRootObject = new GameObject("Harita", typeof(RectTransform));
+        // Ad "Harita" DEĞİL: sahnede gerçek haritanın kökü de öyle
+        // adlanıyor ve sekiz editör aracı onu `GameObject.Find("Harita")`
+        // ile arıyor — o metot isim çakışmasında hangisini döndüreceğini
+        // garanti etmiyor (bölüm 0.1'in `Duvar_3_0` dersi). 2026-09-27'de
+        // bir gün boyunca öyle duruyordu; 2026-09-28'de ayrıldı.
+        GameObject mapRootObject = new GameObject("HaritaKabi", typeof(RectTransform));
         mapRootObject.transform.SetParent(window, false);
 
         RectTransform mapRoot = mapRootObject.GetComponent<RectTransform>();
@@ -669,6 +697,9 @@ public static class MenuSetup
         foreach (Vector3 wallPosition in wallPositions)
             CreateMinimapWallTile(mapRoot, wallPosition, worldOrigin, pixelsPerMeter, tileSize);
 
+        // Sıra ÇİZİM sırası: duvarlar altta, işaretler üstünde, ok en üstte.
+        RectTransform markerRoot = CreateMinimapMarkerRoot(window);
+
         RectTransform selfMarker = CreateMinimapSelfMarker(window, out Image selfMarkerImage);
 
         MiniMapView view = panel.AddComponent<MiniMapView>();
@@ -678,6 +709,12 @@ public static class MenuSetup
         serialized.FindProperty("selfMarkerImage").objectReferenceValue = selfMarkerImage;
         serialized.FindProperty("worldOrigin").vector2Value = worldOrigin;
         serialized.FindProperty("pixelsPerMeter").floatValue = pixelsPerMeter;
+        serialized.FindProperty("markerRoot").objectReferenceValue = markerRoot;
+        serialized.FindProperty("markerSprite").objectReferenceValue = GetOrCreateDotSprite();
+        serialized.FindProperty("markerSize").floatValue = MinimapMarkerSize;
+        serialized.FindProperty("terminalColor").colorValue = MinimapTerminalColor;
+        serialized.FindProperty("terminalAlarmColor").colorValue = MinimapAlarmColor;
+        serialized.FindProperty("exitColor").colorValue = MinimapExitColor;
         serialized.ApplyModifiedProperties();
 
         if (wallPositions.Count == 0)
@@ -689,12 +726,26 @@ public static class MenuSetup
     }
 
     /// <summary>
-    /// `rootName` altındaki `Duvarlar` grubunun çocuklarını tarar. Kapsam
-    /// bilinen bir köke bağlı — `GameObject.Find("Duvar_...")` gibi GLOBAL
-    /// bir arama yapmıyoruz, çünkü kanadın kendi duvarları da aynı adlandırma
-    /// şemasını (`Duvar_X_Z`) paylaşıyor (bölüm 0.1'in isim çakışması dersi).
-    /// Burada risk yok: ikisinden de TÜM duvarları istiyoruz, ama yine de
-    /// doğru köke kapsamak alışkanlığı bozmuyoruz.
+    /// `rootName` altında mini haritada DUVAR olarak çizilecek her şeyin
+    /// dünya konumu: `Duvarlar/Duvar_X_Z` blokları **ve**
+    /// `EgilmeGecitleri/Gecit_X_Z` geçitleri.
+    ///
+    /// **Eğilme geçitleri neden duvar sayılıyor (2026-09-27, kullanıcı
+    /// isteği).** `MazeMapBuilder.BuildWalls` o hücreleri atlıyor
+    /// (`crouchCells.Contains(...)` → `continue`), yani orada `Duvar_`
+    /// objesi HİÇ yok — mini haritada koridormuş gibi boşluk görünüyorlardı
+    /// ve harita yanlış okunuyordu. Oysa geçit koşarak geçilen bir koridor
+    /// değil: duvarın içindeki, Ctrl ile eğilmeyi gerektiren bir delik.
+    /// Duvar olarak göstermek doğru okumayı veriyor.
+    ///
+    /// İkisi de hücre MERKEZİNDE duruyor (`CellToWorld`), yani tek bir karo
+    /// boyutu ikisine de oturuyor. Y'ye hiç bakılmıyor — `Duvar_` blokları
+    /// yarım duvar yüksekliğinde, `Gecit_` grupları zeminde ve
+    /// `WorldToMapPoint` yalnızca X ile Z okuyor.
+    ///
+    /// Kapsam bilinen bir köke bağlı — `GameObject.Find("Duvar_...")` gibi
+    /// GLOBAL bir arama yapmıyoruz, çünkü kanadın kendi duvarları da aynı
+    /// adlandırma şemasını paylaşıyor (bölüm 0.1'in isim çakışması dersi).
     /// </summary>
     private static void CollectWallPositions(string rootName, List<Vector3> positions)
     {
@@ -702,14 +753,28 @@ public static class MenuSetup
         if (root == null)
             return;
 
-        Transform walls = root.transform.Find("Duvarlar");
-        if (walls == null)
+        CollectGroupPositions(root.transform, "Duvarlar", "Duvar_", positions);
+        CollectGroupPositions(root.transform, "EgilmeGecitleri", "Gecit_", positions);
+    }
+
+    /// <summary>
+    /// Bir kökün altındaki adlandırılmış grubun, verilen önekle başlayan
+    /// DOĞRUDAN çocuklarının dünya konumları.
+    ///
+    /// Grup yoksa sessizce geçiliyor: kanadı kurulmamış bir projede
+    /// `Harita_Genisleme_Guney` hiç olmayabilir ve bu bir hata değil.
+    /// </summary>
+    private static void CollectGroupPositions(Transform root, string groupName,
+        string namePrefix, List<Vector3> positions)
+    {
+        Transform group = root.Find(groupName);
+        if (group == null)
             return;
 
-        foreach (Transform wall in walls)
+        foreach (Transform child in group)
         {
-            if (wall.name.StartsWith("Duvar_"))
-                positions.Add(wall.position);
+            if (child.name.StartsWith(namePrefix))
+                positions.Add(child.position);
         }
     }
 
@@ -783,6 +848,95 @@ public static class MenuSetup
         rect.anchoredPosition = Vector2.zero;
 
         return rect;
+    }
+
+    /// <summary>
+    /// Katilin terminal/çıkış noktalarının kabı.
+    ///
+    /// **Pencereyle AYNI boyda, bilerek.** `MiniMapView` kenara yapıştırma
+    /// sınırını bu kabın kendi genişliğinden okuyor
+    /// (`markerRoot.rect.width`), yani pencere boyu için ikinci bir alan
+    /// tutulmuyor — iki yerde tutulan bir sayı, biri değişince öbürünün
+    /// unutulması demek (menü figürlerinin açısında tam olarak bu yaşandı).
+    ///
+    /// İşaretlerin KENDİSİ burada kurulmuyor: kaç tane gerektiği tura göre
+    /// değişiyor ve araç bunu bilemez, `MiniMapView` çalışma anında havuzdan
+    /// veriyor.
+    /// </summary>
+    private static RectTransform CreateMinimapMarkerRoot(RectTransform window)
+    {
+        GameObject root = new GameObject("Isaretler", typeof(RectTransform));
+        root.transform.SetParent(window, false);
+
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = Vector2.zero;
+        rect.sizeDelta = window.sizeDelta;
+
+        return rect;
+    }
+
+    /// <summary>
+    /// Nokta sprite'ını üretir ve varlık olarak saklar — okla aynı gerekçe
+    /// (prosedürel, çünkü projede hazır bir doku yok).
+    ///
+    /// **Dış halka KOYU, çekirdek BEYAZ.** `Image.color` sprite'ın rengiyle
+    /// ÇARPILIYOR, yani tek bir tint hem parlak bir çekirdek hem koyu bir
+    /// kenar veriyor. Kenarsız bir nokta açık gri duvar karelerinin (0.55)
+    /// üstünde erirdi.
+    /// </summary>
+    private static Sprite GetOrCreateDotSprite()
+    {
+        const string folder = "Assets/_Art/UI";
+        const string path = folder + "/MiniHarita_Nokta.png";
+
+        Sprite existing = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (existing != null)
+            return existing;
+
+        if (!AssetDatabase.IsValidFolder(folder))
+            AssetDatabase.CreateFolder("Assets/_Art", "UI");
+
+        const int size = 64;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float u = (x + 0.5f) / size - 0.5f;
+                float v = (y + 0.5f) / size - 0.5f;
+                float distance = Mathf.Sqrt(u * u + v * v);
+
+                // Dış kenar yumuşatılıyor: 12 piksellik bir dairede basamaklar
+                // aksi hâlde açıkça görünüyor.
+                float alpha = Mathf.InverseLerp(0.48f, 0.42f, distance);
+
+                float core = Mathf.InverseLerp(0.36f, 0.30f, distance);
+                float shade = Mathf.Lerp(0.12f, 1f, core);
+
+                texture.SetPixel(x, y, new Color(shade, shade, shade, Mathf.Clamp01(alpha)));
+            }
+        }
+
+        texture.Apply();
+        System.IO.File.WriteAllBytes(path, texture.EncodeToPNG());
+        Object.DestroyImmediate(texture);
+
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null)
+        {
+            importer.textureType = TextureImporterType.Sprite;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.SaveAndReimport();
+        }
+
+        return AssetDatabase.LoadAssetAtPath<Sprite>(path);
     }
 
     /// <summary>
@@ -1965,6 +2119,32 @@ public static class MenuSetup
         TMP_Text counterLabel = CreateLabel(column, "1 / 1");
         counterLabel.fontSize = 18f;
 
+        // ---------- Perk ----------
+        //
+        // AYNI ekranda, çünkü aynı soruyu tamamlıyor: "bu rolde neye
+        // benziyorum ve ne görüyorum". Ayrı bir ekran açmak, oyuncuyu
+        // kostüm ile perk arasında gidip gelmeye zorlardı.
+        //
+        // Üstteki KAÇAN/KATİL düğmesi ikisini BİRLİKTE çeviriyor: "kaçan
+        // kostümü + katil perki" gibi anlamsız bir karışım gösterilemiyor.
+        CreateSpacer(column, 14f);
+
+        TMP_Text perkTitle = CreateLabel(column, "PERK");
+        perkTitle.fontSize = 18f;
+        perkTitle.color = AccentDim;
+
+        Transform perkRow = CreateRow(column, 62f);
+        Button perkPreviousButton = AddRowButton(perkRow, "<", select.PerkPrevious, 0.18f);
+        Image perkIcon = CreatePerkIcon(perkRow);
+        TMP_Text perkLabel = CreateRowText(perkRow, "Perk yok", 22f, AccentLight, 0.64f);
+        Button perkNextButton = AddRowButton(perkRow, ">", select.PerkNext, 0.18f);
+
+        // Ad tek başına ne yaptığını söylemiyor — "Karşılıklı İz" okunup
+        // katilin de seni gördüğü anlaşılmazsa perk yanlış seçilir.
+        TMP_Text perkSummaryLabel = CreateLabel(column, string.Empty);
+        perkSummaryLabel.fontSize = 15f;
+        perkSummaryLabel.color = new Color(0.66f, 0.66f, 0.72f, 1f);
+
         CreateSpacer(column, 10f);
         TMP_Text statusLabel = CreateLabel(column, string.Empty);
         statusLabel.fontSize = 16f;
@@ -1983,6 +2163,19 @@ public static class MenuSetup
         serialized.FindProperty("previousButton").objectReferenceValue = previousButton;
         serialized.FindProperty("nextButton").objectReferenceValue = nextButton;
         serialized.FindProperty("statusLabel").objectReferenceValue = statusLabel;
+        serialized.FindProperty("perkIcon").objectReferenceValue = perkIcon;
+
+        Sprite[] perkIcons = LoadPerkIcons();
+        SerializedProperty iconsProperty = serialized.FindProperty("perkIcons");
+        iconsProperty.arraySize = perkIcons.Length;
+
+        for (int i = 0; i < perkIcons.Length; i++)
+            iconsProperty.GetArrayElementAtIndex(i).objectReferenceValue = perkIcons[i];
+
+        serialized.FindProperty("perkLabel").objectReferenceValue = perkLabel;
+        serialized.FindProperty("perkSummaryLabel").objectReferenceValue = perkSummaryLabel;
+        serialized.FindProperty("perkPreviousButton").objectReferenceValue = perkPreviousButton;
+        serialized.FindProperty("perkNextButton").objectReferenceValue = perkNextButton;
         serialized.ApplyModifiedProperties();
 
         return panel;
@@ -2412,6 +2605,120 @@ public static class MenuSetup
     }
 
     /// <summary>Yatay sıralanan satır — kod, rol ve test butonları için.</summary>
+    /// <summary>Perk sembolünün kenar uzunluğu (piksel).</summary>
+    private const float PerkIconSize = 44f;
+
+    /// <summary>Perk sembollerinin aranacağı klasör.</summary>
+    private const string PerkIconFolder = "Assets/_Art/UI/Perk";
+
+    /// <summary>
+    /// Perk sembolünün içe aktarılacağı en büyük doku boyu.
+    ///
+    /// Sembol ekranda 44 piksel çiziliyor; gelen dosyalar 1254x1254.
+    /// KAYNAĞA dokunulmuyor, yalnızca Unity'nin belleğe aldığı boyut
+    /// sınırlanıyor — sekiz ikon aksi hâlde ~50 MB doku belleği yerdi.
+    /// 256, 4K arayüz ölçeğinde bile fazlasıyla yeterli.
+    /// </summary>
+    private const int PerkIconMaxSize = 256;
+
+    /// <summary>
+    /// Perk satırındaki sembol yuvası.
+    ///
+    /// **Yer ayrılıyor ama boşken ÇİZİLMİYOR** (kullanıcı isteği,
+    /// 2026-10-04: *"bu perklerimizin hepsinde bir sembol olacak, ana menüde
+    /// ona yer ayır"*). Genişlik SABİT (`flexibleWidth = 0`), yani semboller
+    /// geldiğinde satırın düzeni kaymıyor ve ad/düğme oranları aynı kalıyor.
+    ///
+    /// `enabled = false` ile kapalı başlıyor; `CharacterSelectPanel` sembolü
+    /// olan perkte açıyor. Açık bırakmak ekranda beyaz bir kare bırakırdı
+    /// (bölüm 13'ün kostüm renk kutusu dersi).
+    /// </summary>
+    private static Image CreatePerkIcon(Transform row)
+    {
+        GameObject iconObject = new GameObject("PerkSembolu",
+            typeof(RectTransform), typeof(Image));
+        iconObject.transform.SetParent(row, false);
+
+        Image image = iconObject.GetComponent<Image>();
+        image.raycastTarget = false;
+        image.preserveAspect = true;
+        image.enabled = false;
+
+        LayoutElement element = iconObject.AddComponent<LayoutElement>();
+        element.preferredWidth = PerkIconSize;
+        element.flexibleWidth = 0f;
+
+        return image;
+    }
+
+    /// <summary>
+    /// Perk sembollerini `PerkEffect` SIRASINDA toplar.
+    ///
+    /// **Dosya adı EFEKTİN adı** (`KacanTerminaller.png` gibi), perkin
+    /// görünen adı değil: görünen ad çevriliyor ve değişebiliyor, efekt adı
+    /// ise oynanışın kimliği (`PerkCatalog`'un kendi kuralı). Böylece liste
+    /// yeniden sıralansa bile semboller kaymıyor.
+    ///
+    /// Dosya yoksa yuva boş kalıyor ve ekran bugünkü gibi sembolsüz
+    /// çalışıyor — eksik bir görsel yüzünden menünün kurulamaması çok daha
+    /// kötü olurdu.
+    ///
+    /// Elle atılan bir PNG `Texture` olarak içe aktarılmış olabilir; araç
+    /// onu `Sprite`'a çeviriyor, yani kullanıcıdan fazladan bir adım
+    /// istemiyor. Ayarlar nokta/ok sprite'larıyla birebir aynı.
+    /// </summary>
+    private static Sprite[] LoadPerkIcons()
+    {
+        string[] names = System.Enum.GetNames(typeof(PerkEffect));
+        Sprite[] icons = new Sprite[names.Length];
+        int found = 0;
+
+        for (int i = 0; i < names.Length; i++)
+        {
+            string path = $"{PerkIconFolder}/{names[i]}.png";
+
+            if (!System.IO.File.Exists(path))
+                continue;
+
+            TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+
+            if (importer != null && NeedsSpriteSettings(importer))
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.alphaIsTransparency = true;
+                importer.mipmapEnabled = false;
+                importer.maxTextureSize = PerkIconMaxSize;
+                importer.SaveAndReimport();
+            }
+
+            icons[i] = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+
+            if (icons[i] != null)
+                found++;
+        }
+
+        // `Yok` sembol istemiyor, o yüzden beklenen sayı bir eksik.
+        Debug.Log($"Perk sembolü: {found}/{names.Length - 1} bulundu ({PerkIconFolder}).");
+        return icons;
+    }
+
+    /// <summary>
+    /// Sembolün içe aktarma ayarları istediğimiz gibi mi.
+    ///
+    /// **Dört ayara da tek tek bakılıyor, yalnızca `textureType`'a DEĞİL.**
+    /// Tek koşul kullanılsaydı ilk çalıştırmada Sprite'a çevrilen bir dosya
+    /// ikinci çalıştırmada koşulu geçemez ve sonradan eklenen bir ayar (boyut
+    /// sınırı gibi) o dosyalara HİÇ uygulanmazdı — sessizce.
+    ///
+    /// Bu, bu dosyanın tekrar eden tuzağı: "zaten doğru" varsayımıyla
+    /// atlanan bir yazı (bölüm 19'un `Cursor.visible` dersi).
+    /// </summary>
+    private static bool NeedsSpriteSettings(TextureImporter importer) =>
+        importer.textureType != TextureImporterType.Sprite
+        || !importer.alphaIsTransparency
+        || importer.mipmapEnabled
+        || importer.maxTextureSize > PerkIconMaxSize;
+
     private static Transform CreateRow(Transform parent, float height)
     {
         GameObject row = new GameObject("Satir", typeof(RectTransform), typeof(HorizontalLayoutGroup));

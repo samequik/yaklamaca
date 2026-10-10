@@ -39,7 +39,20 @@ noktaları** (2026-09-23) · git · **GitHub** (bölüm 24) ·
 **retro PSP görünümü** (bölüm 25, 2026-09-19 — dört turda oturdu; kullanıcı
 F10'la karşılaştırıp **İnce**'yi, yani 1080p'de 960×540 / her piksel 2×2 olan
 kademeyi seçti ve o artık varsayılan. Varsayılan olarak açılışı henüz
-oynanmadı).
+oynanmadı) · **mini harita** (2026-09-27, 26 m'lik dönen pencere; eğilme
+geçitleri duvar olarak çiziliyor) · **katilin harita noktaları** (2026-09-28,
+terminal + çıkış, GTA usulü kenara yapışma) · **güney kanadında mağara
+yankısı** (2026-09-28, bölüm 12).
+
+**Perk sistemi: SEKİZ PERKİN SEKİZİ DE YAZILDI** (2026-10-04). Altyapı
+2026-09-28 (katalog, cihaz kaydı, SyncVar senkronu, seçim satırı); etkiler
+aynı gün üç turda geldi — terminal ve geçit perkleri, ardından ceset/karşılıklı
+görünürlük ve iki süreli katil perki. İkisi gerçek sunucu işi
+(`RoundParticipant.TargetPerkPing`). **SEKİZİ DE OYNANARAK DOĞRULANDI**
+(2026-10-04, tek PC'de F8 + build): kullanıcı *"perkler çalışıyo sorunsuz,
+hiçbirinde sorun yok gibi"* dedi. Tek istek süre ayarıydı — "Son Nefes"
+5 → **10 saniye**. Sembolleri de kullanıcı çizdi, sekizi de yerinde.
+Ayrıntı aşağıdaki **"2026-10-04: perk ADIM 2"** başlığında.
 
 **Diriltme de bitti** (bölüm 23). Ceset haritada duruyor, taşınıyor, kabine
 konuyor; terminalde **10 saniyelik** işlem hatasız biterse kaçan orada
@@ -57,9 +70,16 @@ doğrulandı — burada uzun süre "ikisi de hiç denenmedi" yazıyordu, o da
 bayatlamıştı. Geriye **bütün denge sayıları** ve aşağıdaki devir listesindeki
 "yazıldı ama oynanmadı" maddeleri kalıyor.
 
-> **Yeni bir oturum açıyorsan önce aşağıdaki "2026-09-23: OTURUM DEVRİ"
-> başlığını oku.** Ne bitti, ne bekliyor, hangi araç çalıştırılacak, neye izin
-> yok — hepsi orada, dosyanın tamamını taramana gerek kalmadan.
+> ### PROJEYE ARA VERİLDİ (2026-10-10)
+>
+> **Yeni bir oturum açıyorsan önce aşağıdaki "2026-10-10: PROJEYE ARA
+> VERİLDİ — DEVİR NOTU" başlığını oku.** Proje bilinçli olarak duraklatıldı;
+> kullanıcı yeni bir oyuna başlıyor. O başlık nerede kalındığını, neyin
+> oynanarak doğrulanmadığını ve geri dönüldüğünde ilk yapılacak işi tek
+> yerde topluyor.
+>
+> Ondan sonraki "2026-10-03: DURUM RAPORU" ve "2026-09-23: OTURUM DEVRİ"
+> hâlâ okunabilir ama daha eski; çelişirlerse **tarihi yeni olan kazanır.**
 
 ---
 
@@ -390,14 +410,18 @@ Hepsinin ayrıntısı bölüm 23'te; özet:
 `Yakalamaca` adı **bilerek değiştirilmedi**: kullanıcı yeni adı yalnızca
 bildirdi, yeniden adlandırma istemedi. Tekrar yayından önce üç şey istendi.
 
-#### 1. Mini harita GİZLENDİ
+#### 1. Mini harita GİZLENDİ — *sonradan geri açıldı*
 
-`MiniMapView.Awake` panelin kendi objesini kapatıyor: sahneye dokunmadan, tek
-satır. Kullanıcı "istediğim gibi değil, karışık" dedi ve sonraya bıraktı. Kod
-da `Menü Kur`'daki kurulum da duruyor; geri açmak o satırı silmek.
+`MiniMapView.Awake` panelin kendi objesini kapatıyordu: sahneye dokunmadan,
+tek satır. Kullanıcı "istediğim gibi değil, karışık" dedi ve sonraya bıraktı.
+Kod da `Menü Kur`'daki kurulum da duruyordu; geri açmak o satırı silmekti.
 
 Bölüm 20'nin "kendi objesini kapatan bileşen kendini bir daha açamaz" dersine
-takılmıyor, çünkü burada istenen tam olarak kalıcı kapanma.
+takılmıyordu, çünkü burada istenen tam olarak kalıcı kapanmaydı.
+
+> **2026-09-27: KAPANDI.** Şikâyet ölçüldü ve haklı çıktı — sorun tasarımda
+> değil ÖLÇEKTEYDİ (bir koridor hücresi 4 piksel). Panel yeniden yazıldı ve
+> `Awake` satırı silindi. Ayrıntı aşağıdaki **"Mini harita"** başlığında.
 
 #### 2. Dil seçeneği: ilk açılışta İngilizce, Türkçe ayarlardan
 
@@ -2266,6 +2290,1007 @@ Derleme: Runtime ve Editor **sıfır hata**, yeni semboller DLL'de doğrulandı
 
 ---
 
+### 2026-10-10: PROJEYE ARA VERİLDİ — DEVİR NOTU
+
+Kullanıcı projeyi bilinçli olarak duraklattı: *"bu projeye ara vereceğiz
+biraz, bir de commit atalım GitHub'a kaybolmasın projemiz, son olarak da
+itch.io'ya atarız son güncellemeyi, sonra yeni bir oyun fikrim var ona
+başlarız."*
+
+**Bu başlık geri dönüldüğünde okunacak ilk yer.** Proje çalışır durumda
+bırakıldı; yarım kalan bir iş, bekleyen bir araç çalıştırması ya da bozuk
+bir derleme YOK.
+
+#### 1. Oyun bugün ne durumda
+
+Baştan sona oynanabilir bir tur var ve **itch.io'da 0.3 yayınlandı**.
+Çalışan sistemlerin tam listesi dosyanın en başındaki "Şu an neredeyiz"
+bölümünde; özeti:
+
+| Alan | Durum |
+|---|---|
+| Tur döngüsü (lobi → rol → terminal → çıkış → sonuç) | çalışıyor |
+| İki katil (KUKLA + DOMUZ KATİL), ayrı öldürme mekanikleri | çalışıyor |
+| Kaçan/katil kostümleri, karakter seçimi | çalışıyor |
+| Ceset, taşıma, diriltme | çalışıyor |
+| Mini harita + katilin terminal/çıkış noktaları | çalışıyor |
+| **Perk sistemi — sekiz perkin sekizi** | çalışıyor, **oynanarak doğrulandı** |
+| EOS relay, kısa oda kodu, oda listesi | çalışıyor (iki makinede) |
+| Sesli sohbet, TAB paneli, kick/ban | çalışıyor |
+| Retro PSP görünümü (İnce, 2×2) | çalışıyor |
+| Tutorial (NASIL OYNANIR) | çalışıyor |
+| Dil (EN varsayılan, TR ayarlardan) | çalışıyor |
+
+#### 2. Bu son oturumda ne yapıldı
+
+**(a) Dirilen kaçanın donma hatası DÜZELTİLDİ** — ayrıntı aşağıdaki
+"2026-10-10: DİRİLEN KAÇAN DONUYORDU" başlığında. Kök sebep
+`RoundParticipant.ReleaseGrab`'deki `&& alive` şartıydı: yakalamanın amacı
+kurbanın ölmesi olduğu için şart emniyet ağını kendi amacına karşı
+çalıştırıyor ve odak kilidi turdan tura taşınıyordu.
+
+> **BU DÜZELTME OYNANARAK DOĞRULANMADI.** Geri dönüldüğünde ilk iş bu.
+> Denemesi: domuz katille bir kaçanı öldür, cesedini kabine taşıyıp dirilt —
+> dirilen kaçan hareket edebilmeli. İkinci sınama: bir tur bitir, yeni turda
+> ölmüş olan kaçanın hareket ettiğini gör.
+
+**(b) FREEPSX menü dili denendi ve REDDEDİLDİ** — hemen aşağıdaki başlık.
+Tamamen geri alındı, kodda izi yok; kullanıcı `Menü Kur`'u çalıştırdı ve
+sahne eski menüye döndü (280 köşe ayracı, 0 PSX izi, 0 kırık referans —
+ölçüldü).
+
+#### 3. Geri dönüldüğünde SIRAYLA yapılacaklar
+
+| # | İş | Not |
+|---|---|---|
+| 1 | **Donma düzeltmesini oynayarak doğrula** | Yukarıdaki (a). Tek PC'de F8 + build yetiyor |
+| 2 | **Denge** | Açık iş 1: canavar çok güçlü. Beş kişilik testte bir saat, hiç kaçış yok. Üstüne katil artık bedava terminal radarı + bir perk taşıyor. **Kullanıcıdan sayı gelmeden dengeye dokunma** |
+| 3 | Perk dengesi | Kullanıcı: *"bazı perkler çok güçlü olabilir, duruma göre buff/nerf"* |
+| 4 | Oynanarak görülmemiş maddeler | Aşağıdaki 4. başlık |
+
+#### 4. YAZILDI ama OYNANARAK görülmedi
+
+Bu listenin tamamı "kod doğru görünüyor, derleme sıfır hata" seviyesinde.
+Biri bozuksa sebebi muhtemelen o satırın kendisidir.
+
+| Ne | Nasıl bakılır |
+|---|---|
+| **Dirilen kaçanın donmaması** (2026-10-10) | Yukarıdaki (a) — **en öncelikli** |
+| Yeni mini harita (240 px, dönen, ok) | Bir tur oyna, sol üste bak |
+| Eğilme geçitlerinin duvar olarak çizilmesi | Geçidin yeri artık boşluk DEĞİL |
+| Katilin terminal/çıkış noktaları | Katil ol: mavi noktalar, hatada kırmızı nabız, çıkış açılınca sarı |
+| Kenara yapışma (GTA usulü) | Uzaktaki terminal pencerenin kenarında %78 boyutta mı |
+| Güney kanadında mağara yankısı | Kanadın güney köşesine git |
+| Sopanın sönümü (k=4) ve 35° tavan | Domuzla koş: sopa elinde mi, öldürdükçe açısı kayıyor mu |
+| Kaçanın ölüm klibi (hız 2.0) | KUKLA ile yakala: kurban yıkma anında yere değiyor mu |
+| Ölüm kamerasının öldürene dönmesi | Öl, 1.6 sn — özellikle KUKLA'da ve sırtın dönükken |
+| Retro **İnce**'nin varsayılan açılması | Game penceresi "Play Maximized" ya da tam ekran olmalı |
+| Tutorial'ın baştan sona bitirilmesi | Ana menü → NASIL OYNANIR |
+| Elenen birinin sahadakilere konuşamaması | iki makine |
+
+#### 5. BEKLEYEN ARAÇ ÇALIŞTIRMASI YOK
+
+`Menü Kur` bu oturumun sonunda çalıştırıldı ve sahneden doğrulandı. Başka
+hiçbir araç beklemiyor. **`Labirent Harita Kur` ve `Atmosfer Kur` hâlâ
+YASAK** (bölüm 0).
+
+#### 6. Açık işler (kod tarafı)
+
+| # | İş | Not |
+|---|---|---|
+| 1 | **Denge — canavar çok güçlü** | Yukarıdaki 3. başlık |
+| 2 | Işık probe'ları güney kanadını kapsamıyor | 1544 probe, kanatta **0**. Düzeltmesi `Işığı Pişir` (dakikalar). **Kullanıcıya soruldu, cevap gelmedi** |
+| 3 | Oda gizliliği (herkese açık / gizli) | Hiç yazılmadı |
+| 4 | Canavarın diriltmeye karşı hamlesi | Diriltme hâlâ tek taraflı kazanç. ÜÇÜNCÜ bir katilin özelliği olabilir |
+| 5 | Çıkış engeli havada | `Engel` yerden 1.5–4.5 m, canavar kapsülü 1.37 m → altından geçebilir. **`Terminal ve Çıkış Kur` ÇÖZÜM DEĞİL** — taşınan `Cikis_*_1`'i geri alır |
+| 6 | Test tuşları yayınlanan build'de aktif | `RoundManager.HandleTestKeys` editör koruması taşımıyor; host turda [3]'e basarsa kendini eler |
+| 7 | EOS: aynı anda iki oda kurulunca ikincisi listede görünmüyor | Kod okundu, hata bulunamadı |
+| 8 | `EosApiKey.asset` client secret | **Depo GİZLİ kalmalı.** Herkese açılmadan ÖNCE Epic'ten anahtar yenilenmeli — dosyayı silmek yetmiyor, anahtar git geçmişinde |
+| 9 | Unity-Chan lisansı (UCL) | Kullanıcı kararı: bilerek EN SONA |
+| 10 | Teknik borç: kapıdan vuruş · çıkış engelinin adanmış sunucu farkı | Host modunda görünmüyor |
+
+#### 7. Yol haritasında bekleyenler
+
+| # | İş | Durum |
+|---|---|---|
+| 1 | **Yeni harita** | Fikir aşamasında, ayrıntı hiç konuşulmadı |
+| 2 | **Domuz katile kostüm** | Fikir. Bugün katil = gövde = oynanış birebir eşleşiyor; aynı katilin iki görünüşü veri modelinde gerçek bir değişiklik |
+| 3 | **Menü görünümü** | FREEPSX denendi, beğenilmedi. Kullanıcı: *"şimdilik hiç ellemeyelim burayı"* — **istenmeden dokunma** |
+
+#### 8. itch.io'ya son güncellemeyi atarken
+
+Sıra önemli:
+
+1. Unity'de **File > Build Settings > Build**.
+2. **Build'i bir kez oyna** — özellikle 4. başlıktaki donma düzeltmesini.
+3. itch.io'ya yükle.
+
+> **Build hâlâ `Yakalamaca.exe` üretiyor.** Ekrandaki başlık *TERMINAL FIVE*
+> ama dosya adı `ProjectSettings > Player > Product Name`'den geliyor.
+> Değiştirmek isterseniz **PlayerPrefs SIFIRLANIR** (oyuncu adı, dil, tuş
+> atamaları, kostüm seçimleri — hepsi `HKCU\Software\<company>\<product>`
+> altında). `companyName` de aynı anda değiştirilmeli, yoksa sıfırlama İKİ
+> kez yaşanır. Ayrıntı 2026-09-26'nın 6. maddesinde. **Bu oturumda
+> DEĞİŞTİRİLMEDİ.**
+
+#### 9. Git durumu
+
+Bu oturumun sonunda **her şey commit'lenip GitHub'a push edildi**
+(`github.com/samequik/yaklamaca`, **gizli** depo). Yani:
+
+* `git checkout -- .` ve `git reset --hard` artık **gerçekten geri alma
+  komutu** — son kayıt güncel.
+* Bir sonraki oturum temiz bir çalışma ağacıyla başlıyor.
+
+Commit'e BİLEREK girmeyen tek dosya: `Assets/ChatGPT Görseli 26 Eyl 2026
+15_54_24.png` (2.8 MB, `Assets/` köküne düşmüş bir ekran görüntüsü).
+Kullanıcı daha önce *"gerek yok"* demişti; diskte duruyor, silinmesi onun
+kararı.
+
+`Assets/FREEPSXUI` (21 MB, 948 PNG) commit'e **girdi**: kullanıcının kendi
+getirdiği varlık ve "kaybolmasın" dedi. Bugün hiçbir yerde kullanılmıyor —
+istenirse silinebilir, paket rohhsa.itch.io'dan ücretsiz yeniden
+indirilebiliyor.
+
+#### 10. Değişmez kurallar (yeni oturum bunlara uyar)
+
+* **`Labirent Harita Kur` ve `Atmosfer Kur` YASAK.** Harita elle düzenlendi;
+  bu ikisi sildiklerini sahneye kendileri kaydediyor, Ctrl+Z kurtarmıyor.
+  Gerçekten gerektiğine inanıyorsan önce SOR ve neyin kaybolacağını say.
+* **Sahne araçlarını KULLANICI çalıştırır.** Menü öğesi çalıştırılmaz;
+  `.unity` ve `.prefab` YAML'ı elle düzenlenmez.
+* **İzin alınmadan commit ya da push YOK.**
+* **Satır sonlarını ÖLÇ, tahmin etme.** AGENTS.md LF, AGENTS.md CRLF,
+  `Assets/_Scripts` karışık.
+* **AGENTS.md her değiştiğinde AGENTS.md senkronlanır** (bölüm "OTURUM
+  DEVRİ"ndeki tek satırlık komut).
+* **`Assets/unity-chan!` commit'e hiç girmiyor** (216 MB, `.gitignore`).
+* **İç ad `YAKALAMACA` değişmiyor**; ekranda görünen ad *TERMINAL FIVE*.
+* **Anlatım:** sade Türkçe, adım adım, kanıtla. Kısa "şuna bas" talimatı
+  kullanıcıyı kızdırıyor.
+* **Yeni bir şikâyet gelince önce ÖLÇ.** Bu dosyanın en pahalı dersi:
+  tahminle yazılan bir düzeltme yanlış sorunu "çözüp" asıl sebebi
+  geciktiriyor. Üç hazır yol: Editor.log, sahne/prefab'dan grep, ve
+  Unity'siz derleme (bölüm 7).
+
+---
+
+### 2026-10-10: FREEPSX menü dili DENENDİ ve REDDEDİLDİ — tamamen geri alındı
+
+Kullanıcı `Assets/FREEPSXUI` paketini getirip *"onu komple oyuna uygula"*
+dedi; menünün tamamı o dile çevrildi ve oynandıktan sonra **beğenilmedi**:
+*"ben bu menü tarzını beğenmedim hiç, eskisine geri dönelim, şimdilik hiç
+ellemeyelim burayı."* Her şey geri alındı — bugün kodda hiçbir izi yok.
+
+**Bu not paketin NE OLDUĞUNU kaydetmek için duruyor**, yoksa bir sonraki
+oturum 949 dosyayı baştan inceler.
+
+| Ölçüm | Değer |
+|---|---|
+| Dosya | 949 (948 PNG + README) |
+| Çözünürlük | `trueres_240p`, `fullres_720p`, `fullres_1440p` — hepsi **4:3** |
+| İçerik | 9 "skin" × 34 ekran + 10 kılavuz |
+| Yapımcı | rohhsa.itch.io, ücretsiz |
+
+**Paket tam ekran KOMPOZİT görüntülerden oluşuyor; 9-slice düğme, çerçeve
+parçası, ikon ya da font YOK.** Üç şey ölçüldü:
+
+* `SkinNN-Start-Screen-Menu` = arka plan + **piksellerin içine basılmış**
+  İngilizce yazı ("new game", "load game", "credits").
+* `SkinNN-Selection_*` = aynı görüntünün yazıları parlayan hâli.
+* `*-SelectionSquares.png` = **kırmızı kılavuz kutuları**, yani "düğmelerini
+  buraya koy" diyen referans — ekrana çizilecek bir şey değil.
+
+Yani paket olduğu gibi takılamıyor: bizim dokuz ekranımız canlı içerik
+taşıyor (lobi kadrosu, ping, perk açıklaması, tuş atamaları) ve iki dilde
+çalışıyor. Arka plan plakaları da kullanılamıyor — menü sahnesinin kamerası
+**opak temizliyor** (`MenuStageSetup.cs:120`), yani plaka karakterlerin
+arkasında kalıp tek piksel görünmüyor; görünür kılmak karakter sahnesini
+kaldırmak demek.
+
+> **Ders: beğenilmeyen bir görünüm değişikliği, kodda da belgede de
+> BIRAKILMAZ.** Bölüm 5'in kendi dersi (`indirectScale`/`albedoBoost`
+> kalıntısı) ve bölüm 25'in "reddedilen bir kaldıraç kodda bırakılmaz"
+> kuralı. Geri alma `git checkout` ile YAPILMADI, bilerek: `MenuSetup.cs`
+> bu oturumdan önce de değişmişti (mini harita + perk işi) ve o komut onları
+> da silerdi — düzenlemeler tek tek, ters sırayla geri alındı ve sonuç
+> HEAD'le karşılaştırılarak doğrulandı (kalan fark yalnızca önceki
+> oturumların işi).
+
+---
+
+### 2026-10-10: DİRİLEN KAÇAN DONUYORDU — odak kilidi turdan tura taşınıyordu
+
+Kullanıcı: *"kaçanlar öldükten sonra tekrar dirildiğinde veya ölüp oyun
+bittiğinde 2. oyunda başlayınca hareket edemiyorlar, mouse'u dahi
+çeviremiyorlar — ama katil ilk tur oynayan kişi ikinci tur kaçan olunca o
+hareket edebiliyor."*
+
+**Asimetri teşhisin tamamını verdi.** Katil hiç ölmüyor; ölen yalnızca
+kaçanlar. Yani sebep, ölüm anında yapılıp GERİ ALINMAYAN bir şey.
+
+#### Kök sebep: emniyet ağı kendi amacına karşı çalışıyordu
+
+Domuz katil kurbanı savurmanın başında öne çekip **kilitliyor**
+(`RoundParticipant.TargetGrabbed` → `PlayerController.BeginFocus(0f, 0f)`).
+Kilidi açacak emniyet ağı şuydu:
+
+```csharp
+private void ReleaseGrab()
+{
+    if (playerController != null && alive)   // ← bu şart
+        playerController.EndFocus();
+}
+```
+
+**Yakalamanın TAMAMININ amacı kurbanın ölmesi.** Sayaç dolduğunda kurban
+çoktan ölü, yani `alive` yanlış ve `EndFocus` **hiç çağrılmıyor**.
+
+`isFocused` `PlayerController`'da duruyor ve **oyuncu objesi turdan tura
+yaşıyor** — ölümde bileşenler kapanıyor, dirilişte geri açılıyor, ama bayrak
+hiç temizlenmiyor. Kilit sonsuza kadar açık kalıyordu.
+
+#### Belirti neden "mouse bile dönmüyor"
+
+`BeginFocus(0f, 0f)` üç şeyi birden kesiyor ve sınırlar SIFIR:
+
+| `isFocused` ne yapıyor | Sonuç |
+|---|---|
+| `moveRight`/`moveForward` = 0, sprint ve zıplama kapalı | hareket yok |
+| yaw `±focusYawLimit` = **±0°** | sağa sola dönemiyor |
+| pitch `±focusPitchLimit` = **±0°** | yukarı aşağı bakamıyor |
+
+Terminal odağında sınırlar 35°/12°, yani orada "dar bir koni" hissi veriyor;
+yakalamada sıfır olduğu için **tam donma** üretiyor. Şikâyetin "mouse'u dahi
+çeviremiyorlar" kısmı birebir bu.
+
+#### İki katmanlı düzeltildi
+
+| Katman | Ne yapıyor |
+|---|---|
+| **Kök** | `ReleaseGrab`'deki `&& alive` kaldırıldı. Ölü oyuncuda `EndFocus` zaten zararsız: kontrolcü kapalı, metot yalnızca bir bool indiriyor |
+| **Değişmez kural** | `SetControlActive(true)` artık odağı KOŞULSUZ açıyor — kontrolü geri alan herkes odaksız başlıyor |
+
+**İkincisi asıl düzeltme.** Odak kuran **beş** yol var (yakalama, terminal,
+çıkış kilidi, diriltme kabini, canavarın saldırısı) ve her biri kendi çıkışını
+kendi temizliyor. "Oyuncu tam o anda ölürse" her birinde ayrı bir kaçak yolu
+demek; tek çıkış noktasına koymak hepsini birden kapatıyor.
+
+**Her karede çalışmıyor — ölçüldü.** `RefreshBodyState` yalnızca SyncVar
+hook'larından geliyor (`alive`, `escaped`, `spectating`, rol), yani terminal
+başındaki bir oyuncunun odağı buradan asla bozulmuyor. Her karede çalışsaydı
+terminalleri büsbütün kullanılamaz yapardı — düzeltmeyi yazmadan ÖNCE bu
+ölçüldü.
+
+#### Diğer dört yol ölçüldü: üçü kendini iyileştiriyor
+
+| Yol | Ölüm anında ne oluyor |
+|---|---|
+| **Yakalama** | **BOZUKTU** — yukarıdaki kök sebep |
+| Terminal | `ServerTick` `!user.IsAlive` görünce `ServerRelease` çağırıyor → SyncVar düşüyor → istemci `EndFocus` |
+| Çıkış kilidi | aynı desen |
+| Diriltme kabini | `OnDisable` → `ReleaseLocal` |
+| Canavarın saldırısı | `TickLock` koşulsuz bırakıyor ve `Update`'in EN BAŞINDA — tur biterse diye bilerek oraya konmuş (bölüm 14) |
+
+Yani tek gerçek kaçak yakalamadaydı; ama `SetControlActive` düzeltmesi
+diğerlerinde de ileride açılabilecek kapıyı kapatıyor.
+
+> ### Ders: bir emniyet ağının ŞARTINI, koruduğu durumla birlikte oku
+>
+> `&& alive` mantıklı görünüyor ve gerçekten bir durumu doğru çözüyordu:
+> *canavar yakalama ile ölüm arasında elenirse kurban hayatta kalır ve
+> serbest bırakılmalı.* Ama **asıl sık durum tam tersi** — kurban ölüyor — ve
+> şart orada emniyet ağını sessizce etkisiz kılıyordu.
+>
+> Bu, bu dosyanın tekrar eden tuzağı: **"zaten doğru" varsayımıyla atlanan bir
+> yazı** (bölüm 19'un `Cursor.visible` dersi, bölüm 10'un perk ikonu import
+> koşulu). Üçünde de kod çalışıyor görünüyor, hiçbir yerde hata yazmıyor ve
+> belirti bambaşka bir yerde ortaya çıkıyor.
+
+#### Doğrulama
+
+| | Durum |
+|---|---|
+| Derleme | Runtime + Editor **sıfır hata** |
+| DLL'de | `ReleaseGrab`, `SetControlActive`, `EndFocus` ✓ |
+| Araç gerekiyor mu | **HAYIR** — saf kod, sahneye serileşmiş hiçbir alan değişmedi |
+| **Oynanarak** | **HENÜZ DOĞRULANMADI** |
+
+**Nasıl denenir:** domuz katille bir kaçanı öldür, sonra cesedini kabine
+taşıyıp dirilt — dirilen kaçan hareket edebilmeli. İkinci sınama: bir tur
+bitir, yeni turda ölen kaçanın hareket ettiğini gör.
+
+---
+
+### 2026-10-04: perk ADIM 2 — SEKİZ PERKİN SEKİZİ DE YAZILDI
+
+Kullanıcı "en kolay yerden başla" planını onayladı ve iki parça yazıldı:
+**kırpma bayrağı** (2a) ve **üç perkin kendisi** (2b). Perkler 2026-09-28'den
+beri seçiliyor ama hiçbir şey yapmıyordu; artık üçü gerçekten çiziyor.
+
+#### 1. `edgeClamped`: tasarımın asıl ekseni artık kodda
+
+`MiniMapView.PlaceMarker` iki yeni şey taşıyor: bir `edgeClamped` parametresi
+ve bir **dönüş değeri**.
+
+| | Davranış |
+|---|---|
+| `edgeClamped: true` | Pencerenin dışında kalan işaret YÖNÜNÜ koruyarak kenara yapışıyor, %78 boyutta (eski davranışın tamamı) |
+| `edgeClamped: false` | **Pencerenin dışı hiç çizilmiyor** — ne yön ne mesafe; ancak yaklaşınca öğreniliyor |
+
+**Kararı metot vermiyor, perkin kendi satırı veriyor** (`PerkCatalog.Perk.
+EdgeClamped`). Kullanıcı bu ayrımı perk perk ayrı ayrı söylediği için bir
+tasarım kaldıracı, çizim ayrıntısı değil; iki yerde tutulsa biri değişince
+öbürü unutulurdu (menü figürlerinin açısında tam olarak bu yaşandı, bölüm 13).
+
+**Dönüş değeri gerekliydi, süs değil.** Havuz indeksi `used++` ile ilerliyor
+ve `HideMarkersFrom(used)` gerisini kapatıyor. Kırpılan bir işaret slot
+tüketseydi sayaç şişer ve `HideMarkersFrom` yanlış yerden keserdi. Şimdi
+`GetMarker` da kararın ARKASINDA çağrılıyor: hiç çizilmeyecek bir işaret için
+havuzda obje bile kurulmuyor.
+
+**Bugünkü davranış birebir korundu:** katilin bedava terminal/çıkış radarının
+iki çağrı yeri de `edgeClamped: true` geçiyor.
+
+#### 2. Üç perk: terminaller ve geçitler
+
+`MiniMapView.TickPerkMarkers` — katilin bedava radarının ÜSTÜNE biniyor
+(kullanıcı: *"perke gerek yok onun için, yoksa çok güçsüz olur"*).
+
+| Perk | Çizdiği | Kırpılıyor mu |
+|---|---|---|
+| **Terminal Sezgisi** (kaçan) | Bitmemiş terminaller | evet |
+| **Geçit Sezgisi** (kaçan) | 8 kapı + 7 eğilme geçidi | evet |
+| **Geçit Sezgisi** (katil) | aynısı | evet |
+
+**İki rol TEK `switch` dalında**, çünkü kullanıcı ikisini birebir aynı tarif
+etti. Kırpılıp kırpılmadığını yine `perk.EdgeClamped` söylüyor, yani roller
+ileride ayrışmak isterse **katalogdan** ayrışıyor — çizen koddan değil.
+
+**Kaçan terminal perkinde alarm nabzı YOK, bilerek.** "Burada biri hata yaptı"
+KATİLİN bilgisi (bölüm 11.4); kaçana vermek perkin tarifinde ("bitmemiş
+terminaller") olmayan ikinci bir kazanç olurdu.
+
+**Ek ağ verisi sıfır.** Üçü de sabit sahne objesi; terminalin durumu da zaten
+SyncVar'dan türüyor (bölüm 11.2). Karar tamamen yerel (`local.ActivePerk`),
+yani bölüm 4'ün kuralı bu üç perkte hiç zorlanmıyor.
+
+#### 3. Kapı/geçit konumları ÇALIŞMA ANINDA toplanıyor, araçta değil
+
+`EnsurePassages` bir kez tarayıp saklıyor. Duvar kareleri gibi `Menü Kur`'a
+bağlanmadı: bunlar yalnızca bir `Vector3` listesi ve araca bağlamak **perki
+denemek için araç çalıştırmayı şart koşardı**, üstüne sahneye serileşmiş bir
+alan daha eklerdi (bölüm 16'nın tuzağı).
+
+**Tarama bir KÖKE kapsanmış ve bu şart.** Ölçüldü — `Kapi_3_3` sahnede **iki
+kez** var (biri ana haritada, biri güney kanadında), yani
+`GameObject.Find("Kapi_3_3")` hangisini döndüreceğini garanti etmiyor: bölüm
+0.1'in `Duvar_3_0` dersinin birebir aynısı. Kök sahne KÖKLERİ arasında
+aranıyor (`Mağara Yankısı Kur`'un `FindMapRoot` deseni), sonra altının tamamı
+taranıyor.
+
+> **`Harita_Genisleme_Guney` ayrı bir kök DEĞİL — ölçüldü.** Sahne YAML'ı
+> `m_Father` zinciriyle ayrıştırıldı: kanat `Harita`'nın ÇOCUĞU. Yani tek
+> geçiş iki haritayı birden yakalıyor ve kanadın adı koda hiç yazılmadı —
+> harita büyürse bu kod değişmiyor. Ayrı kök varsayılsaydı tarama sessizce
+> boş döner ve perk "bozuk" diye okunurdu.
+
+Hiçbir şey bulunamazsa konsola **uyarı yazıyor**: sessiz kalması bu dosyanın
+en pahalı tuzağı (bölüm 11.5'in `ExitGate` dersi).
+
+#### 4. `CmdSetPerks` artık tur ortasında perk değiştirmiyor
+
+Açık iş kapandı. Ama **ölçüt faz DEĞİL**, ve sebebi öğretici:
+
+`phase == Playing` tek başına YANLIŞ olurdu. `PushPerks`
+`OnStartLocalPlayer`'dan çağrılıyor ([RoundParticipant.cs:561]) ve **tur
+ortasında katılan** biri için o an tam da `Playing` oluyor — düz bir faz
+kontrolü geç katılanın perkini sessizce 0'da bırakır ve sebebi hiçbir yerde
+görünmezdi.
+
+Doğru ölçüt "bu katılımcı turda OYNUYOR mu": `Phase == Playing && role !=
+RoundRole.None`. Geç katılan izleyici olup `RoundRole.None` taşıdığı için
+(`RoundManager.ServerRegister`) buradan geçiyor ve seçtiği perkle bir sonraki
+tura giriyor.
+
+| Durum | Perk yazılıyor mu |
+|---|---|
+| Lobi (`Waiting`) | evet |
+| Tur ortasında KATILAN (rol `None`) | **evet** — geç katılanın perki kaybolmuyor |
+| Turda oynayan, ölüm anında değiştirmeye çalışan | **HAYIR** |
+| `Ended` (sonuç ekranı) | evet — tur çözülmüş, hemen ardından lobi açılıyor |
+
+> Ders: **bir kuralı faza bağlamadan önce o fazda başka kimin geçtiğini say.**
+> Bu, 2026-09-21'in 5. dersinin ("bir kuralı koyarken KİMİ kapsadığını say")
+> aynısı — orada "yalnızca koşarken ses" kaçan için doğru canavar için
+> yanlıştı ve bir hafta sürmüştü.
+
+#### 5. Ölçülenler
+
+Hepsi sahne dosyasından ve DLL'den, çalıştırmadan ÖNCE (2026-09-21'in 8.
+dersi):
+
+| Ölçüm | Değer |
+|---|---|
+| `Harita` adında obje | **1** — `HaritaKabi` ayrıldığı için tarama güvenli |
+| Toplanan kapı | **8** (5 ana + 3 kanat) |
+| Toplanan eğilme geçidi | **7** (5 ana + 2 kanat) — belgenin kendi tablosuyla birebir |
+| `pixelsPerMeter` (sahnede) | 8.538462 |
+| İşaret penceresi (`Isaretler`) | 222 px |
+| **Görünür yarıçap** | **105 px / 8.538 = 12.30 m** |
+| `doorColor` / `crouchGapColor` sahnede | **YOK** → C# varsayılanları geçerli |
+| Derleme | Runtime + Editor **sıfır hata** |
+| DLL'de | `TickPerkMarkers`, `EnsurePassages`, `edgeClamped`, `doorColor` ✓ |
+
+**Araç çalıştırmak GEREKMİYOR.** İki yeni renk alanı sahnede yok, yani
+varsayılanları geçerli; geri kalan her şey saf kod. Ama bir kez `Menü Kur`
+çalıştırıldıktan sonra bölüm 16'nın tuzağı bu iki alan için de işlemeye
+başlar.
+
+#### 6. DENGE: kırpılan perk dar bir pencereden bakıyor
+
+Ölçüldü ve kaydedilmesi gerekiyor — kaçanın sekiz doğum noktasından, tur
+başında pencere içinde kalan nokta sayısı:
+
+| Doğum noktası | Terminal (5) | Kapı (8) | Geçit (7) |
+|---|---|---|---|
+| Dogum_Kacan_1..3 | **0** | 0 | 0 |
+| Dogum_Kacan_4 | 0 | 1 | 0 |
+| Dogum_Kacan_5 | 1 | 1 | 1 |
+| Dogum_Kacan_6 | 1 | 1 | 1 |
+| Dogum_Kacan_7 | 1 | 0 | 2 |
+| Dogum_Kacan_8 | 1 | 1 | 0 |
+
+Doğum noktasından en yakın terminal **1.2 m ile 21.6 m** arasında.
+
+Yani **sekiz doğum noktasının üçünde perk tur başında hiçbir şey
+göstermiyor** ve hiçbirinde ikiden fazla göstermiyor. Bu bir hata değil,
+kırpılan varyantın tanımı — ama perk oynanırken "çalışmıyor" diye okunabilir.
+
+**Hiçbir sayıya dokunulmadı** (kullanıcıdan sayı gelmeden dengeye
+dokunulmuyor). Üç kaldıraç hazır duruyor, hepsi tek satır:
+
+| İstenirse | Nerede |
+|---|---|
+| Perk kenara yapışsın | `PerkCatalog`'da o satıra `edgeClamped: true` |
+| Pencere daha geniş görsün | `MenuSetup.MinimapMetersAcross` (26) + `Menü Kur` |
+| Kapı ve geçit aynı renk olsun | `MiniMapView`'da iki renge aynı değer |
+
+#### 7. Bilerek yapılmayan
+
+- **Elenen oyuncuda perk kapatılmadı.** Bugün izleyici modunda mini harita
+  zaten kendi ölü konumuna kilitli (perkten ÖNCE de böyleydi) ve katilin
+  bedava radarı da kapatılmıyor. Yeni bir kural icat etmemek için var olan
+  davranış korundu.
+- **Ret SESSİZ** (`CmdSetPerks`). Seçim ekranı tur ortasında hiç açılamıyor
+  (duraklatma menüsünde KARAKTER yok), yani reddedilecek bir çağrı pratikte
+  yalnızca değiştirilmiş bir istemciden gelir.
+
+#### 8. İLK OYNANIŞ: ikisi de çalışıyor (2026-10-04, aynı gün)
+
+Kullanıcı Play'de denedi. **Yazılan iki perk de çalıştı:**
+
+| Perk | Geri bildirim |
+|---|---|
+| Kaçan 1 — Terminal Sezgisi | *"1. perk okey"* |
+| Katil 3 — Geçit Sezgisi | *"3. perk çalışıyo"* |
+
+> ### ~~Kullanıcı yazılmayan perkleri aradı~~ — AYNI GÜN KAPANDI
+>
+> Aşağıdaki not yazıldıktan birkaç saat sonra kalan beş perk de yazıldı
+> (11. ve 12. madde), yani bugün yazılmayan perk KALMADI. Not, dersi için
+> duruyor: **yarım bir sistemde seçilebilen ama çalışmayan bir seçenek,
+> oyuncuya hata gibi görünüyor.**
+>
+> Aynı mesajda *"3. perk çalışıyomu bilmiyom, ölü test botunun yerini
+> göremedim"* ve *"4. perkte katilin yerini göremiyom"* da vardı. İkisi de
+> hata DEĞİL: o perkler hiç yazılmadı, yalnızca katalogda duruyorlar.
+>
+> Sebep tasarımın kendisi: **sekiz perkin sekizi de seçilebiliyor ama
+> yalnızca üçünün kodu var.** Seçim ekranı ikisini hiçbir şekilde ayırt
+> ettirmiyor, yani oyuncu (ve bir sonraki oturum) yazılmamış bir perki
+> "bozuk" diye okuyor.
+>
+> Bugün bilerek böyle bırakıldı — ama perkler tek tek geldikçe bu karışıklık
+> her turda tekrar edecek. İstenirse yazılmayan perkin açıklamasına tek
+> kelime eklemek yetiyor (`PerkCatalog`'daki `Summary`), ya da listeden
+> geçici olarak çıkarılabilirler.
+
+#### 9. Kapı ve geçit artık NOKTA değil ÇİZGİ (aynı gün)
+
+Kullanıcının isteği: *"eğilme yerleriyle kapıları nokta olarak değil de uzun
+çizgiler olarak göster, hani orda geçit var veya o koridoru kapatan bir kapı
+gibi gözüksünler."* Hem kaçanın hem katilin geçit perki için.
+
+`MiniMapView.PlaceLine` — nokta yerine döndürülmüş bir dikdörtgen.
+
+**Uzunluk engelin KENDİ ölçüsünden geliyor, sabit değil.** Yan kazancı tam da
+istenen ayrım:
+
+| | Uzunluk | Ekranda | Anlamı |
+|---|---|---|---|
+| **Kapı** | 3.2 m | 27 px | koridoru TAM kapatıyor |
+| **Eğilme geçidi** | 3.2 m | 27 px | duvarın içinden geçen tünel (bkz. 11. madde) |
+
+Yani ikisi kendiliğinden ayrışıyor ve ayrı bir "bu kapı mı geçit mi" işareti
+gerekmedi. Renkleri de ayrı duruyor (`doorColor` / `crouchGapColor`).
+
+##### Yön KÖKTEN okunamıyor — iki ayrı kural gerekti
+
+`MazeMapBuilder` kapı ve geçit köklerini **hiç döndürmüyor**; yönü çocuk
+kutunun ÖLÇÜSÜNE gömüyor (`AxisSize`). Yani `transform.rotation` her ikisinde
+de birim ve yön ancak geometriden çıkarılabiliyor.
+
+| | Ölçü nereden | Kural |
+|---|---|---|
+| Kapı | `SlidingDoor`'un `BoxCollider`'ı | **GENİŞ** yatay eksen (koridor genişliği) |
+| Geçit | `Tavan`'ın `localScale`'i | **DAR** yatay eksen (deliğin genişliği) |
+
+**Kapıda `localScale` KULLANILAMAZ** ve sebebi öğretici: `Haritayı Giydir`
+ölçeği transform'dan collider'a taşıyor (`UnscalePanel`, bölüm 18), yani
+panelin `localScale`'i `(1,1,1)` ve gerçek ölçü yalnızca collider'da.
+Sahneden ölçüldü: `size = (3.20, 3.00, 0.20)`. Mesh'ten okumak da işe
+yaramazdı — mesh 1×1×1 bir küp.
+
+**Geçitte grubun SINIR KUTUSU kullanılamaz:** iki yan blok birlikte hücrenin
+tamamını kaplıyor, yani kutu 3.2 × 3.2 çıkıyor — kare ve yönü hiç
+söylemiyor. Ölçüm bu yüzden `Tavan`'a bakıyor.
+
+**Panel ADIYLA değil `SlidingDoor` bileşeniyle bulunuyor.** Bu projede ada
+göre arama iki kez yanlış sonuç verdi (bölüm 0.1'in `Duvar_3_0`'ı, bölüm
+14'ün el kemiği).
+
+**Konum kapının KÖKÜNDEN alınıyor**, panelden değil: panel açılırken tavana
+çekiliyor (`slideDirection` = yukarı) ve çizgi onunla birlikte kaymamalı.
+
+##### Çalıştırmadan önce simüle edildi — iki yönelim de çıktı
+
+Kural tek yöne sabitlenmiş olsaydı burada yakalanırdı:
+
+| | Toplam | X yönlü | Z yönlü |
+|---|---|---|---|
+| Kapı | 8 | 7 | **1** |
+| Geçit | 7 | **1** | 6 |
+
+Uzunlukların sekizinde de 3.2, yedisinde de 1.4 çıktı — yani hiçbir engel
+ölçüsüz kalmıyor.
+
+##### Havuz PAYLAŞILIYOR, bu yüzden biçim her karede geri yazılıyor
+
+`PlaceMarker` ve `PlaceLine` aynı `markerPool`'u kullanıyor. Bir slot geçen
+kare çizgi olmuşsa `sprite`, `sizeDelta`, `localRotation` ve `preserveAspect`
+o hâlde kalır; nokta olarak kullanıldığında uzamış ve dönmüş görünürdü.
+`PlaceMarker` artık dördünü de koşulsuz geri yazıyor.
+
+> Bu, bu dosyanın tekrar eden "bayat durum" tuzağı — bölüm 20'nin
+> `CanvasGroup` dersiyle aynı aile: paylaşılan bir nesneyi kullanan her yol,
+> öbürünün bıraktığı durumu temizlemek zorunda.
+
+**Sprite bilerek `null`:** nokta sprite'ı yuvarlak bir halka ve uzatılınca
+elips gibi gerilirdi. Sprite'sız bir `Image` düz dikdörtgen çiziyor, rengi
+`Image.color`'dan geliyor — ayrı bir çizgi dokusu üretmeye gerek kalmadı
+(nokta ve ok sprite'ları prosedürel üretilmişti, bu üçüncüsü gerekmedi).
+
+**Açı:** `WorldToMapPoint` dünya X'ini harita X'ine, Z'sini Y'sine çeviriyor
+(hiçbirini ters çevirmeden), yani ekrandaki açı `yaw + (X ise 0°, Z ise 90°)`.
+Kırpma ve kenara yapışma `PlaceMarker` ile birebir aynı ifade — iki yerde
+ayrı yazılan bir kırpma, biri değişince öbürünün sessizce kayması olurdu.
+
+**Kapının AÇIK/KAPALI olması çizilmiyor**, bilerek: istenen şey görünüm,
+durum değil. İstenirse `SlidingDoor`'un durumunu okuyup rengi değiştirmek tek
+satır.
+
+#### 10. Perk sembolü: yuva ayrıldı, görseller bekleniyor (aynı gün)
+
+Kullanıcı: *"bu perklerimizin hepsinde bir sembol olacak daha kolay anlaşılsın
+diye, ana menüde ona yer ayır, ben sana fotolarını atarım."*
+
+| Parça | İşi |
+|---|---|
+| `MenuSetup.CreatePerkIcon` | Perk satırına **sabit genişlikte** (44 px) bir `Image` yuvası |
+| `MenuSetup.LoadPerkIcons` | `Assets/_Art/UI/Perk/<PerkEffect adı>.png` dosyalarını toplayıp diziye yazıyor |
+| `CharacterSelectPanel.ApplyPerkIcon` | Seçili perkin sembolünü uyguluyor |
+
+**Dosya adı EFEKTİN adı**, perkin görünen adı değil: görünen ad çevriliyor ve
+değişebiliyor, efekt adı ise oynanışın kimliği (`PerkCatalog`'un kendi
+kuralı). Beklenen sekiz dosya:
+
+```
+Assets/_Art/UI/Perk/KacanTerminaller.png
+Assets/_Art/UI/Perk/KacanGecitler.png
+Assets/_Art/UI/Perk/KacanCesetler.png
+Assets/_Art/UI/Perk/KacanKatil.png
+Assets/_Art/UI/Perk/KatilHataYapan.png
+Assets/_Art/UI/Perk/KatilCesetTasiyan.png
+Assets/_Art/UI/Perk/KatilGecitler.png
+Assets/_Art/UI/Perk/KatilEnUzakKacan.png
+```
+
+**Dizi `PerkEffect` SIRASINDA**, perkin listedeki indeksinde değil: liste
+yeniden sıralanırsa semboller kaymasın.
+
+> ### Semboller GELDİ (2026-10-04, aynı gün)
+>
+> Kullanıcı sekizini birden çizip `Assets/Terminal-Five-Perk-Icons/` altına
+> bıraktı; dosyalar `Assets/_Art/UI/Perk/` altına **`.meta`'larıyla birlikte**
+> taşındı (GUID korundu), geçici klasör silindi.
+>
+> | Ölçülen | Değer |
+> |---|---|
+> | Dosya | **8/8**, adlar `PerkEffect` ile birebir eşleşiyor |
+> | Boyut | 1254×1254, RGBA (saydam) |
+> | Farklı görsel | **7** — `KacanGecitler` ve `KatilGecitler` bilerek aynı dosya |
+> | `textureType` | 0 (Texture) — `Menü Kur` Sprite'a çeviriyor |
+>
+> **Doku boyu sınırlandı** (`PerkIconMaxSize` = 256). Sembol ekranda 44 piksel
+> çiziliyor; 1254×1254 olarak içe aktarılsalardı sekiz ikon ~50 MB doku
+> belleği yerdi. Kaynak dosyalara dokunulmuyor, yalnızca Unity'nin belleğe
+> aldığı boyut sınırlanıyor.
+>
+> **Aynı turda bir tuzak da kapandı:** import koşulu yalnızca
+> `textureType != Sprite`'a bakıyordu, yani ilk çalıştırmadan SONRA bir daha
+> hiç girmiyordu — sonradan eklenen boyut sınırı o dosyalara hiç
+> uygulanmazdı, sessizce. `NeedsSpriteSettings` artık dört ayara da tek tek
+> bakıyor. Bölüm 19'un `Cursor.visible` dersinin aynısı: **"zaten doğru"
+> varsayımıyla atlanan bir yazı.**
+
+**Görseli olmayan perkte `Image` KAPATILIYOR.** `Image`'in varsayılanı beyaz,
+yani boş bir yuva ekranda anlamsız bir beyaz kare bırakır — bölüm 13'te
+kostüm renk göstergesinde tam olarak bu yaşandı ve "bozuk" diye okundu.
+Yuvanın kapladığı YER duruyor (genişlik sabit, `flexibleWidth = 0`), yani
+semboller geldiğinde satırın düzeni kaymıyor.
+
+**Elle atılan PNG `Sprite`'a çevriliyor.** Unity bir PNG'yi varsayılan olarak
+`Texture` olarak içe aktarıyor ve `Image.sprite`'a atanamıyor; araç
+`textureType`'ı düzeltip yeniden import ediyor — nokta/ok sprite'larıyla
+birebir aynı ayarlar. Yani kullanıcıdan fazladan bir adım istenmiyor.
+
+Araç kaç sembol bulduğunu konsola yazıyor (`Perk sembolü: 0/8 bulundu`), yani
+dosya adı yanlış yazılmışsa sessiz kalmıyor.
+
+#### 11. Geçidin çizgisi ÇEVRİLDİ: artık koridor boyunca (aynı gün)
+
+Kullanıcı ilk çizgileri görünce: *"geçitin çizgisini yatay değil dikey yap,
+duvarın içinden geçilebilen bir geçit misali gözüksün; kapıların ki okey."*
+
+İlk sürüm geçidi kapıyla AYNI yönde çiziyordu (koridora dik, 1.4 m — deliğin
+genişliği). Yani iki engel aynı dili konuşuyordu ve geçit "daha kısa bir
+kapı" gibi okunuyordu. Şimdi:
+
+| | Çizgi nereye | Uzunluk | Okunuşu |
+|---|---|---|---|
+| **Kapı** | koridora **DİK** | 3.2 m | "bu koridoru kapatıyor" |
+| **Geçit** | koridor **BOYUNCA** | 3.2 m | "duvarın içinden geçilebiliyor" |
+
+**Ayıran şey artık uzunluk değil YÖN** — ikisi aynı koridorda birbirine dik
+duruyor. Bu, mini haritanın kendi diliyle de tutuyor: eğilme hücresi
+2026-09-27'den beri DUVAR karosu olarak çiziliyor, yani koridor boyunca uzanan
+çizgi o karonun içinden geçen bir tünel gibi görünüyor.
+
+Kod tarafında değişen tek şey `CollectCrouchGaps`'teki ölçüt: `Tavan`'ın DAR
+ekseni yerine **GENİŞ** ekseni (`<=` → `>=`, `Min` → `Max`). Simüle edildi,
+yedi geçidin yedisinde de yön ters çevrildi ve uzunluk 1.4 → 3.2 m oldu.
+
+Kapıya dokunulmadı (kullanıcı "okey" dedi).
+
+#### 12. Kalan BEŞ perk yazıldı (aynı gün)
+
+| Perk | Nasıl çalışıyor | Ağ |
+|---|---|---|
+| **Kurtarıcı** (kaçan 3) | Bütün cesetler + ceset TAŞIRKEN diriltme kabinleri, haritanın her yerinden | istemci |
+| **Karşılıklı İz** (kaçan 4) | Katilin yeri, kırpılmış — ve katil de o kaçanı görüyor | istemci |
+| **Alarm Takibi** (katil 1) | Terminalde hata yapan kaçan, **10 sn**, yanıp sönerek, uzaktan da | **sunucu** |
+| **Ceset Takibi** (katil 2) | Ceset taşıyan kaçan, kırpılmış; bıraktığı an sönüyor | istemci |
+| **Son Nefes** (katil 4) | Öldürülene EN UZAK kaçan, **10 sn**, uzaktan da | **sunucu** |
+
+##### İki kayıt defteri açıldı
+
+`Corpse.All` ve `RevivalStation.All` — ikisi de `Terminal.All` deseni.
+`FindObjectsOfType` **kullanılmadı** ve sebebi bu dosyanın kendi dersi: Mirror
+sahne objelerini sunucu açılınca aktifleştiriyor, ceset ise tur ortasında
+doğuyor; o anlardan önce yapılan bir tarama boş liste alıp önbelleğe yazar ve
+bir daha hiç dolmaz.
+
+`Corpse.CarrierNetId` de dışa açıldı. Taşıyanı bulmak için ayrı bir senkron
+GEREKMEDİ: `carrierNetId` zaten SyncVar, yani **ceset bırakıldığı an işaret
+kendiliğinden kayboluyor** — "bıraktı" diye ikinci bir mesaj yok.
+
+##### Süreli perkler: `TargetPerkPing`
+
+İki süreli perk sunucuda başlamak ZORUNDA, çünkü tetikleyen olay sunucu
+kararı: terminalde hata (`Terminal.ServerApplyLock`) ve öldürme
+(`RoundManager.ReportCaught`). Süreyi istemcide tutmak, değiştirilmiş bir
+istemcide süresiz radar demekti.
+
+`RoundParticipant.TargetPerkPing(netId, süre)` — tek seferlik bir mesaj:
+sunucu "şu kişi, şu kadar saniye" diyor ve bir daha konuşmuyor. Süre
+istemcide sayılıyor (`PerkPingTarget` okurken bakıyor).
+
+**SyncVar DEĞİL, bilerek.** SyncVar olsaydı "katil şu an kimi görüyor"
+bilgisi bütün istemcilere gider ve bölüm 4'ün kuralını doğrudan delerdi.
+`TargetRpc` yalnızca sahibinin bağlantısına gidiyor — izlerin ve terminal
+alarmının izlediği yolun aynısı.
+
+**Süre KATALOGDAN okunuyor** (`killer.ActivePerk.Duration`), çağıran yerde
+sabit yazılmadı: 10 ve 5 saniye `PerkCatalog`'da duruyor ve iki yerde tutulan
+bir sayı, biri değişince öbürünün unutulması demek (bu dosyanın en çok tekrar
+eden dersi).
+
+**Hatayı yapan kaçanı aramak için yeni bir alan gerekmedi:** `ServerApplyLock`
+çalışırken `activeUserNetId` hâlâ dolu (sıfırlama ayrı yollarda). Ölçüldü.
+
+**"En uzak kaçan" hesabı sunucuda** ve kurban zaten ölü sayıldığı için
+(`ServerSetAlive(false)` daha önce çağrılıyor) `IsAlive` kontrolü onu
+kendiliğinden dışarıda bırakıyor — ayrı bir "kurbanı atla" şartı yazılmadı.
+Mesafe KARESİ karşılaştırılıyor; karekök sıralamayı değiştirmiyor.
+
+##### Karşılıklı görünürlük: kuralı KAÇANIN perki kuruyor
+
+Kaçan perk 4 çift taraflı. Katilin ekranındaki yarısı
+(`MiniMapView.TickMutualRunners`) **katilin kendi perkine bağlı değil** —
+katil bunu her zaman görüyor, çünkü kuralı kaçan satın aldı.
+
+İki taraf da **kırpılıyor**: kimse kimseyi pencerenin dışından göremiyor,
+yani 12.3 metreden öteden takip mümkün değil. Perk bir radar değil, iki tarafa
+da "yakınına geldi" diyen karşılıklı bir uyarı.
+
+> ### Katilin konumu için `TargetRpc` YAZILMADI — ve bu bilinçli
+>
+> Yol haritası *"doğrusu izlerin yolunu tersine çevirmek: sunucu canavarın
+> konumunu yalnızca o perke sahip kaçana özel bir `TargetRpc` ile
+> göndersin"* diyordu. Yazılmadı, çünkü **bugün hiçbir şey kazandırmazdı:**
+> canavarın `NetworkTransform`'u zaten herkese senkron olmak ZORUNDA —
+> yoksa kimse onun 3B modelini göremez. Yani sızıntı veri seviyesinde çoktan
+> var ve üstüne bir `TargetRpc` eklemek yalnızca trafik eklerdi.
+>
+> Gerçek düzeltme transform senkronunun kendisinde (ilgi alanı / mesafeye
+> göre gözlemci filtresi) ve bu, perk sisteminden çok daha büyük bir iş —
+> bölüm 4'ün açık borcu olarak duruyor, bu perkin borcu olarak değil.
+
+#### Dokunulan dosyalar
+
+| Dosya | Ne değişti |
+|---|---|
+| `UI/MiniMapView.cs` | `edgeClamped` + dönüş değeri · `TickPerkMarkers` (8 perk) · `Barrier`/`PlaceLine` · `CollectDoors`/`CollectCrouchGaps` · `TickMutualRunners`/`FindByNetId` · altı yeni alan |
+| `Core/RoundParticipant.cs` | `CmdSetPerks` faz + rol kontrolü · `TargetPerkPing`/`PerkPingTarget` |
+| `Core/Corpse.cs` | `All` kayıt defteri · `CarrierNetId` |
+| `Interaction/RevivalStation.cs` | `All` kayıt defteri |
+| `Interaction/Terminal.cs` | Hata anında katile perk işareti |
+| `Core/RoundManager.cs` | `ServerPingFarthestRunner` |
+| `UI/CharacterSelectPanel.cs` | `perkIcon` + `perkIcons` + `ApplyPerkIcon` |
+| `Editor/MenuSetup.cs` | `CreatePerkIcon` · `LoadPerkIcons` · perk satırına yuva |
+
+#### ARAÇ ÇALIŞTIRMASI: `Menü Kur` GEREKİYOR
+
+Yalnızca **perk sembolü yuvası** için — o sahneye araçla giriyor
+(bölüm 16'nın tuzağı). Perklerin kendisi ve çizgiler saf kod, araç
+istemiyor.
+
+```
+Yakalamaca > Menü Kur
+```
+
+Doğrulaması: sahnede `m_Name: PerkSembolu` **1** dönmeli.
+
+#### Doğrulama durumu
+
+| | Durum |
+|---|---|
+| Derleme | Runtime + Editor **sıfır hata** (her turda) |
+| DLL'de | `TargetPerkPing`, `PerkPingTarget`, `ServerPingFarthestRunner`, `TickMutualRunners`, `CarrierNetId`, üç yeni renk ✓ |
+| Çizgi yönü | 8 kapı + 7 geçit sahneden simüle edildi, iki yönelim de çıktı |
+| **Oynanarak** | **8/8 ✓** (2026-10-04, tek PC'de F8 + build) — kullanıcı: *"perkler çalışıyo sorunsuz"* |
+
+> ### Weaver endişesi ÇÜRÜDÜ
+>
+> Yukarıda *"`[TargetRpc]`'nin gerçekten gittiği ancak Unity'de görülebilir"*
+> yazıyordu. Görüldü: iki süreli perk de (Alarm Takibi, Son Nefes) gerçek
+> oturumda çalıştı, yani weaver `TargetPerkPing`'i sorunsuz dokudu.
+>
+> ### Tek değişiklik: "Son Nefes" 5 → 10 saniye
+>
+> Kullanıcının oynanış sonrası tek isteği. Süre ÜÇ yerde birden yazılıydı ve
+> üçü de güncellendi: `PerkCatalog`'daki `duration`, perkin açıklama metni ve
+> `Localization`'daki İngilizce karşılığı.
+>
+> **Üçüncüsü atlanabilirdi ve sessiz bir hata olurdu:** `Localization`'ın
+> anahtarı TÜRKÇE METNİN KENDİSİ, yani yalnızca katalogdaki metni
+> değiştirseydim tablo artık eşleşmez ve `Get` bilinmeyen anahtarı olduğu gibi
+> döndürdüğü için **İngilizce seçenekte açıklama Türkçe görünürdü.** Bölüm
+> 13'ün "yeni bir metin eklerken tabloya karşılığını da ekle" kuralının öbür
+> yüzü: var olan bir metni DEĞİŞTİRMEK de anahtarı değiştiriyor.
+>
+> Aynı ailedeki ders `RevivalStation.cs:257`'de zaten kayıtlı: diriltme
+> süresi 15'ten 10'a inmiş, ekrandaki yazı güncellenmemiş ve oyuncu
+> "15 saniye okuyup 10'da bitiyor" görmüştü.
+
+> **Mirror weaver çevrimdışı derlemede ÇALIŞMIYOR.** `[TargetRpc]`'yi
+> Unity'nin kendi derlemesi dokuyor, yani `TargetPerkPing`'in gerçekten
+> gittiği ancak Unity'de görülebilir. Parametreler (`uint`, `float`)
+> weaver'ın desteklediği türler ve ad `Target` ile başlıyor — iki weaver
+> şartı da sağlanıyor, ama bu bir kanıt değil, yalnızca bilinen tuzaklara
+> düşülmediğinin kontrolü.
+
+---
+
+### 2026-10-03: DURUM RAPORU — oturum buradan başlasın
+
+Kullanıcı "neleri yaptık, neler eksik, en son ne yaptın, ne yapacaksın" diye
+sordu. Bu bölüm o cevabın kendisi ve **ölçülerek** yazıldı: aşağıdaki her
+"yapıldı" satırının arkasında sahne dosyasından, prefabtan ya da derlemeden
+gelen bir sayı var.
+
+> **Bu rapor 2026-10-03'te yazıldı ve bir kısmı artık bayat.** Sonrasında iki
+> şey oldu: **F8 ile yerel odayı zorlama** (2026-10-04, bölüm 13) ve **perk
+> ADIM 2a + 2b** (2026-10-04, aşağıdaki kendi başlığı). Çelişirlerse tarihi
+> yeni olan kazanır.
+
+#### 1. EN SON NE YAPILDI: perk sisteminin ALTYAPISI (2026-09-28)
+
+Kullanıcı sekiz perki tarif etti (4 kaçan + 4 katil, hepsi harita görüşü),
+"not al, şimdi ekleme" dedi; sonra beş açık soruyu cevapladı; sonra
+"çalışmalara başlayalım, en kolay yerden başla" dedi. Seçilen yer
+**altyapı** — sekiz perkin sekizi de "bu oyuncuda hangi perk var" sorusunu
+soruyor, yani hiçbiri bu olmadan yazılamaz.
+
+Yazılanlar ve ölçülen kanıtları:
+
+| Parça | Ne yapıyor | Kanıt |
+|---|---|---|
+| **`Core/PerkCatalog.cs`** (YENİ) | İki liste, `PerkSlot`, `PerkEffect`, `EdgeClamped`, `Duration`, `Sanitize`/`Step` | derlemede, DLL'de |
+| `UI/PlayerProfile` | `Perk_Kacan` / `Perk_Katil` cihaz tercihi | DLL'de |
+| `Core/RoundParticipant` | İki SyncVar + `PushPerks`/`CmdSetPerks` + `ActivePerk` + `HasPerk` | DLL'de |
+| `UI/CharacterSelectPanel` | Perk satırı: ad, açıklama, ileri/geri | `FindProperty` **10/10** eşleşiyor |
+| `Editor/MenuSetup` | Satırı sahneye kuruyor | sahnede `PERK` ve `Perk yok` var |
+| `UI/Localization` | 15 yeni satır | tablo **228** girdi (ölçüldü) |
+
+**Hiçbir perkin ETKİSİ yok.** Seçiliyor, kaydediliyor, senkronlanıyor ve
+`HasPerk` doğru cevap veriyor — çizen/uygulayan kod yazılmadı. Ayrıntı ve
+yazarken verilen kararlar aşağıdaki **"PERK SİSTEMİ"** başlığında.
+
+#### 2. BEKLEYEN ARAÇ ÇALIŞTIRMASI KALMADI — ölçüldü (2026-10-03)
+
+Önceki oturum üç araç bekletiyordu. **Üçü de çalıştırılmış**, sahne ve
+prefab dosyalarından doğrulandı:
+
+| Araç | Ne için bekliyordu | Ölçülen |
+|---|---|---|
+| `Menü Kur` | Perk satırı · panel 210 → 240 px · eğilme geçitleri · işaret kabı · `Harita` → `HaritaKabi` | Sahne **2026-09-28 23:37**'de yazılmış (perk kodu 23:26-23:29). Karo **247** (240 + 7 geçit), `HaritaKabi` **1**, `Isaretler` **1**, `m_Name: Harita` yalnızca **1** (gerçek harita kökü — çakışma bitti), `PERK` ve `Perk yok` sahnede |
+| `Canavar Modelini Kur` | Sopanın yeni sönümü (`followSharpness` 8 → 4) ve daralan tavanı (60 → 35) | Prefabta **`followSharpness: 4`**, **`maxLagDegrees: 35`**, `snapDegrees: 90`. Prefab **2026-09-30 22:02** |
+| `Kaçan Modelini Kur` | Ölüm klibinin hızı 1.7 → 2.0 ve giriş kaydırması 0.30 | `Kacan.controller` → `m_Name: Olum`'un hemen altında **`m_Speed: 2`** |
+| `Mağara Yankısı Kur` | Güney kanadındaki yankı boşluğu | Sahnede **`m_MinDistance: 59.16381`**, **`m_MaxDistance: 78.88508`** — hesaplanan yeni ölçüye birebir uyuyor |
+
+> **Doğrulama komutları bu kez ADLA çalıştı ve sebebi önemli.** Mini harita
+> karoları `new GameObject("Duvar", …)` ile kuruluyor, yani ad gerçekten
+> `m_Name` satırında. `InstantiatePrefab` kullanan menü odasında (`value:
+> Zemin_0_0`) bu tuzak vardı ve belgeye iki kez yanlış madde yazdırmıştı —
+> bir kurulum aracının çıktısını doğrularken önce **`new GameObject` mi
+> `InstantiatePrefab` mi** diye sor.
+
+Yani bugün Unity'de çalıştırılacak **hiçbir şey yok.** Sıradaki iş kod
+yazmak ve oynamak.
+
+#### 3. BU TURDA BİTEN DİĞER DÖRT İŞ (2026-09-27 → 09-28)
+
+| İş | Ne yapıldı | Durum |
+|---|---|---|
+| **Mini harita geri açıldı** | `MiniMapView.Awake`'in kendi objesini kapatan satırı silindi; panel 210 → **240 px**, ok 16 → **18 px** | AÇIK, oynanarak doğrulanmadı |
+| **Eğilme geçitleri DUVAR oldu** | `CollectWallPositions` artık `Duvarlar` ve `EgilmeGecitleri` gruplarını birden tarıyor (`CollectGroupPositions`) | Sahnede 247 karo ile doğrulandı |
+| **Güney kanadında yankı** | Bölge artık haritanın GERÇEK sınırlarından ölçülüyor (`TryFindMapBounds`, `Renderer.bounds`) | Sahnede doğrulandı |
+| **Katilin haritası** | Terminal/çıkış noktaları, alarmda yanıp sönme, GTA usulü kenara yapışma | YAZILDI, oynanarak doğrulanmadı |
+
+Dördünün tam kaydı: mini harita ve katilin haritası için **"Mini harita"**
+başlığı, yankı için **bölüm 12**.
+
+#### 4. SIRADA NE VAR — perk ADIM 2
+
+Perk altyapısı bitti, sıradaki adım **perkleri gerçekten çalıştırmak.** En
+kolaydan zora doğru, ve bu sıra keyfi değil: ilk parça olmadan diğerleri
+yazılamıyor.
+
+| Sıra | İş | Neden burada | Ağ işi |
+|---|---|---|---|
+| ~~**2a**~~ | ~~`PlaceMarker`'a "pencerenin dışındaysa gizle" bayrağı~~ | **BİTTİ (2026-10-04)** — `edgeClamped` parametresi, kararı katalog veriyor | yok |
+| ~~**2b**~~ | ~~Kaçan perk 1 · kaçan perk 2 ve katil perk 3~~ | **BİTTİ (2026-10-04)** — `TickPerkMarkers`; 15 işaret (8 kapı + 7 geçit) sahneden ölçüldü | **sıfır** |
+| ~~**2c**~~ | ~~Kaçan perk 3 (bedenler + kabinler)~~ | **BİTTİ (2026-10-04)** — `Corpse.All` ve `RevivalStation.All` kayıt defterleri açıldı | sıfır |
+| ~~**2d**~~ | ~~Katil perk 2 (ceset taşıyan kaçan)~~ | **BİTTİ (2026-10-04)** — `Corpse.CarrierNetId` | sıfır |
+| ~~**2e**~~ | ~~Katil perk 1 ve perk 4 (süreli)~~ | **BİTTİ (2026-10-04)** — `TargetPerkPing`, süre katalogdan; ikisi de 10 sn | sunucu |
+| ~~**2f**~~ | ~~Kaçan perk 4 (karşılıklı görünürlük)~~ | **BİTTİ (2026-10-04)** — iki taraf da kırpılıyor; sızıntı notu aşağıda | istemci |
+
+~~**2b'den önce 2a yazılmalı**~~ — **2a'dan 2f'ye kadar hepsi 2026-10-04'te
+yazıldı.** Sıradaki iş kod değil: **oynayarak doğrulamak** ve perk
+sembollerinin görsellerini beklemek.
+
+##### Perkler çalışmaya başlamadan ÖNCE kapatılacak iki şey
+
+1. **İndeks 0 = "Perk yok" kalacak mı?** Kullanıcı "herkes 1 perk alır"
+   dedi; seçim ekranını hiç açmayan oyuncuya seçmediği bir perk vermek daha
+   kötü göründüğü için boş slot kondu. İstenmezse `PerkCatalog`'tan o iki
+   satırı silmek yetiyor. **Kullanıcıdan cevap bekliyor.**
+2. **`CmdSetPerks` tur ORTASINDA da kabul ediyor.** Bugün zararsız (ekran
+   yalnızca menüden ve lobiden açılıyor) ama perkler çalışmaya başlayınca
+   `RoundManager.Phase` kontrolü ŞART — yoksa oyuncu ölüm anında perk
+   değiştirir.
+
+#### 5. NELER EKSİK — tam liste
+
+##### 5a0. Artık TEK MAKİNEDE denenebilir — F8 (2026-10-04)
+
+Aşağıdaki listenin "iki makine" diye işaretli maddelerinin neredeyse
+tamamı artık tek bilgisayarda denenebiliyor: ana menüde **F8**, sonra
+`LOBİ KUR`, sonra build'den `127.0.0.1` ile katıl. Ayrıntı ve gerekçe
+bölüm 13'ün **"F8: yerel odayı ZORLA"** başlığında.
+
+**EOS'un kendisi hariç** — relay, kısa kod ve oda listesi hâlâ iki gerçek
+makine istiyor (kimlik cihaz başına üretiliyor, bölüm 13).
+
+##### 5a. Yazıldı, OYNANARAK görülmedi
+
+Bu listenin tamamı "kod doğru görünüyor, derleme sıfır hata" seviyesinde.
+Biri bozuksa sebebi muhtemelen satırın kendisidir.
+
+| Ne | Nasıl bakılır |
+|---|---|
+| **Yeni mini harita** (240 px, dönen, ok) | Bir tur oyna, sol üste bak: ölçek okunuyor mu, harita doğru yöne dönüyor mu |
+| **Eğilme geçitleri duvar olarak** | Mini haritada geçidin yeri artık boşluk DEĞİL |
+| **Katilin terminal/çıkış noktaları** | Katil ol: mavi noktalar; biten terminalin noktası kayboluyor mu, hatada kırmızı yanıp sönüyor mu, çıkış açılınca sarı noktalar geliyor mu |
+| **Kenara yapışma** | Uzaktaki terminal pencerenin kenarında %78 boyutta duruyor mu |
+| **Perk satırı** | Karakter ekranı: KAÇAN/KATİL düğmesi hem kostümü hem perki çeviriyor mu, açıklama okunuyor mu |
+| **Güney kanadında yankı** | Kanadın güney köşesine git, ses yankılı mı |
+| **Sopanın yeni sönümü** (k=4) ve daralan tavan | Domuzla koş: sopa elinde mi, öldürdükçe açısı kayıyor mu |
+| **Kaçanın ölüm klibi** (hız 2.0) | KUKLA ile yakala: kurban canavarın yıkma anında yere değiyor mu |
+| **Ölüm kamerasının öldürene dönmesi** | Öl, 1.6 sn canavara bakıyor musun — özellikle KUKLA'da ve sırtın dönükken |
+| **Kaçanların ayrı noktalarda doğması** | Dolu kadroyla bir tur |
+| **Canavarın güney kanadında doğması** | aynı tur |
+| Ayak sesi / kalp atışı / ekran sarsıntısının kesilmemesi | **iki makine** — tercihen kötü bağlantıda |
+| 30°'nin yönü, canavarın kendi gövdesini düz görmesi | iki makine ya da host + build |
+| Lobide **AT / YASAKLA** | iki makine |
+| Elenen birinin sahadakilere konuşamaması | iki makine |
+| Retro **İnce**'nin varsayılan açılması, menünün 2×2 hâli, F10 etiketi | Play — Game penceresi "Play Maximized" ya da tam ekran olmalı |
+| Tutorial'ın baştan sona bitirilmesi | Ana menü → NASIL OYNANIR |
+
+##### 5b. Bilinen açık işler (kod tarafı)
+
+| # | İş | Not |
+|---|---|---|
+| 1 | **Denge — canavar çok güçlü** | Beş kişilik testte bir saat, hiç kaçış yok. Katil artık BEDAVA terminal radarına da sahip ve üstüne perk gelecek — **oynanırken ilk bakılacak yer burası.** Kullanıcıdan sayı gelmeden denge sayılarına dokunulmuyor |
+| 2 | **Işık probe'ları güney kanadını kapsamıyor** | Ölçüldü: 1544 probe, z aralığı −26.4…23.2, kanatta (z < −27.2) **0 probe**. Kanatta hareketli hiçbir şey pişmiş dolaylı ışıktan pay almıyor; Mixed aydınlatma yüzünden göze batmıyor. Düzeltmesi **`Işığı Pişir`** (dakikalar sürer) — **kullanıcıya soruldu, cevap bekliyor** |
+| 3 | **Oda gizliliği (herkese açık / gizli)** | Hiç yazılmadı. Gizli oda listede görünmemeli, kodla katılma çalışmaya devam etmeli |
+| 4 | **Canavarın diriltmeye karşı hamlesi** | Diriltme hâlâ tek taraflı kazanç: canavar kabini kilitleyemiyor, cesedi taşıyamıyor, işlemi kesemiyor. ÜÇÜNCÜ bir canavarın özelliği olarak tasarlanabilir |
+| 5 | **Çıkış engeli havada** | Ölçüldü: `Engel` yerden 1.5–4.5 m, canavarın kapsülü 1.37 m → altından geçebilir. **`Terminal ve Çıkış Kur` ÇÖZÜM DEĞİL** — kullanıcının taşıdığı `Cikis_*_1`'i geri alır |
+| 6 | **Test tuşları yayınlanan build'de aktif** | `RoundManager.HandleTestKeys` editör/dev koruması taşımıyor; host turda [3]'e basarsa kendini eliyor |
+| 7 | **EOS: aynı anda iki oda kurulunca ikincisi listede görünmüyor** | Kod satır satır okundu, hata bulunamadı. Kalan iki açıklama kod dışı |
+| 8 | **`EosApiKey.asset` client secret** | Depo GİZLİ kaldığı sürece sorun yok. Herkese açılmadan ÖNCE Epic'ten anahtar yenilenmeli — dosyayı silmek yetmiyor, anahtar git geçmişinde |
+| 9 | **Unity-Chan lisansı (UCL)** | Kullanıcı kararı: bilerek EN SONA |
+| 10 | Teknik borç: **kapıdan vuruş** · **çıkış engelinin adanmış sunucu farkı** | Host modunda oynandığı için bugün görünmüyor |
+
+##### 5c. Yol haritasında bekleyenler
+
+| # | İş | Durum |
+|---|---|---|
+| 1 | **Perk etkileri** | Sıradaki iş — yukarıdaki 4. madde |
+| 2 | **Yeni harita** | Fikir aşamasında, ayrıntı hiç konuşulmadı |
+| 3 | **Domuz katile kostüm** | Fikir. Bugün katil = gövde = oynanış birebir eşleşiyor; aynı katilin iki görünüşü veri modelinde gerçek bir değişiklik |
+| 4 | **Haritada canlı konum** | Perk 4 ile aynı duvara çarpıyor: bilgi sızıntısı |
+
+#### 6. KAYIT DURUMU — 20 yol commit'lenmemiş
+
+Son commit **`944d33c`** (2026-09-27). Ondan sonra:
+
+| Durum | Yollar |
+|---|---|
+| Değişmiş (13) | `AGENTS.md` · `AGENTS.md` · `SampleScene.unity` · `NetworkPlayer.prefab` · `RoundParticipant.cs` · `MenuSetup.cs` · `ReverbSetup.cs` · `ExitGate.cs` · `Terminal.cs` · `CharacterSelectPanel.cs` · `Localization.cs` · `MiniMapView.cs` · `PlayerProfile.cs` |
+| Yeni (7) | `PerkCatalog.cs` (+meta) · `MiniHarita_Nokta.png` (+meta) · `ChatGPT Görseli 26 Eyl 2026 15_54_24.png` (+meta) |
+
+- **`ChatGPT Görseli …png` projeye ait değil** — `Assets/` köküne düşmüş bir
+  ekran görüntüsü, 2.9 MB. Kullanıcı "gerek yok" dedi; commit'e girmemesi
+  gerekiyor.
+- Kayıt almak kullanıcının kararı. **İzin alınmadan commit ya da push YOK.**
+- `git checkout -- .` ve `git reset --hard` şu an **geri alma değil, silme**
+  komutu. Çalıştırma, önerme.
+
+---
+
 ### 2026-09-23: OTURUM DEVRİ — yeni oturum buradan başlasın
 
 Bu başlık, bir sonraki oturumun **ilk okuyacağı yer**. 6700 satırlık dosyayı
@@ -2296,7 +3321,9 @@ sürece işe yarar.
 > Ölçmenin üç hazır yolu: **Editor.log**
 > (`C:\Users\TR\AppData\Local\Unity\Editor\Editor.log` — istisnaların TAM
 > yığını orada), **sahne/prefab dosyasından grep**, ve **Unity'siz derleme**
-> (hafıza notu `unity-teshis-ve-derleme`).
+> — tam tarif artık bölüm 7'nin **"Unity'yi AÇMADAN derlemek"** başlığında
+> (komutlar belgede; hafıza notu eksikti ve ilk denenen derleyici
+> çalışmıyordu, 2026-10-04'te ölçüldü).
 >
 > **Doğrulama KOMUTUNUN kendisini de doğrula.** 2026-09-23'te iki komut
 > birden yanlış çıktı: `grep -c "NetworkStartPosition"` sahnede **0**
@@ -2381,7 +3408,7 @@ muhtemelen aşağıdaki satırın kendisidir.
 | Lobide **AT / YASAKLA** düğmeleri | 2026-09-14 | iki makine (`Menü Kur` 2026-09-20'de çalıştırıldı, düğmeler sahnede) |
 | İzleyici kamerasının zıplamada sarsılmaması (`pivotHeightSmoothTime`) | 2026-09-14 | öl, birini izle, o zıplasın |
 | Elenen birinin sahadakilere konuşamaması | bölüm 19 | iki makine |
-| Mini harita (bugün **gizli**: `MiniMapView.Awake` kendi objesini kapatıyor) | 2026-09-14 / 16 | ancak o tek satır silinirse |
+| **Yeni mini harita** — dar pencere, bakışa göre dönüyor | 2026-09-27 | **AÇIK.** Bir tur oyna, sol üste bak: ölçek okunuyor mu, harita doğru yöne dönüyor mu, kaçan yeşil / canavar kırmızı mı |
 
 Fener kısma (1.95) ve 64 renk seviyesi 3. ve 4. tur oynanışında ekrandaydı;
 kullanıcı ayrıca şikâyet etmedi ama **açıkça da onaylamadı** — "sorun yok" ile
@@ -2634,11 +3661,12 @@ alındı.
 
 | # | İş | Durum |
 |---|---|---|
-| 1 | **Mini harita** — çevredeki dar pencere, bakışa göre dönen | **YAZILDI** (bu oturum), gizli duruyor |
+| 1 | **Mini harita** — çevredeki dar pencere, bakışa göre dönen | **YAZILDI, AÇIK ve SAHNEDE** (2026-09-27/28; `Menü Kur` çalıştı, 247 karo ölçüldü) — oynanarak doğrulanmadı |
 | 2 | **Yeni harita** | Fikir aşamasında |
 | 3 | **Domuz katile kostüm** | Fikir aşamasında |
 | 4 | **Haritada canlı konum** | Fikir — ağ tarafı DİKKAT ister, aşağı bak |
-| 5 | **Perk sistemi** — "isteyen belli yerleri görebilsin" | Fikir aşamasında |
+| 5 | **Perk sistemi** — tek slot, harita görüşü perkleri | **BİTTİ** (2026-10-04): sekizi de yazıldı, sekizi de oynanarak doğrulandı, sembolleri yerinde. Kalan tek iş dengesi |
+| 6 | **Katilin haritasında terminal + çıkış noktaları** | **YAZILDI ve SAHNEDE** (2026-09-28; `Isaretler` kabı ölçüldü) — ağ maliyeti sıfır, oynanarak doğrulanmadı |
 
 #### 3'ün özel durumu: artık "kostüm" başka bir şey
 
@@ -2678,11 +3706,13 @@ tasarlanırken oradan başlanmalı, sıfırdan değil.
 #### Kayıt sırası (kullanıcı kararı, 2026-09-27)
 
 1. Mini harita **gizlendi** (tek satır, geri alması kolay)
-2. **Commit** alınıyor — bir haftalık iş nihayet kayıt altına giriyor
+2. **Commit** alındı — `944d33c`, 78 yol, bir haftalık iş
 3. **GitHub'a push** kullanıcı tarafından yapılıyor
+4. Kayıt alındıktan sonra mini harita **geri açıldı** (aynı tek satır silindi)
 
 Gerekçe kullanıcının kendi cümlesi: mini harita yeni bir özellik, kayıt
-alınmadan önce **başka yerleri bozmasın.**
+alınmadan önce **başka yerleri bozmasın.** Sıranın anlamı da bu: `944d33c`
+artık mini haritasız, bilinen çalışır bir noktaya dönüş adresi.
 
 ---
 
@@ -2917,18 +3947,19 @@ karşı yeni bir aracı. Ölçülmedi.
 
 ### Mini harita: SADE sürüm YAPILDI (2026-09-14) — çok rollü fikir hâlâ not
 
-> ### 2026-09-27: YENİDEN YAZILDI — ama HÂLÂ GİZLİ
+> ### 2026-09-27: YENİDEN YAZILDI ve AÇILDI
 >
 > Kullanıcı 2026-09-16'da "karışık" deyip kapattırmıştı (`MiniMapView.Awake`
 > paneli kapatıyordu). **Ölçüldü ve haklıydı:**
 >
 > | | Eski | Yeni |
 > |---|---|---|
-> | Panel | 150 px | **210 px** |
+> | Panel | 150 px | **240 px** |
 > | Gösterilen alan | **~54 × 96 m — haritanın TAMAMI** | **26 m'lik pencere** (≈8 hücre) |
-> | 3.2 m'lik koridor hücresi | **4 piksel** | **~24 piksel** |
+> | 3.2 m'lik koridor hücresi | **4 piksel** | **~27 piksel** |
 > | Yön | sabit (Pac-Man) | **bakışa göre DÖNÜYOR** |
 > | İşaret | nokta | **ok** (prosedürel sprite) |
+> | Eğilme geçitleri | boşluk (koridor gibi) | **duvar** |
 >
 > Yani sorun tasarım tercihinde değil ÖLÇEKTEYDİ: bir koridoru dört piksele
 > sıkıştırmak okunacak bir şey bırakmıyor.
@@ -2949,28 +3980,219 @@ karşı yeni bir aracı. Ölçülmedi.
 > taşıyor. İç içe bir `Canvas` mini haritayı ayırıyor, yani her kare yeniden
 > gruplanan şey yalnızca duvar kareleri oluyor.
 >
+> **Karo kabının adı `HaritaKabi`, `Harita` DEĞİL.** 2026-09-27'de bir gün
+> boyunca `Harita` diye duruyordu ve bu sessiz bir mayındı: sahnede gerçek
+> haritanın kökü de öyle adlanıyor, üstelik **sekiz editör aracı** onu
+> `GameObject.Find("Harita")` ile arıyor (`Işığı Pişir`, `Haritayı Giydir`,
+> `Terminal ve Çıkış Kur`, `Harita Süsle`, `Diriltme Sistemini Kur`,
+> `Atmosfer Kur`, `Mağara Yankısı Kur`, `Ağ Kurulumu`). O metot isim
+> çakışmasında hangisini döndüreceğini **garanti etmiyor** — bölüm 0.1'in
+> `Duvar_3_0` dersinin birebir aynısı, bu kez UI tarafında.
+>
+> Ad 2026-09-28'de ayrıldı. `Mağara Yankısı Kur` ayrıca kökü artık sahne
+> KÖKLERİ arasında arıyor (`FindMapRoot`), yani o araç çakışmadan tamamen
+> bağımsız.
+>
 > **Ok prosedürel üretiliyor** (`MenuSetup.GetOrCreateArrowSprite` →
 > `Assets/_Art/UI/MiniHarita_Ok.png`). TMP'nin üçgen karakterine güvenmek
 > riskliydi: varsayılan atlas yalnızca temel Latin kapsıyor ve eksik karakter
 > boş kutuya dönüyor (bölüm 20'nin kendi dersi). Sopa mesh'i ve materyaliyle
 > aynı alışkanlık.
 >
-> **Ayarlamak iki sayı** (`MenuSetup`): `MinimapSize` (210) ve
-> `MinimapMetersAcross` (26 — pencerenin kaç metre gösterdiği). İkisi de
-> sahneye araçla yazılıyor, yani değiştirince `Menü Kur` gerekiyor.
+> **Ayarlamak iki sayı** (`MenuSetup`): `MinimapSize` (**240**, panelin
+> kenar uzunluğu) ve `MinimapMetersAcross` (26 — pencerenin kaç metre
+> gösterdiği). İkisi de sahneye araçla yazılıyor, yani değiştirince
+> `Menü Kur` gerekiyor.
 >
-> **HÂLÂ GİZLİ, bilerek (kullanıcı kararı).** `MiniMapView.Awake` paneli
-> yine kapatıyor: mini harita yeni bir özellik ve kayıt alınana kadar
-> çalışan hiçbir şeyi etkilememesi isteniyor. **Açmak o tek satırı silmek**
-> — başka hiçbir şey gerekmiyor.
+> İkisi bağımsız kaldıraç ve karıştırılmamalı: **panel** ekranda kapladığı
+> yeri, **metre** ne kadar uzağı gördüğünü belirliyor. Paneli büyütmek
+> ölçeği büyütüyor (aynı 26 m daha iri çiziliyor); metreyi küçültmek de
+> ölçeği büyütüyor ama görüş alanını daraltıyor. 2026-09-27'de istenen
+> birincisiydi: 210 → 240, metre sabit.
 >
-> Yani yeni tasarım henüz OYNANARAK GÖRÜLMEDİ: kod ve kurulum hazır, panel
-> kapalı.
+> **Ok da oranla büyüyor** (`MinimapPlayerDotSize` 16 → 18 ≈ 16 × 240/210):
+> sabit bıraksak büyüyen haritanın içinde küçülmüş gibi dururdu.
+
+> ### Eğilme geçitleri artık DUVAR olarak çiziliyor (2026-09-27)
 >
-> **`Menü Kur` GEREKİYOR** — panel sahneye araçla kuruluyor.
+> Kullanıcı: *"mini haritada eğilme yerleri boşluk olarak gözüküyor, onlar da
+> duvar olarak gözüksün."*
+>
+> **Sebep koddaydı, ölçüldü:** `MazeMapBuilder.BuildWalls` eğilme hücrelerini
+> atlıyor —
+>
+> ```csharp
+> if (!wall[x, z] || crouchCells.Contains(new Vector2Int(x, z)))
+>     continue;
+> ```
+>
+> yani o hücrede `Duvar_X_Z` objesi **hiç yok**; geçit ayrı bir grupta
+> (`EgilmeGecitleri/Gecit_X_Z`) duruyor. Mini haritanın toplayıcısı yalnızca
+> `Duvarlar` grubuna baktığı için orası boş kalıyordu ve harita YANLIŞ
+> okunuyordu: koşarak geçilecek bir koridor sanılıyordu, oysa geçit duvarın
+> içindeki, Ctrl ile eğilmeyi gerektiren bir delik.
+>
+> `CollectWallPositions` artık iki grubu birden tarıyor. Sahneden ölçülen:
+>
+> | Grup | Ebeveyn | Çocuk |
+> |---|---|---|
+> | `Duvarlar` | `Harita` | 151 |
+> | `Duvarlar` | `Harita_Genisleme_Guney` | 89 |
+> | `EgilmeGecitleri` | `Harita` | **5** |
+> | `EgilmeGecitleri` | `Harita_Genisleme_Guney` | **2** |
+>
+> Yani karo sayısı 240 → **247** olacak.
+>
+> **`Transform.Find` yalnızca DOĞRUDAN çocuğa bakıyor**, o yüzden grupların
+> gerçekten `Harita` ve `Harita_Genisleme_Guney`'in doğrudan çocuğu olduğu
+> sahne YAML'ı ayrıştırılarak (`m_Father` zinciri) doğrulandı — yanlış
+> varsayılsaydı metot sessizce hiçbir şey eklemezdi ve "yaptım ama
+> değişmedi" olurdu.
+>
+> **Konum hesaplanmıyor, sahneden OKUNUYOR.** `Gecit_X_Z` grubunun
+> `localPosition`'ı `CellToWorld(x, z)` ile hücre MERKEZİNE yazılıyor, yani
+> `Duvar_X_Z` ile aynı ızgara noktası — tek karo boyutu ikisine de oturuyor.
+> Y'ye bakılmıyor (`WorldToMapPoint` yalnızca X ve Z okuyor): duvar bloğu
+> yarım duvar yüksekliğinde, geçit grubu zeminde.
+>
+> **Sınır kutusu değişmiyor:** `FindCrouchSpots` yalnızca İKİ KORİDORU AYIRAN
+> iç hücreleri seçiyor, dış halka her zaman dolu — yani yeni noktalar
+> `ComputeWallBounds`'u genişletemez ve `worldOrigin` yerinde kalıyor.
+>
+> Geçitler bugün normal duvarla **aynı renkte**. Ayırt edilmesi istenirse
+> `CreateMinimapWallTile`'a bir renk parametresi eklemek yetiyor — ama
+> kullanıcının istediği tam olarak "duvar gibi görünsün"dü.
+>
+> **AÇIK (2026-09-27, kullanıcı kararı).** Panel kayıt alınana kadar
+> gizliydi (`MiniMapView.Awake` kendi objesini kapatıyordu); commit `944d33c`
+> atıldıktan sonra o satır silindi. Geriye `Awake` metodu KALMADI —
+> görünürlüğün tamamı `OyunHud`'ın `CanvasGroup`'undan geliyor, yani
+> nişangahla aynı kuralla açılıp kapanıyor (menü açıkken gizli).
+>
+> **Yeniden gizlemek gerekirse** tek satır geri konur:
+> `private void Awake() => gameObject.SetActive(false);`
+>
+> **`Menü Kur` GEREKİYOR.** Paneli sahneye araç kuruyor: hem büyüme
+> (210 → 240) hem eğilme geçitleri ancak araç çalışınca ekrana geliyor.
+> Çalıştırılmazsa kod değişmiş olur ama görüntü aynı kalır — bölüm 16'nın
+> "koddaki varsayılanı değiştirmek yetmiyor" tuzağının aynısı.
+>
+> Sahnedeki mevcut durum ölçüldü (araç 2026-09-27 23:27'de bir kez çalıştı,
+> ondan kalma):
+>
+> | Ölçülen | Şu an sahnede | `Menü Kur` sonrası beklenen |
+> |---|---|---|
+> | `MiniHarita` / `Pencere` / `Ben` | 1 / 1 / 1 | aynı |
+> | Eski `CizimAlani` | **0** — eski sürüm gitmiş | aynı |
+> | `MiniHarita` objesi | `m_IsActive: 1` | aynı |
+> | Duvar karosu | **240** | **247** (+7 geçit) |
+> | `pixelsPerMeter` | 7.3846 = (210 − 18) ⁄ 26 | **8.538** = (240 − 18) ⁄ 26 |
+> | Hücre karosu | 24 px | **27 px** |
+> | `worldOrigin` | (0, −20.8) | değişmez (geçitler iç hücrelerde) |
+> | `Assets/_Art/UI/MiniHarita_Ok.png` | üretilmiş | aynı dosya |
+>
+> Bu tablo aynı zamanda **aracın işini yapıp yapmadığının** sınaması:
+> karo sayısı 247 değilse geçitler eklenmemiş demektir.
+>
+> **Henüz OYNANARAK görülmedi:** tasarım, ölçek ve dönüş yönü ilk kez gerçek
+> bir turda sınanacak.
 >
 > Aşağıdaki "sade sürüm" notları hâlâ geçerli: yalnızca KENDİ konumun
 > gösteriliyor, ek ağ verisi yok.
+
+> ### KATİLİN HARİTASI: terminal ve çıkış noktaları (2026-09-28)
+>
+> Kullanıcının isteği: *"canavar için de harita olacak, onda terminallerin
+> yeri nokta şeklinde gözükecek; bir terminal bitince noktası kaybolsun; tüm
+> terminaller bitince çıkış kapılarının yerini de nokta olarak görsün; biri
+> terminalde hata yaparsa o nokta yanıp sönsün. Mini harita tüm haritayı
+> göstermiyor, o yüzden uzaktaki noktalar GTA mini haritası gibi köşede
+> kalsın."*
+>
+> Bu, 2026-09-14'te bu dosyaya not edilen fikrin kendisi: *"Canavarın da
+> KENDİ, her zaman açık haritası olacak: terminallerin yeri, bitince çıkış
+> kapılarının yeri."*
+>
+> | Durum | Nokta |
+> |---|---|
+> | Bitmemiş terminal | mavi |
+> | **Kaçan hata yaptı** (alarm ötüyor) | **kırmızı, saniyede 2.4 kez yanıp sönüyor** |
+> | Biten terminal | **yok** — haritadan düşüyor |
+> | Çıkış açıldıktan sonra | terminaller gider, **çıkış kapıları** sarı nokta olur |
+>
+> #### Ek ağ verisi SIFIR — bölüm 4 hiç zorlanmıyor
+>
+> Terminaller ve çıkışlar **sabit sahne objeleri**, konumları zaten her
+> istemcide var. Durumları da zaten SyncVar'dan türüyor, çünkü terminalin
+> kendi göstergesi, ışığı ve sesi onları okuyor (bölüm 11.2). Yani gösterilen
+> her şey o istemcide **çoktan duruyordu**; yeni yaptığımız tek şey onu
+> ÇİZMEK. Bu, yol haritasının kendi tablosundaki "Terminal / ceset /
+> diriltme kabini → **Sıfır**" satırı.
+>
+> Kaçanın haritasında bu noktalar YOK ve karar tamamen yerel
+> (`local.Role == RoundRole.Monster`), yani kaçanın istemcisi o kodu hiç
+> çalıştırmıyor.
+>
+> #### Yanıp sönmenin ölçütü `AlarmActive`, `IsLocked` DEĞİL
+>
+> İkisi bugün farklı şeyler söylüyor ve doğrusu birincisi:
+>
+> | Kilidi kuran | `IsLocked` | `AlarmActive` |
+> |---|---|---|
+> | Kaçan hata yaptı | evet | **evet** (alarm penceresi, 20 sn) |
+> | **Canavarın kendisi kilitledi** | evet | **hayır** (`lockAlarmEndTime` = 0) |
+>
+> Kullanıcının istediği "biri terminalde **hata yaparsa**" — yani canavarın
+> kendi kurduğu kilit yanıp sönmemeli, zaten oraya kendisi gitti (bölüm
+> 11.4'ün "canavarınki hiç ötmüyor" kuralının görsel karşılığı).
+> `Terminal.AlarmActive` `private`'tan `public`'e çekildi, gövdesine
+> dokunulmadı.
+>
+> #### Kenara yapıştırma: kırpma KARE'ye, çembere değil
+>
+> Pencere 26 m gösteriyor, yani 12.3 m'den uzaktaki bir terminal aksi hâlde
+> hiç görünmezdi. İşaret pencerenin dışına çıkınca **yönünü koruyarak** kenara
+> yapışıyor. Kare seçildi çünkü pencere `RectMask2D` ile kare kesiliyor —
+> çembere yapıştırılan bir işaret köşelerde pencerenin içinde, kenar
+> ortalarında dışında kalırdı.
+>
+> Yedi yönle simüle edildi (oyuncu kuzeye/doğuya/güneye/batıya bakarken,
+> köşegen, ve pencerenin içinde kalan iki mesafe) — yedisi de doğru kenara
+> oturuyor. Dönüşüm duvar kareleriyle **aynı ifade** (`spin * (p − self)`),
+> yani harita ile işaretlerin ayrışması mümkün değil.
+>
+> **Yapışan işaret %78 boyutta çiziliyor** (`edgeMarkerScale`): "bu nokta
+> pencerenin dışında" bilgisini veren tek ipucu bu.
+>
+> #### Ayrıntılar
+>
+> * **Nokta sprite'ı prosedürel** (`MiniHarita_Nokta.png`), okla aynı
+>   gerekçe. Dış halkası KOYU, çekirdeği beyaz: `Image.color` çarpan olarak
+>   uygulandığı için tek tint hem parlak bir çekirdek hem koyu bir kenar
+>   veriyor — kenarsız bir nokta açık gri duvar karelerinin üstünde erirdi.
+> * **İşaretler havuzdan** (`markerPool`), her karede `Instantiate` yok
+>   (bölüm 2).
+> * **Kap pencereyle aynı boyda.** `MiniMapView` yapışma sınırını
+>   `markerRoot.rect.width`'ten okuyor, yani pencere boyu için ikinci bir
+>   alan tutulmuyor.
+> * **Terminal/ExitGate artık kayıt defteri tutuyor** (`All`), tarama değil.
+>   `FindObjectsOfType` lobide boş liste döndürebilirdi: Mirror sahne
+>   `NetworkIdentity`'lerini sunucu açılınca aktifleştiriyor (bölüm 4) ve o
+>   anda yapılan bir tarama önbelleğe boş liste alıp bir daha hiç dolmazdı.
+>   `RoundParticipant.All` ile aynı desen.
+> * **Oyuncu yokken işaretler gizleniyor.** Harita donmuş kalıyor (son gördüğün
+>   kare), ama donmuş bir terminal noktası YANLIŞ BİLGİ olurdu.
+>
+> #### DENGEYE ETKİSİ — açık iş 1'i doğrudan ilgilendiriyor
+>
+> Bu, canavara gerçek bir bilgi avantajı veriyor: hangi terminalin açık
+> olduğunu ve nerede hata yapıldığını artık aramadan biliyor. Açık iş 1
+> zaten *"canavar çok güçlü — beş kişilik testte bir saat boyunca hiç kaçış
+> olmadı"* diyor. **Hiçbir denge sayısına dokunulmadı** (kullanıcıdan sayı
+> gelmeden dokunulmuyor), ama oynanırken bakılacak ilk yer burası.
+>
+> **`Menü Kur` GEREKİYOR** — işaret kabı ve nokta sprite'ı sahneye araçla
+> giriyor.
 
 Kullanıcı önce elaborate bir fikir istedi (aşağıda, "Fikir" başlığı altında
 duruyor — HENÜZ YAPILMADI), sonra en sade hâlini istedi ve **o yazıldı**:
@@ -3028,6 +4250,212 @@ doğru çalışıyor mu.
 > `.rsp`'ye elle satır eklerken önce dosyanın satır sonuyla mı bittiğini
 > ölç (bölüm 0'ın LF/CRLF dersinin aynı ailesi) — "derleme sıfır hatayla
 > geçti" tek başına "yeni dosya gerçekten derlendi" anlamına gelmiyor.
+
+---
+
+### PERK SİSTEMİ — kullanıcının tarifi (2026-09-28)
+
+**Tarif bir NOT'tu, spesifikasyon değil.** Maddeler hâlâ değişebilir.
+**ADIM 1 (altyapı) 2026-09-28'de YAZILDI** — hiçbir perkin henüz bir etkisi
+YOK, aşağıdaki "Ne yazıldı" başlığına bak.
+
+Bu turdaki sekiz perkin **hepsi harita/mini harita görüşü** — yani ilk parti
+"ne görüyorsun" perkleri. Başka türde perkler (hız, dayanıklılık…) hiç
+konuşulmadı.
+
+#### Kural: TEK SLOT — ve o slot HARİTA slotu
+
+Herkes **yalnızca 1 perk** alıyor. Maç başında seçiliyor, maç sonuna kadar
+değişmiyor. Seçim ekranı **karakter seçim ekranına** konacak (bölüm 13).
+
+**Slot TÜRLÜ, sayı değil** (kullanıcı, 2026-09-28). Bugünkü tek slot
+tamamen harita perklerine ait. İleride başka türde perkler gelebilir —
+kullanıcının örneği: *"bir tuşa basınca ileri atılma gibi"* — ve onlar için
+AYRI bir slot açılabilir. Ama o gün geldiğinde bile **kimse iki harita perki
+takamayacak**: harita slotu bir tane, öyle kalıyor.
+
+Yani perk kataloğu baştan **kategorili** kurulmalı (`Harita`, ileride
+`Yetenek`…) ve slot bir kategoriyi kabul etsin. Kategorisiz bir liste,
+ikinci slot eklendiği gün iki harita perkine izin verir ve o noktada geri
+almak veri modelini değiştirmek olur.
+
+**Perk ile karakter arasında bağ YOK.** Her perk her karakterle
+takılabiliyor; "bu perk yalnızca şu katilde çalışır" gibi bir kısıt
+istenmiyor.
+
+#### KAÇAN perkleri
+
+| # | Ne görüyor | Pencerenin dışında |
+|---|---|---|
+| 1 | **Terminallerin yeri** | **GÖRÜNMEZ** — katilinki gibi değil, mini haritanın içine girmiyorsa nokta yok |
+| 2 | **Kapılar ve eğilme geçitleri** | **GÖRÜNMEZ** — yalnızca mini haritanın içinde |
+| 3 | **Ölen arkadaşların bedenleri**; ayrıca **ceset taşırken** diriltme kabinleri | **GÖRÜNÜR** — ikisi de kenara yapışarak, haritanın her yerinden |
+| 4 | **Katilin yeri** — ama katil de onu görüyor (KARŞILIKLI) | **GÖRÜNMEZ** — iki taraf da yalnızca KENDİ mini haritasının içinde |
+
+> **Perk 3'ün iki parçası ayrı tetikleniyor:** bedenler perk açıkken hep
+> görünüyor, **diriltme kabinleri yalnızca elinde ceset varken**. Kabin
+> bilgisi ancak taşırken işe yarıyor, o yüzden sürekli göstermek ekranı boş
+> yere dolduruyordu.
+>
+> **Perk 4 çift taraflı ve İKİSİ DE kırpılıyor:** kaçan katili, katil de o
+> kaçanı yalnızca kendi penceresinin içinde görüyor. Yani perk bir radar
+> değil, iki tarafa da "yakınına geldi" diyen karşılıklı bir uyarı — 20
+> metre öteden kimse kimseyi takip edemiyor.
+
+#### KATİL perkleri
+
+| # | Ne görüyor | Süre | Pencerenin dışında |
+|---|---|---|---|
+| 1 | Terminalde **hata yapan kaçanın** yeri | **10 sn** | görünür ("haritada") |
+| 2 | **Ceset taşıyan kaçanın** yeri | taşıdığı sürece, bıraktığı an söner | **GÖRÜNMEZ** — yalnızca mini haritanın içinde |
+| 3 | **Kapılar ve eğilme geçitleri** | sürekli | **GÖRÜNMEZ** — yalnızca mini haritanın içinde |
+| 4 | Bir kaçanı öldürünce, ona **EN UZAK** kaçanın yeri | **10 sn** (2026-10-04: 5 → 10, oynanış) | **GÖRÜNÜR** |
+
+#### Tasarımın asıl ekseni: "kırpılan" mı "kenara yapışan" mı
+
+Kullanıcı her maddede bunu ayrı ayrı söyledi, yani rastgele değil bilinçli
+bir kaldıraç:
+
+| Davranış | Anlamı | Bugün kodda |
+|---|---|---|
+| **Kenara yapışan** | Yönünü her zaman biliyorsun, mesafeyi bilmiyorsun | Katilin terminal noktaları böyle (`PlaceMarker`, `edgeMarkerScale`) |
+| **Kırpılan** | Ancak yaklaşınca öğreniyorsun — çok daha zayıf bir bilgi | **YOK, yazılması gerekiyor** |
+
+Yani `MiniMapView.PlaceMarker`'a işaret başına bir "dışarıdaysa gizle"
+bayrağı gerekiyor. Altyapının geri kalanı (havuz, dönüşüm, kırpma
+matematiği) 2026-09-28'de zaten kuruldu.
+
+#### Ağ tarafı: bugün hiçbiri ek veri İSTEMİYOR — ve asıl mesele bu
+
+| Gösterilecek | Bugün nerede | Ek maliyet |
+|---|---|---|
+| Terminal, kapı, eğilme geçidi, diriltme kabini | Sabit sahne objesi | **sıfır** |
+| Ceset | `Corpse` ağ objesi, konumu senkron | **sıfır** |
+| Kaçanların konumu | `NetworkTransform` | **sıfır** |
+| **Katilin konumu** | `NetworkTransform` | **sıfır — ama bölüm 4'e AYKIRI** |
+
+Yani sekiz perkin sekizi de bugün saf istemci işi olarak yazılabilir. **Bu
+iyi haber değil, teşhis:** bölüm 4'ün kuralı "istemciye görmesi gerekmeyen
+bilgiyi gönderme" ve bugün katilin de kaçanların da konumu herkese gidiyor —
+karanlık ve sis dışında hiçbir şey gizlemiyor. Değiştirilmiş bir istemci şu
+an, perk falan olmadan, hepsini görebiliyor.
+
+Doğrusu izlerin yolunu TERSİNE çevirmek: sunucu, o perke sahip oyuncuya
+**özel bir `TargetRpc`** ile göndersin. Bu, kaçan perk 4 ve katil perk 1/2/4
+için gerçek bir sunucu işi.
+
+**Süreli perkler (10 sn, 5 sn) zaten sunucuda başlamak zorunda:** tetikleyen
+olay (terminalde hata, öldürme) sunucu kararı. Süreyi istemcide tutmak,
+değiştirilmiş bir istemcide süresiz radar demek.
+
+**Katil perk 4'ün "en uzak kaçan"ı** öldürme anında sunucuda hesaplanmalı.
+
+#### Karara bağlananlar (kullanıcı, 2026-09-28)
+
+Beş soru da cevaplandı:
+
+| Soru | Karar |
+|---|---|
+| Katilin bugünkü terminal radarı perk mi olacak? | **HAYIR — bedava kalıyor.** Gerekçe kullanıcının kendi cümlesi: *"perke gerek yok onun için, yoksa çok güçsüz olur."* Katilin perk slotu bunun ÜSTÜNE geliyor |
+| Diriltme kabinleri hep mi görünür? | **Yalnızca ceset taşırken.** Bedenler ise perk açıkken hep, ikisi de haritanın her yerinden |
+| Kaçan perk 4 kırpılıyor mu? | **Evet, iki taraf da.** Kimse kimseyi pencerenin dışından göremiyor |
+| Tek slot rol başına mı? | Oyuncu kaçanını ve katilini zaten seçiyor; perk de **istediği karaktere** takılıyor. **Perk ↔ karakter kısıtı YOK** |
+| "Bu haritalara özel" ne demek? | **Harita perkleri** demek. Slot kategorili — bkz. yukarıdaki "TEK SLOT" başlığı |
+
+> **Katilin terminal radarının bedava kalması dengeyi doğrudan
+> ilgilendiriyor.** Açık iş 1 *"canavar çok güçlü — beş kişilik testte bir
+> saat boyunca hiç kaçış olmadı"* diyor ve katil artık hem bedava terminal
+> görüşüne hem bir perke sahip olacak. Kullanıcı bunu bilerek seçti
+> (alternatifi "çok güçsüz olur" dedi); **not olarak duruyor, sayıya
+> dokunulmadı.** Oynanırken ilk bakılacak yer burası.
+
+#### ADIM 1 YAZILDI: veri modeli, kayıt, senkron, seçim ekranı (2026-09-28)
+
+Kullanıcı "en kolay ya da ilk başlanılması gereken yerden başla" dedi.
+Seçilen yer **altyapı**, çünkü sekiz perkin sekizi de "bu oyuncuda hangi
+perk var" sorusunu soruyor — hiçbiri bu olmadan yazılamaz. Üstelik en düşük
+riskli parça: oynanışa hiç dokunmuyor ve kostüm sisteminin çalışan desenini
+birebir aynalıyor.
+
+| Parça | Ne yapıyor |
+|---|---|
+| **`Core/PerkCatalog.cs`** (YENİ) | İki liste (kaçan/katil), `PerkSlot`, `PerkEffect`, `Sanitize`/`Step` |
+| `UI/PlayerProfile` | `Perk_Kacan` / `Perk_Katil` — cihaz tercihi |
+| `Core/RoundParticipant` | İki SyncVar + `PushPerks`/`CmdSetPerks` + **`ActivePerk`** ve **`HasPerk(PerkEffect)`** |
+| `UI/CharacterSelectPanel` | Perk satırı: ad, açıklama, ileri/geri |
+| `Editor/MenuSetup` | Satırı sahneye kuruyor |
+| `UI/Localization` | 15 yeni satır (tablo 213 → **228**) |
+
+##### Etki HENÜZ YOK
+
+Bugün perk seçmek hiçbir şey değiştirmiyor. Seçilebiliyor, kaydediliyor,
+senkronlanıyor ve `HasPerk` doğru cevap veriyor — **çizen/uygulayan kod
+yazılmadı.** Sıradaki adım o.
+
+##### Yazarken verilen kararlar
+
+**Oynanış `Effect`'e bakıyor, İNDEKSE değil.** Seçim bir `int` olarak
+saklanıp senkronlanıyor (kostümle aynı takas) ama kodun hangi perki
+çalıştırdığı `PerkEffect` enum'una bağlı. Liste yeniden sıralansa kayıtlı
+seçimler kayar — `switch` kaymaz. **Listeye ekleme SONA yapılmalı.**
+
+**"Kırpılan mı, kenara yapışan mı" KATALOGDA duruyor** (`EdgeClamped`), çizen
+kodda değil. Kullanıcı bunu perk perk ayrı söyledi, yani bir kural; iki yerde
+tutulan bir kural biri değişince öbürünün unutulması demek. Süreli perklerin
+saniyesi de (`Duration`) aynı sebeple orada.
+
+**Rol anahtarı kostümle ORTAK.** Ekranın üstündeki KAÇAN/KATİL düğmesi hem
+kostümü hem perki birlikte çeviriyor — ayrı düğmeler "kaçan kostümü + katil
+perki" gibi anlamsız bir karışım gösterebilirdi.
+
+##### İki açık soru — kullanıcıya soruldu
+
+1. **İndeks 0 = "Perk yok".** Kullanıcı "herkes 1 perk alır" dedi ama seçim
+   ekranını hiç açmayan oyuncuya seçmediği bir perk vermek daha kötü; ayrıca
+   tek kişiyle perkli/perksiz karşılaştırmanın tek yolu bu. **İstenmezse o
+   satırı silmek yetiyor.**
+2. **`CmdSetPerks` tur ORTASINDA da kabul ediyor.** Bugün zararsız: seçim
+   ekranı yalnızca menüden ve lobiden açılıyor. Perkler gerçekten
+   çalışmaya başlayınca `RoundManager.Phase` kontrolü eklenmeli, yoksa
+   oyuncu ölüm anında perk değiştirebilir.
+
+##### `Menü Kur` GEREKİYOR
+
+Perk satırı sahneye araçla giriyor. Çalıştırılmadan ekranda görünmez —
+bölüm 16'nın tuzağı.
+
+Doğrulama: derleme Runtime + Editor **sıfır hata**; `PerkCatalog`,
+`PerkEffect`, `HasPerk`, `PushPerks`, `Perk_Kacan` DLL'de; `FindProperty`
+adlarının **10/10**'u alanlarla eşleşiyor (yanlış ad null döndürüp aracı
+çalışırken patlatırdı).
+
+> ### Yeni bir `.cs` dosyası eklerken: `.rsp`'yi ELLE düzenleme
+>
+> `build.py` `.mine.rsp`'yi Unity'nin Bee `.rsp`'sinden **her çalıştırmada
+> yeniden üretiyor** — elle eklenen satır sessizce siliniyor ve derleyici
+> "tip bulunamadı" diyor. Doğrusu script'in kendi yolu:
+>
+> ```
+> python build.py Assets/_Scripts/Core/PerkCatalog.cs
+> ```
+>
+> Bu, 2026-09-14'ün ".rsp'ye satır sonu olmadan ekleme" dersinin ikinci
+> yüzü: o sefer satır bozuk eklenmişti, bu sefer eklenen satır hiç
+> kalmadı. İkisinin ortak sonucu aynı — **"derleme geçti" tek başına "yeni
+> dosya derlendi" demek değil**, sembolü DLL'de ara.
+
+#### Yazarken kullanılacak hazır parçalar
+
+| İş | Nerede |
+|---|---|
+| Seçim ekranı, kayıt, SyncVar deseni | `CharacterCatalog` + `CharacterSelectPanel` + `PlayerProfile` + `RoundParticipant.CmdSetCostume` (bölüm 13) — perk için birebir aynı desen |
+| Harita işaretleri, havuz, kenara yapıştırma | `MiniMapView.PlaceMarker` (2026-09-28) |
+| Terminal durumu | `Terminal.All`, `IsCompleted`, `AlarmActive` |
+| Çıkışlar | `ExitGate.All` |
+| Cesetler | `Corpse`, `carrierNetId` (taşıyan belli, bölüm 23) |
+| Diriltme kabinleri | `RevivalStation` — sahnede iki tane |
+| Kapı / eğilme geçidi konumları | `Kapilar/Kapi_X_Z` ve `EgilmeGecitleri/Gecit_X_Z`; `MenuSetup.CollectGroupPositions` ikisini de tarayabilir |
+| "Karşılıklı görünürlük" tartışması | Aşağıdaki "Fikir" başlığı, 2026-09-14 — kaçan perk 4'ün tam karşılığı |
 
 ---
 
@@ -4077,6 +5505,118 @@ kurulum geri gider — bu tuzağa bir kez düşüldü, saatler kaybedildi. Aynı
 sebeple hepsi Play modunda gri: o sırada yapılan sahne değişiklikleri Play
 bitince geri alınır.
 
+### Unity'yi AÇMADAN derlemek — tam tarif (2026-10-04)
+
+Bu dosya dört yerde "Unity'siz derleme" diye atıf yapıyordu ve komutları
+yalnızca bir hafıza notunda duruyordu. **O not eksikti** — 2026-10-04'te
+ölçüldü ve ilk denenen derleyici çalışmadı. Tarif artık burada.
+
+**Neden gerekiyor:** Unity'yi açıp derlemesini beklemek dakikalar sürüyor ve
+editör açıkken dışarıdan yapılan değişiklikleri bazen hiç görmüyor (bölüm
+14'ün "Unity'nin derlemeyi atlaması" kutusu). Çevrimdışı derleme
+"yazdığım kod derleniyor mu" sorusunu saniyeler içinde cevaplıyor.
+
+#### Derleyici: `dotnet` + `DotNetSdkRoslyn`, `csc.exe` DEĞİL
+
+Akla gelen ilk yol **başarısız oluyor**:
+
+```
+C:/Program Files/Unity/Hub/Editor/2022.3.62f3/Editor/Data/MonoBleedingEdge/lib/mono/msbuild/Current/bin/Roslyn/csc.exe
+```
+
+Hata şu ve yanıltıcı — kodla hiç ilgisi yok:
+
+```
+'System.Text.Encoding.CodePages, Version=4.1.1.0 …' dosyasını veya
+bütünleştirilmiş kodunu ya da bağımlılıklarından birini yükleyemedi.
+```
+
+**Çalışan yol** Unity'nin kendi .NET çalışma zamanı + SDK Roslyn'i:
+
+```
+"C:/Program Files/Unity/Hub/Editor/2022.3.62f3/Editor/Data/NetCoreRuntime/dotnet.exe" \
+  "C:/Program Files/Unity/Hub/Editor/2022.3.62f3/Editor/Data/DotNetSdkRoslyn/csc.dll" \
+  "@<scratchpad>/Assembly-CSharp.mine.rsp"
+```
+
+Editör derlemesi için aynı komut, `Assembly-CSharp-Editor.mine.rsp` ile.
+Hata saymak:
+
+```
+… 2>&1 | grep -c "error CS"
+```
+
+> **Uyarılar NORMAL.** `Assets/unity-chan!` paketi `AnimatorStateInfo.nameHash`
+> kullanıyor ve onlarca `CS0618` uyarısı basıyor. Üçüncü parti, bize ait değil
+> — **yalnızca `error CS` sayılır.**
+
+#### `.mine.rsp`: yeni bir `.cs` YOKSA yeniden üretmeye gerek yok
+
+Bu, 2026-09-28'in dersinin öbür yüzü. O gün `build.py`'nin `.mine.rsp`'yi
+**her çalıştırmada** Unity'nin Bee `.rsp`'sinden yeniden ürettiği ve elle
+eklenen satırı sildiği yazılmıştı. Doğru — ama sonucu "her seferinde
+yeniden üretmek ZORUNLU" değil:
+
+| Durum | Ne yapmalı |
+|---|---|
+| Var olan bir `.cs` değişti | `.mine.rsp` **olduğu gibi kullanılır** — dosya listesi aynı |
+| **Yeni** bir `.cs` eklendi | Liste eksik kalır; `.rsp` yeniden üretilmeli (`build.py` ya da elle, ama o zaman da `build.py`'nin kuralına dikkat) |
+
+Ölçüldü: mevcut `Assembly-CSharp.mine.rsp` **96 kaynak** listeliyor ve
+`LobbyNetwork.cs`, `PerkCatalog.cs`, `MiniMapView.cs` üçü de içinde. Yani
+2026-10-04'te `LobbyNetwork.cs`'i derlemek için hiçbir şey üretmek
+gerekmedi.
+
+Doğrulaması tek komut:
+
+```
+grep -c "LobbyNetwork.cs" <scratchpad>/Assembly-CSharp.mine.rsp
+```
+
+#### YAYIN build'ini taklit etmek: `UNITY_EDITOR` tanımlarını çıkar
+
+`#if UNITY_EDITOR || DEVELOPMENT_BUILD` ile korunan bir kodun gönderilen
+oyuna gerçekten GİRMEDİĞİNİ kanıtlamanın yolu bu. `.rsp`'nin kopyası
+alınıp dört satır siliniyor:
+
+```
+-define:UNITY_EDITOR
+-define:UNITY_EDITOR_64
+-define:UNITY_EDITOR_WIN
+-define:DEVELOPMENT_BUILD
+```
+
+Çıktı adı da değiştirilmeli (`-out:` ve `-refout:`), yoksa editör
+derlemesinin DLL'ini eziyor ve sonraki doğrulama yanlış cevap veriyor.
+
+Sonra iki DLL'de aynı sembol aranıyor: biri **var**, öbüründe **yok**
+olmalı. F8 anahtarı böyle doğrulandı (bölüm 13).
+
+#### Sembol aramanın KENDİ tuzağı
+
+.NET metadata'sında **sembol adları UTF-8, string literalleri UTF-16**
+(`#US` yığını). Yani:
+
+```python
+d = open('Assembly-CSharp.dll', 'rb').read()
+'ForceLocalRoom'.encode()            in d   # metot/alan adı  → UTF-8
+'YEREL ODA ZORLANDI'.encode('utf-16-le') in d   # ekrandaki yazı → UTF-16
+```
+
+Yanlış kodlamayla aramak **her zaman `False`** döndürüyor ve "sembol
+DLL'de yok" diye okunuyor — bu dosyanın 2026-09-26'daki dersi.
+
+#### Scratchpad KALICI DEĞİL
+
+2026-10-04'te `edit.py` ve `build.py` scratchpad'den **silinmiş** hâlde
+bulundu; `.rsp` ve `.dll` dosyaları duruyordu. Yani:
+
+- Yardımcı script'ler her oturumda yeniden yazılabilir olmalı — bu yüzden
+  tarifin kendisi (yukarıdaki komutlar) BELGEDE duruyor, script'te değil.
+- `edit.py`'nin tek işi satır sonunu **ölçüp koruması** (bölüm 0): oku,
+  `crlf`/`lf` say, karışıksa DUR, bellekte `\n`'e normalleştir, yazarken
+  geri çevir. Her kalıbın **tam olarak bir** eşleşmesi doğrulanmalı.
+
 ### Sıfırdan kurulum sırası
 
 Yeni bir sahnede ya da her şey bozulduğunda bu sırayla:
@@ -4964,6 +6504,88 @@ otomatik yapıyor.
 yankı eğrisi bağlıyor. Bölge haritanın **çocuğu değil**: `Labirent Harita Kur`
 haritayı komple sildiği için çocuğu olsa her düzenlemede kaybolurdu.
 
+> ### Güney kanadında yankı YOKTU — bölge kanadı hiç kapsamıyordu (2026-09-28)
+>
+> Kullanıcı oynarken buldu: *"eko sesi olmuyor, haritanın güney kısmında
+> sesler normal geliyor."*
+>
+> **Sebep tek satırdı.** Bölge dünya orijinine konuyor ve yarıçapı YALNIZCA
+> ana haritanın zemininden okunuyordu:
+>
+> ```csharp
+> Transform floor = map.transform.Find("Zemin");   // yalnızca ANA harita
+> return floor != null ? floor.localScale.x : FallbackSpan;   // 54.4
+> ```
+>
+> Güney kanadı 2026-09-13'te eklendi ve bu araç onu hiç görmedi. Bölge bir
+> KÜRE: `minDistance`'a kadar yankı tam güçte, `maxDistance`'ta tamamen
+> susuyor. Sahneden ölçüldü:
+>
+> | Nokta | Orijine uzaklık | Eski bölgede |
+> |---|---|---|
+> | Ana haritanın her yeri | ≤ 38.5 m | tam (minDistance 40.8) |
+> | Kanadın kuzey kenarı | 34.2 m | tam |
+> | Kanadın ortası | 48.0 m | **kısmi** |
+> | **Kanadın güney köşeleri** | **71.9 m** | **YANKI YOK** (maxDistance 54.4) |
+>
+> Yani merkez çizgide yankı z = −54.4'te ölüyordu, kenarlarda daha erken
+> (z ≈ −50.3) — kanadın güney üçte biri tamamen kuru.
+>
+> **Düzeltme: ölçü haritanın GERÇEK sınırlarından.** `TryFindMapBounds`
+> kökün altındaki bütün `Zemin` objelerinin dünya sınırlarını birleştiriyor;
+> bölge o kutunun merkezine oturuyor ve yarıçap köşeyi kapsıyor.
+>
+> | | Eski | Yeni |
+> |---|---|---|
+> | Merkez | (0, 0, 0) | **(1.96, −0.26, −20.80)** |
+> | minDistance | 40.8 m | **59.2 m** |
+> | maxDistance | 54.4 m | **78.9 m** |
+>
+> Hesap sahne verisiyle simüle edildi: birleşik sınır kutusunun **dört
+> köşesi de** `minDistance`'ın içinde (56.16 m < 59.2), yani haritanın
+> tamamında yankı TAM güçte. Ana harita gerilemiyor — merkezi yeni bölgeye
+> 20.9 m, hâlâ rahatça içeride.
+>
+> **`Renderer.bounds` kullanılıyor, `localScale` değil.** İki sebep: sınır
+> dünya uzayında gerekiyor (kanat `Harita`'nın ÇOCUĞU, yerel ölçek tek
+> başına yanlış cevap verir) ve renderer şartı `Giydirme/Zemin` gibi aynı
+> adı taşıyan boş GRUP objelerini kendiliğinden eliyor — sahnede tam iki
+> tane var, simülasyonda ikisi de elendi.
+>
+> **Pay 3 m** (`ZoneMargin`): zemin sınırları dikeyde tavanı (3 m)
+> kapsamıyor ve kenardaki oyuncu tam sınırda kalmamalı.
+>
+> **`Menü Kur`/`Ağ Kurulumu` gibi bu da ARAÇ işi** — `Mağara Yankısı Kur`
+> çalıştırılmadan bölge sahnede eski hâlinde kalır.
+>
+> **Yan bulgu, aynı çalıştırmada düzeliyor:** sahnedeki 28 `AudioSource`'un
+> yalnızca **8**'i mesafe eğrisini taşıyordu — araç kanat kurulduğundan beri
+> hiç çalıştırılmamış. Eğrisiz kaynak `reverbZoneMix = 1`, yani kuru değil
+> FAZLA ıslak; kuruluğun sebebi o değildi ama tasarım (0.5 → 1.0) yine de
+> uygulanmamıştı.
+
+> ### AYNI KÖK SEBEP, İKİNCİ YER: ışık probe'ları da kanadı kapsamıyor
+>
+> Yankıyı düzeltirken aynı deseni arayınca çıktı ve **DÜZELTİLMEDİ, ayrı bir
+> iş.** `LightBakeWindow` de probe ızgarasını kendi `FindMapSpan(map)`'inden
+> kuruyor. Sahneden ölçüldü:
+>
+> | | Değer |
+> |---|---|
+> | Probe sayısı | 1544 |
+> | x aralığı | −26.4 … 24.8 |
+> | z aralığı | −26.4 … **23.2** |
+> | **Kanattaki (z < −27.2) probe** | **0** |
+>
+> Yani kanatta hareketli hiçbir şey pişmiş dolaylı ışıktan pay almıyor.
+> Kimsenin fark etmemesinin sebebi büyük ihtimalle **Mixed (Shadowmask)**:
+> doğrudan ışık gerçek zamanlı, yani lambalar oyuncuyu yine aydınlatıyor —
+> eksik olan yalnızca sekme. Tam Baked olsaydı kanattaki oyuncular simsiyah
+> kesilirdi (bölüm 3'ün kendi uyarısı).
+>
+> Düzeltmesi `Işığı Pişir`'i yeniden çalıştırmayı gerektiriyor (dakikalar)
+> ve ayrı karar: **kullanıcıya soruldu, bekliyor.**
+
 **Dozu oynanışa bağlı.** Unity'de yankı sinyali yönsüzdür — dry panlanır, wet
 panlanmaz — yani yankıyı sonuna kadar açmak canavarın yönünü silmek demek.
 Yukarıdaki mono kuralıyla aynı sebepten iki tedbir var:
@@ -5368,6 +6990,119 @@ olsaydı herkesin Epic hesabıyla giriş yapması gerekirdi.
 >
 >    İki kopyaya farklı ad vermek build başına ayrı yapılandırma demek, o
 >    yüzden zahmetli. Arkadaş varsa birinci yol her zaman daha hızlı.
+>
+> 3. **EOS'u ATLA: `F8` ile yerel odayı zorla** (2026-10-04, aşağıdaki
+>    başlık). Test edilecek şey EOS'un kendisi DEĞİLSE en hızlı yol bu —
+>    tek makinede iki kopya, hiçbir kurulum yok.
+
+### F8: yerel odayı ZORLA — aynı PC'de iki kopyayla test (2026-10-04)
+
+Kullanıcı: *"bazı şeyleri test edemiyorum, online sunucu olduğu için. Oyunu
+build alıp aynı PC'den deneyebiliyordum eskiden, şu an yapamıyorum. Bunu
+geçici olarak kapatabiliyor muyuz?"*
+
+**Yerel yol aslında yarısı hazırdı.** Ölçüldü:
+
+| Taraf | Durum |
+|---|---|
+| **Katılan** | ZATEN çalışıyordu — `JoinLobby` bir IP görünce `localTransport`'a geçiyor (`LobbyCode.TryToAddress` dalı). Yani `127.0.0.1` yazmak hep KCP'ye düşüyordu |
+| **Host** | Eksik olan buydu — `LOBİ KUR`, EOS hazırsa **her zaman** onu tercih ediyor ve geri dönüşü yok |
+
+Yani host EOS'ta dinliyor, istemci 127.0.0.1'e bağlanmaya çalışıyor ve kimse
+kimseyi bulamıyor. **Tek eksik, host'un yerel yolu SEÇEBİLMESİYDİ.**
+
+`LobbyNetwork.ForceLocalRoom` — **F8** çeviriyor. Üç satır iş yapıyor:
+
+| Yer | Ne değişti |
+|---|---|
+| `UseRelay` | Başına `!ForceLocalRoom` eklendi — tek karar noktası burası |
+| `HostLobby` | "EOS bağlanıyor…" bekleme dalı artık zorlamada ATLANIYOR; yoksa kullanmayacağımız bir şey için 12 saniye beklenirdi |
+| `StartHosting` | Durum yazısı `LocalRoomMessage()`'tan geliyor |
+
+**Ağ mimarisine hiç dokunulmadı.** Bayrak yeni bir yol açmıyor, var olan iki
+yoldan hangisinin seçileceğini söylüyor. Bölüm 4'ün "his istemcide, karar
+sunucuda" kuralı, SyncVar'lar, rol dağıtımı — hiçbiri transport'un hangisi
+olduğunu bilmiyor.
+
+#### Durum yazısı artık YALAN söylemiyor
+
+Yerel odaya iki ayrı sebeple düşülüyor ve tek bir metin ikisini birden
+anlatamaz:
+
+| Sebep | Ekranda |
+|---|---|
+| EOS gerçekten hazır değil | "EOS hazır değil, yerel oda kuruldu. Katılacak kişi şu adreslerden birini yazmalı: …" |
+| **F8 ile zorlandı** | "**YEREL ODA ZORLANDI (F8)** — ikinci kopya 127.0.0.1 yazarak katılsın." |
+
+Tek metin bırakılsaydı "EOS hazır değil" diye yalan söylerdi ve kullanıcı
+olmayan bir arıza ararken zaman kaybederdi.
+
+#### Ekranda etiket — konsol YETMİYOR
+
+Sağ alt köşede durumu yazan küçük bir etiket var (`BuildForceLocalLabel`),
+**ilk F8'e kadar hiç kurulmuyor**.
+
+Bu, bu dosyanın kendi dersi: F10 kademe etiketinde *"sırayla değişiyor,
+hangisi hangisi anlamıyorum"* denmişti ve ders **"oynarken konsola
+bakılmıyor"** diye yazıldı (bölüm 25). Davranışı değiştiren bir test tuşu,
+neye değiştirdiğini de ekranda söylemeli.
+
+**Menünün ÜSTÜNDE çiziliyor** (sıra 110; menü 100). F10 etiketi menünün
+ALTINDA duruyor çünkü o oyun içi bir ayar; bu ise tam da ana menüde,
+`LOBİ KUR`'a basmadan ÖNCE okunmak zorunda.
+
+**Araç çalıştırmak GEREKMİYOR** — etiket çalışma anında kuruluyor
+(`Terminal.GetOrCreateStateLight` ve `MonsterAura` ile aynı desen). `Menü
+Kur`'a bağlanmış olsaydı test etmek için önce bir araç çalıştırmak
+gerekirdi, ki istenen şey tam olarak bunun tersi.
+
+#### Üç ayrıntı
+
+**Bayrak STATİK.** Tutorial'dan dönünce sahne yeniden yükleniyor ve bu obje
+ölüyor (bölüm 16'nın `DontDestroyOnLoad` dersi); alana yazılan bir değer
+orada kaybolurdu. `ScreenEffects.Master` ve `retroPresetIndex` ile aynı
+gerekçe. Play yeniden başlayınca sıfırlanıyor (domain reload) — bir test
+bayrağı gerçek bir oturuma sessizce sızmamalı.
+
+**Oda açıkken F8 hiçbir şey yapmıyor** ve bunu konsola yazıyor. Transport
+yalnızca oda kurulurken seçiliyor, yani ortada değiştirmek sessizce etkisiz
+kalırdı — "bastım, değişmedi" tuzağı (bölüm 15'in "sebebi görünmeyen
+sessizlik" dersi).
+
+**Yayınlanan build'de KOD HİÇ YOK.** `#if UNITY_EDITOR ||
+DEVELOPMENT_BUILD`; release'de `ForceLocalRoom` bir `const false` ve
+derleyici bütün dalları atıyor. Ölçüldü — `UNITY_EDITOR` tanımı olmayan bir
+derlemede:
+
+| Sembol / metin | Editör derlemesi | Yayın benzeri |
+|---|---|---|
+| `TickForceLocalKey` | var | **yok** |
+| `BuildForceLocalLabel` | var | **yok** |
+| `forceLocalKey`, `forceLocalLabel` | var | **yok** |
+| `"YEREL ODA ZORLANDI"` (UTF-16) | var | **yok** |
+| `LocalRoomMessage`, `UseRelay`, `HostLobby` | var | **var** (gönderilen yol duruyor) |
+
+> Sembol adları UTF-8, string literalleri UTF-16 (`#US` yığını) — bu dosyanın
+> 2026-09-26'daki dersi. İkisi ayrı ayrı arandı.
+
+#### Nasıl kullanılıyor
+
+```
+1. Editörde Play  →  ana menü  →  F8   (sağ altta "YEREL ODA: AÇIK" çıkar)
+2. LOBİ KUR                           (ekranda 127.0.0.1 ipucu yazıyor)
+3. Build'i aç     →  LOBİYE KATIL  →  127.0.0.1  →  KATIL
+```
+
+**Build'de de F8 gerekmiyor:** katılan taraf IP gördüğü an KCP'ye zaten
+geçiyor. Yalnızca HOST'un basması yeterli.
+
+> **Bu, EOS'u test ETMİYOR.** Relay, kısa kod ve oda listesi yalnızca iki
+> gerçek makineyle sınanabiliyor (yukarıdaki kutu). F8'in işi EOS'u
+> denemek değil, **EOS'la ilgisi olmayan** her şeyi tek makinede
+> denenebilir yapmak: ayak sesi, kalp atışı, ekran sarsıntısı, AT/YASAKLA,
+> 30°'nin yönü, ölüm kamerası, doğum mesafeleri, mini harita, katilin
+> terminal noktaları — "iki makine gerekiyor" diye bekleyen listenin
+> neredeyse tamamı.
 
 ### Kısa kod ve oda listesi: EOS lobi servisi (2026-09-05)
 

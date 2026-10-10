@@ -1,7 +1,9 @@
 using System.Collections;
 using EpicTransport;
 using Mirror;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// Menü ile Mirror arasındaki köprü: sunucu açma, kodla bağlanma, ayrılma ve
@@ -53,6 +55,42 @@ public class LobbyNetwork : MonoBehaviour
         "asenkron; süre dolarsa yerel odaya düşülüyor ve sebebi ekranda " +
         "yazıyor. Sonsuza kadar beklemek oyuncuyu asılı bırakırdı.")]
     [SerializeField] private float relayWaitTimeout = 12f;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    /// <summary>
+    /// **TEST ANAHTARI (F8): EOS hazır olsa bile yerel odayı zorlar.**
+    ///
+    /// ### Neden gerekti
+    ///
+    /// EOS kimliği **cihaz** başına üretiliyor (bölüm 13): editördeki oyun da
+    /// build de aynı `ProductUserId`'yi alıyor, yani biri öbürünün koduna
+    /// bağlanmaya çalıştığında KENDİNE bağlanmış oluyor ve EOS reddediyor.
+    /// Aynı bilgisayarda iki kopyayla test etmek bu yüzden imkânsızdı.
+    ///
+    /// KCP'de böyle bir sorun yok — orada kimlik ADRES, iki kopya
+    /// `127.0.0.1` üzerinden birbirini görüyor. Yani yerel test hep
+    /// mümkündü; eksik olan tek şey **host'un yerel yolu SEÇEBİLMESİ**ydi:
+    /// `LOBİ KUR` EOS hazırsa her zaman onu tercih ediyor.
+    ///
+    /// Katılma tarafı zaten hazırdı: `JoinLobby` bir IP görünce
+    /// `localTransport`'a geçiyor (aşağıdaki `TryToAddress` dalı). Yani bu
+    /// bayrak ağ mimarisine hiç dokunmuyor, yalnızca var olan iki yoldan
+    /// hangisinin seçileceğini söylüyor.
+    ///
+    /// **STATİK, bilerek.** Tutorial'dan dönünce sahne yeniden yükleniyor ve
+    /// bu obje ölüyor (bölüm 16'nın `DontDestroyOnLoad` dersi); alana yazılan
+    /// bir değer orada kaybolurdu. `ScreenEffects.Master` ve
+    /// `retroPresetIndex` ile aynı gerekçe.
+    ///
+    /// **Play yeniden başlayınca sıfırlanıyor** (domain reload) — bir test
+    /// bayrağının gerçek bir oturuma sessizce sızmaması gerekiyor.
+    /// </summary>
+    public static bool ForceLocalRoom;
+#else
+    // Yayınlanan build'de SABİT false: derleyici aşağıdaki dalları tamamen
+    // atıyor, yani F8 de zorlama mesajı da gönderilen oyuna hiç girmiyor.
+    private const bool ForceLocalRoom = false;
+#endif
 
     /// <summary>Ekranda gösterilecek son durum/hata metni.</summary>
     public string StatusMessage { get; private set; } = string.Empty;
@@ -112,7 +150,131 @@ public class LobbyNetwork : MonoBehaviour
         RebindToLiveManager();
         TickConnectTimeout();
         TickPhase();
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        TickForceLocalKey();
+#endif
     }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    // ---------- F8: yerel odayı zorla (yalnızca editör/dev build) ----------
+
+    [Tooltip("EOS'u atlayıp yerel odayı zorlayan test tuşu. Aynı " +
+        "bilgisayarda iki kopyayla oynamanın tek yolu bu.")]
+    [SerializeField] private KeyCode forceLocalKey = KeyCode.F8;
+
+    private TMP_Text forceLocalLabel;
+    private bool forceLocalLabelWanted;
+    private bool forceLocalLabelState;
+
+    private void TickForceLocalKey()
+    {
+        if (Input.GetKeyDown(forceLocalKey))
+        {
+            // Ağ açıkken değiştirmek hiçbir şey yapmıyor (transport yalnızca
+            // oda kurulurken seçiliyor) ama oyuncuya "değişti" gibi görünürdü.
+            if (NetworkServer.active || NetworkClient.active)
+            {
+                Debug.Log("[YerelOda] Oda açıkken değiştirilemez — önce AYRIL.");
+            }
+            else
+            {
+                ForceLocalRoom = !ForceLocalRoom;
+                Debug.Log(ForceLocalRoom
+                    ? "[YerelOda] ZORLANDI: LOBİ KUR artık KCP ile açılacak."
+                    : "[YerelOda] Kapatıldı: EOS hazırsa internet odası açılacak.");
+            }
+
+            forceLocalLabelWanted = true;
+        }
+
+        if (!forceLocalLabelWanted)
+            return;
+
+        if (forceLocalLabel == null)
+            BuildForceLocalLabel();
+
+        if (forceLocalLabelState == ForceLocalRoom && forceLocalLabel.text.Length > 0)
+            return;
+
+        forceLocalLabelState = ForceLocalRoom;
+        forceLocalLabel.SetText(ForceLocalRoom
+            ? "<b>YEREL ODA: AÇIK</b>  (F8)\nLOBİ KUR → KCP. İkinci kopya <b>127.0.0.1</b> yazsın."
+            : "<b>YEREL ODA: KAPALI</b>  (F8)\nEOS hazırsa internet odası açılıyor.");
+    }
+
+    /// <summary>
+    /// Durumu EKRANDA yazan küçük etiket.
+    ///
+    /// Konsola yazmak yetmiyor: bu dosyanın kendi dersi (`ScreenEffects`'in
+    /// F10 kademe etiketi) **oynarken konsola bakılmadığını** söylüyor —
+    /// görüntüyü ya da davranışı değiştiren bir test tuşu, neye değiştirdiğini
+    /// de ekranda söylemeli.
+    ///
+    /// **Kendi Canvas'ı ve menünün ÜSTÜNDE** (sıra 110; menü 100). F10
+    /// etiketi menünün ALTINDA duruyor çünkü o oyun içi bir ayar; bu ise
+    /// tam da ana menüde, `LOBİ KUR`'a basmadan önce okunmak zorunda.
+    ///
+    /// **Araç çalıştırmak gerekmiyor:** çalışma anında kuruluyor
+    /// (`Terminal.GetOrCreateStateLight` ve `MonsterAura` ile aynı desen) —
+    /// `Menü Kur`'a bağlanmış olsaydı test etmek için önce bir araç
+    /// çalıştırmak gerekirdi.
+    ///
+    /// **İlk F8'e kadar hiç kurulmuyor:** gerçek bir oturumda köşede duran
+    /// bir test yazısı istenmez.
+    /// </summary>
+    private void BuildForceLocalLabel()
+    {
+        GameObject root = new GameObject("YerelOdaEtiketi",
+            typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+        root.transform.SetParent(transform, false);
+
+        Canvas canvas = root.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 110;
+
+        CanvasScaler scaler = root.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.matchWidthOrHeight = 0.5f;
+
+        // Sağ ALT köşe: sağ üstte mikrofon göstergesi, sol altta F10 kademe
+        // etiketi, ortada menü sütunu var.
+        GameObject panel = new GameObject("Panel", typeof(RectTransform), typeof(Image),
+            typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        panel.transform.SetParent(root.transform, false);
+
+        RectTransform rect = panel.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 0f);
+        rect.anchorMax = new Vector2(1f, 0f);
+        rect.pivot = new Vector2(1f, 0f);
+        rect.anchoredPosition = new Vector2(-24f, 24f);
+        rect.sizeDelta = new Vector2(470f, 0f);
+
+        Image background = panel.GetComponent<Image>();
+        background.color = new Color(0.02f, 0.02f, 0.03f, 0.82f);
+        background.raycastTarget = false;
+
+        VerticalLayoutGroup layout = panel.GetComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(16, 16, 12, 12);
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        panel.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        GameObject labelObject = new GameObject("Yazi", typeof(RectTransform), typeof(TextMeshProUGUI));
+        labelObject.transform.SetParent(panel.transform, false);
+
+        forceLocalLabel = labelObject.GetComponent<TextMeshProUGUI>();
+        forceLocalLabel.fontSize = 17f;
+        forceLocalLabel.color = new Color(1f, 0.82f, 0.35f, 1f);
+        forceLocalLabel.alignment = TextAlignmentOptions.TopLeft;
+        forceLocalLabel.raycastTarget = false;
+        forceLocalLabel.richText = true;
+    }
+#endif
 
     // ---------- Menü butonları ----------
 
@@ -141,7 +303,10 @@ public class LobbyNetwork : MonoBehaviour
         // yapılıyor. Play'e basıp hemen LOBİ KUR diyen biri için henüz hazır
         // olmuyor ve oyun sessizce yerel odaya düşüyordu — her şey doğru
         // kurulmuşken bile. Hazır olana kadar bekliyoruz.
-        if (relayTransport != null && !UseRelay)
+        // `ForceLocalRoom` da `UseRelay`'i false yapıyor, ama o durumda
+        // BEKLEMEK anlamsız: EOS gerçekten hazır olsa bile kullanmayacağız,
+        // yani oyuncu boşuna 12 saniye bekleme ekranında kalırdı.
+        if (relayTransport != null && !ForceLocalRoom && !UseRelay)
         {
             StatusMessage = Localization.Get("EOS bağlanıyor…");
 
@@ -197,9 +362,7 @@ public class LobbyNetwork : MonoBehaviour
             // kod yanlış çıkıyor; bütün adresleri yazmak oyuncunun doğrusunu
             // tanıyıp arkadaşına vermesini sağlıyor.
             RoomCode = LobbyCode.FromAddress(LobbyCode.LocalAddress());
-            StatusMessage = Localization.Format(
-                "EOS hazır değil, yerel oda kuruldu. Katılacak kişi şu adreslerden birini yazmalı:\n{0}",
-                LobbyCode.LocalAddresses());
+            StatusMessage = LocalRoomMessage();
 
             manager.StartHost();
             return;
@@ -421,8 +584,37 @@ public class LobbyNetwork : MonoBehaviour
     /// hiç açılmayan bir oda vermekti; EOS kurulumu tamamlanmamış bir projede
     /// oyunun büsbütün oynanamaz olması doğru değil.
     /// </summary>
+    /// <summary>
+    /// Yerel oda kurulduğunda ekrana yazılacak metin.
+    ///
+    /// İki ayrı sebep, iki ayrı cümle: EOS gerçekten hazır olmadığı için mi
+    /// düşüldü, yoksa test için mi zorlandı. Tek bir metin kullanmak
+    /// "EOS hazır değil" diye YALAN söylerdi ve oyuncu olmayan bir arıza
+    /// ararken zaman kaybederdi.
+    /// </summary>
+    private static string LocalRoomMessage()
+    {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        if (ForceLocalRoom)
+        {
+            // `Localization`'a GİRMİYOR, bilerek: yalnızca editör/dev
+            // build'de görünüyor, yani tabloya eklenen satır gönderilen
+            // oyunda ÖLÜ kalırdı — ve hiçbir şey yapmayan bir satır sonraki
+            // okuyana "demek ki bu çevriliyor" diye yanlış bilgi verir
+            // (bölüm 13'ün `MUZ ADAM` dersi). F10 kademe etiketi de aynı
+            // gerekçeyle tablonun dışında.
+            return "YEREL ODA ZORLANDI (F8) — ikinci kopya 127.0.0.1 yazarak katılsın.";
+        }
+#endif
+
+        return Localization.Format(
+            "EOS hazır değil, yerel oda kuruldu. Katılacak kişi şu adreslerden birini yazmalı:\n{0}",
+            LobbyCode.LocalAddresses());
+    }
+
     private bool UseRelay =>
-        relayTransport != null
+        !ForceLocalRoom
+        && relayTransport != null
         && EOSSDKComponent.Initialized
         && !string.IsNullOrEmpty(EOSSDKComponent.LocalUserProductIdString);
 
